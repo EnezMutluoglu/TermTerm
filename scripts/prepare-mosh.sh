@@ -23,20 +23,7 @@ case "$(uname -s)" in
   LD_LIBRARY_PATH="$runtime/lib" "$runtime/bin/mosh-client" --version
   ;;
  Darwin)
-  queue=("$runtime/bin/mosh-client")
-  index=0
-  while test "$index" -lt "${#queue[@]}"; do
-    target="${queue[$index]}"; index=$((index+1))
-    while IFS= read -r lib; do
-      case "$lib" in /opt/homebrew/*|/usr/local/*)
-        dest="$runtime/lib/$(basename "$lib")"
-        if ! test -f "$dest"; then cp -L "$lib" "$dest"; chmod u+w "$dest"; queue+=("$dest"); fi
-        install_name_tool -change "$lib" "@executable_path/../lib/$(basename "$lib")" "$target"
-        ;;
-      esac
-    done < <(otool -L "$target" | tail -n +2 | awk '{print $1}')
-  done
-  for target in "${queue[@]}"; do codesign --force --sign - "$target"; done
+  node scripts/bundle-macos-mosh.mjs "$client" "$runtime"
   mkdir -p "$runtime/usr/share/terminfo/78"
   if test -f /usr/share/terminfo/78/xterm-256color; then cp /usr/share/terminfo/78/xterm-256color "$runtime/usr/share/terminfo/78/"; fi
   for formula in mosh openssl@3 protobuf; do
