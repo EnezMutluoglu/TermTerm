@@ -7,6 +7,28 @@ use std::path::Path;
 use std::path::PathBuf;
 use zeroize::Zeroizing;
 
+/// Absence is normal on first use; a damaged or inaccessible secret is an error.
+/// Secrets never leave the backend, including when querying remembered status.
+pub fn load_optional(root: &Path, vault: &Path) -> Result<Option<Zeroizing<String>>> {
+    if !vault.try_exists()? {
+        return Ok(None);
+    }
+    match load(root, vault) {
+        Ok(password) => Ok(Some(password)),
+        Err(error) => {
+            #[cfg(windows)]
+            if error.downcast_ref::<std::io::Error>().is_some_and(|e| e.kind() == std::io::ErrorKind::NotFound) {
+                return Ok(None);
+            }
+            #[cfg(not(windows))]
+            if error.downcast_ref::<keyring::Error>().is_some_and(|e| matches!(e, keyring::Error::NoEntry)) {
+                return Ok(None);
+            }
+            Err(error)
+        }
+    }
+}
+
 #[cfg(windows)]
 fn file(root: &Path, vault: &Path) -> Result<PathBuf> {
     let path = std::fs::canonicalize(vault)?;
@@ -107,7 +129,7 @@ pub fn save(_root: &Path, vault: &Path, password: &str, enabled: bool) -> Result
             Err(e)
                 if e.downcast_ref::<keyring::Error>()
                     .is_some_and(|e| matches!(e, keyring::Error::NoEntry)) => {}
-            Err(_) => { /* Password mode must remain usable without a keyring service. */ }
+            Err(e) => return Err(e), // Never report a forgotten password while it is still stored.
         }
     }
     Ok(())
@@ -128,5 +150,46 @@ mod tests {
         let sealed = transform(secret, true).unwrap();
         assert_ne!(&*sealed, secret);
         assert_eq!(&*transform(&sealed, false).unwrap(), secret);
+    }
+    #[test]
+    fn saved_password_survives_process_restart_and_explicit_forget() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().join("profile");
+        let path = directory.path().join("Türkçe vault.ttvault");
+        let password = "Disposable remembered vault secret";
+        drop(crate::vault::Vault::create(&path, "Remember regression", password).unwrap());
+        assert!(load_optional(&root, &path).unwrap().is_none());
+        save(&root, &path, password, true).unwrap();
+        assert!(!std::fs::read(file(&root, &path).unwrap()).unwrap()
+            .windows(password.len()).any(|bytes| bytes == password.as_bytes()));
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "remember::tests::remembered_process_child", "--ignored", "--test-threads=1"])
+            .env("TERMTERM_REMEMBER_TEST_DIR", directory.path())
+            .status().unwrap();
+        assert!(status.success(), "A fresh process must unlock with DPAPI alone");
+        save(&root, &path, "", false).unwrap();
+        assert!(load_optional(&root, &path).unwrap().is_none());
+        assert!(crate::vault::Vault::open(&path, password).is_ok());
+    }
+    #[test]
+    #[ignore = "Child process used by the remembered password restart test"]
+    fn remembered_process_child() {
+        let directory = PathBuf::from(std::env::var_os("TERMTERM_REMEMBER_TEST_DIR").unwrap());
+        let path = directory.join("Türkçe vault.ttvault");
+        let password = load_optional(&directory.join("profile"), &path).unwrap().unwrap();
+        let vault = crate::vault::Vault::open(&path, &password).unwrap();
+        assert_eq!(vault.info().unwrap().name, "Remember regression");
+    }
+    #[test]
+    fn damaged_saved_secret_is_reported_without_changing_the_vault() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().join("profile");
+        let path = directory.path().join("test.ttvault");
+        drop(crate::vault::Vault::create(&path, "Test", "Disposable password").unwrap());
+        let before = std::fs::read(&path).unwrap();
+        save(&root, &path, "Disposable password", true).unwrap();
+        std::fs::write(file(&root, &path).unwrap(), b"damaged DPAPI data").unwrap();
+        assert!(load_optional(&root, &path).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), before);
     }
 }

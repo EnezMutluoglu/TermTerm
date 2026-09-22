@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 import { useState } from "react";
 import {
   X,
@@ -96,15 +97,20 @@ export default function Editor({
         <header className="editor-header">
           <div>
             <span className="eyebrow">
-              {records.some((r) => r.id === record.id) ? "EDIT" : "NEW"}{" "}
-              {titles[record.kind]?.toUpperCase()}
+              {records.some((r) => r.id === record.id) ? tr("EDIT") : tr("NEW")}{" "}
+              {tr(titles[record.kind] ?? record.kind)}
             </span>
-            <h2>{data.label || `New ${titles[record.kind]?.toLowerCase()}`}</h2>
+            <h2>
+              {data.label ||
+                tr("New {type}", {
+                  type: tr(titles[record.kind] ?? record.kind),
+                })}
+            </h2>
           </div>
           <button
             type="button"
             className="icon-btn"
-            aria-label="Close editor"
+            aria-label={tr("Close editor")}
             onClick={onClose}
           >
             <X size={19} />
@@ -119,7 +125,7 @@ export default function Editor({
                 className={tab === t ? "active" : ""}
                 onClick={() => setTab(t)}
               >
-                {t[0].toUpperCase() + t.slice(1)}
+                {tr(t[0].toUpperCase() + t.slice(1))}
               </button>
             ))}
           </div>
@@ -139,22 +145,24 @@ export default function Editor({
                 )}
               </div>
               <Field
-                label="Label"
+                label={tr("Label")}
                 value={data.label}
                 onChange={(v) => update("label", v)}
                 placeholder={
-                  isHost ? "e.g. Production web server" : "Give it a name"
+                  isHost
+                    ? tr("e.g. Production web server")
+                    : tr("Give it a name")
                 }
                 required
               />
               {isConnection && (
                 <>
                   <Select
-                    label="Parent group"
+                    label={tr("Parent group")}
                     value={data.groupId ?? ""}
                     onChange={(v) => update("groupId", v)}
                     options={[
-                      { value: "", label: "No group" },
+                      { value: "", label: tr("No group") },
                       ...groups.map((r) => ({
                         value: r.id,
                         label: r.data.label,
@@ -163,15 +171,15 @@ export default function Editor({
                   />
                   {isHost && (
                     <Field
-                      label="Address"
+                      label={tr("Address")}
                       value={data.address}
                       onChange={(v) => update("address", v)}
-                      placeholder="Hostname, IP address or device path"
+                      placeholder={tr("Hostname, IP address or device path")}
                       required
                     />
                   )}
                   <Field
-                    label="Tags"
+                    label={tr("Tags")}
                     value={(data.tags ?? []).join(", ")}
                     onChange={(v) =>
                       update(
@@ -182,36 +190,38 @@ export default function Editor({
                           .filter(Boolean),
                       )
                     }
-                    placeholder="production, web, europe"
+                    placeholder={tr("production, web, europe")}
                   />
                   <TextArea
-                    label="Notes"
+                    label={tr("Notes")}
                     value={data.notes}
                     onChange={(v) => update("notes", v)}
                     rows={3}
-                    placeholder="Anything useful to remember"
+                    placeholder={tr("Anything useful to remember")}
                   />
                   <div className="panel-tip">
                     <Shield size={16} />
-                    <span>Connection details are encrypted in your vault.</span>
+                    <span>
+                      {tr("Connection details are encrypted in your vault.")}
+                    </span>
                   </div>
                 </>
               )}
               {record.kind === "credential" && (
                 <>
                   <Field
-                    label="Username"
+                    label={tr("Username")}
                     value={data.username}
                     onChange={(v) => update("username", v)}
                   />
                   <Field
-                    label="Password"
+                    label={tr("Password")}
                     value={data.password}
                     onChange={(v) => update("password", v)}
                     type="password"
                   />
                   <div className="section-title">
-                    <FileKey size={15} /> SSH key
+                    <FileKey size={15} /> {tr("SSH key")}
                   </div>
                   <div className="button-row">
                     <button
@@ -230,7 +240,7 @@ export default function Editor({
                         }
                       }}
                     >
-                      Generate Ed25519
+                      {tr("Generate Ed25519")}
                     </button>
                     <button
                       type="button"
@@ -254,25 +264,25 @@ export default function Editor({
                       }}
                     >
                       <Download size={14} />
-                      Import key
+                      {tr("Import key")}
                     </button>
                   </div>
                   <Field
-                    label="Key passphrase"
+                    label={tr("Key passphrase")}
                     value={data.passphrase}
                     onChange={(v) => update("passphrase", v)}
                     type="password"
-                    hint="Enter this before importing an encrypted key."
+                    hint={tr("Enter this before importing an encrypted key.")}
                   />
                   <TextArea
-                    label="Private key"
+                    label={tr("Private key")}
                     value={data.privateKey}
                     onChange={(v) => update("privateKey", v)}
                     rows={6}
-                    placeholder="Paste an OpenSSH, PEM or PPK private key"
+                    placeholder={tr("Paste an OpenSSH, PEM or PPK private key")}
                   />
                   <TextArea
-                    label="SSH certificate"
+                    label={tr("SSH certificate")}
                     value={data.certificate}
                     onChange={(v) => update("certificate", v)}
                     rows={3}
@@ -282,31 +292,32 @@ export default function Editor({
                   )}
                   {data.publicKey && (
                     <TextArea
-                      label="Public key"
+                      label={tr("Public key")}
                       value={data.publicKey}
                       onChange={(v) => update("publicKey", v)}
                       rows={3}
                     />
                   )}
-                  <div className="section-title">Signing agent</div>
+                  <div className="section-title">{tr("Signing agent")}</div>
                   <Select
-                    label="External agent"
+                    label={tr("External agent")}
                     value={data.agent ?? ""}
                     onChange={(v) => update("agent", v)}
                     options={[
-                      { value: "", label: "Use stored key / password" },
+                      { value: "", label: tr("Use stored key / password") },
                       {
                         value: "openssh",
                         label: /win/i.test(navigator.platform)
-                          ? "Windows OpenSSH agent"
-                          : "SSH agent (SSH_AUTH_SOCK)",
+                          ? tr("Windows OpenSSH agent")
+                          : tr("SSH agent (SSH_AUTH_SOCK)"),
                       },
                       ...(/win/i.test(navigator.platform)
                         ? [
                             {
                               value: "pageant",
-                              label:
+                              label: tr(
                                 "Pageant (including compatible hardware agents)",
+                              ),
                             },
                           ]
                         : []),
@@ -329,10 +340,10 @@ export default function Editor({
                           }
                         }}
                       >
-                        Load agent keys
+                        {tr("Load agent keys")}
                       </button>
                       <Select
-                        label="Signing key"
+                        label={tr("Signing key")}
                         value={data.agentKey ?? ""}
                         onChange={(v) => {
                           const key = agentKeys.find((k) => k.agentKey === v);
@@ -340,7 +351,7 @@ export default function Editor({
                             setData((d) => ({ ...d, ...key, label: d.label }));
                         }}
                         options={[
-                          { value: "", label: "Let agent offer its keys" },
+                          { value: "", label: tr("Let agent offer its keys") },
                           ...agentKeys.map((k) => ({
                             value: k.agentKey,
                             label: k.label || k.agentKey,
@@ -348,21 +359,23 @@ export default function Editor({
                         ]}
                       />
                       <div className="panel-tip">
-                        The private key stays in the agent or hardware.
-                        Reconnect the same signing device on another computer.
-                        Native hardware enrollment is not included.
+                        {tr(
+                          "The private key stays in the agent or hardware. Reconnect the same signing device on another computer. Native hardware enrollment is not included.",
+                        )}
                       </div>
                     </>
                   )}
                   {data.publicKey && (
                     <>
-                      <div className="section-title">Install public key</div>
+                      <div className="section-title">
+                        {tr("Install public key")}
+                      </div>
                       <Select
-                        label="Target SSH host"
+                        label={tr("Target SSH host")}
                         value={installHost}
                         onChange={setInstallHost}
                         options={[
-                          { value: "", label: "Select a POSIX host" },
+                          { value: "", label: tr("Select a POSIX host") },
                           ...hosts.map((h) => ({
                             value: h.id,
                             label: h.data.label,
@@ -380,7 +393,7 @@ export default function Editor({
                               hostId: installHost,
                               publicKey: data.publicKey,
                             });
-                            setError("Public key installed successfully.");
+                            setError(tr("Public key installed successfully."));
                           } catch (e) {
                             setError(errorText(e));
                           } finally {
@@ -388,7 +401,7 @@ export default function Editor({
                           }
                         }}
                       >
-                        Add to authorized_keys
+                        {tr("Add to authorized_keys")}
                       </button>
                     </>
                   )}
@@ -397,14 +410,14 @@ export default function Editor({
               {record.kind === "snippet" && (
                 <>
                   <TextArea
-                    label="Command"
+                    label={tr("Command")}
                     value={data.command}
                     onChange={(v) => update("command", v)}
                     rows={10}
-                    placeholder="Type the command or shell script to send"
+                    placeholder={tr("Type the command or shell script to send")}
                   />
                   <Field
-                    label="Package / category"
+                    label={tr("Package / category")}
                     value={data.package}
                     onChange={(v) => update("package", v)}
                   />
@@ -412,22 +425,23 @@ export default function Editor({
                     checked={data.newline !== false}
                     onChange={(v) => update("newline", v)}
                   >
-                    Execute after inserting (append Enter)
+                    {tr("Execute after inserting (append Enter)")}
                   </Check>
                   <div className="panel-tip">
-                    Run snippets from their card while a terminal is active.
-                    Broadcast sends to every open panel.
+                    {tr(
+                      "Run snippets from their card while a terminal is active. Broadcast sends to every open panel.",
+                    )}
                   </div>
                 </>
               )}
               {record.kind === "tunnel" && (
                 <>
                   <Select
-                    label="SSH host"
+                    label={tr("SSH host")}
                     value={data.hostId ?? ""}
                     onChange={(v) => update("hostId", v)}
                     options={[
-                      { value: "", label: "Select a host" },
+                      { value: "", label: tr("Select a host") },
                       ...hosts.map((r) => ({
                         value: r.id,
                         label: r.data.label,
@@ -435,23 +449,23 @@ export default function Editor({
                     ]}
                   />
                   <Select
-                    label="Forwarding type"
+                    label={tr("Forwarding type")}
                     value={data.mode ?? "local"}
                     onChange={(v) => update("mode", v)}
                     options={[
-                      { value: "local", label: "Local forwarding" },
-                      { value: "remote", label: "Remote forwarding" },
-                      { value: "dynamic", label: "Dynamic SOCKS5" },
+                      { value: "local", label: tr("Local forwarding") },
+                      { value: "remote", label: tr("Remote forwarding") },
+                      { value: "dynamic", label: tr("Dynamic SOCKS5") },
                     ]}
                   />
                   <div className="form-row">
                     <Field
-                      label="Bind address"
+                      label={tr("Bind address")}
                       value={data.bindAddress ?? "127.0.0.1"}
                       onChange={(v) => update("bindAddress", v)}
                     />
                     <Field
-                      label="Bind port"
+                      label={tr("Bind port")}
                       value={data.bindPort}
                       onChange={(v) => update("bindPort", v)}
                       type="number"
@@ -460,7 +474,7 @@ export default function Editor({
                   {data.mode !== "dynamic" && (
                     <div className="form-row">
                       <Field
-                        label="Destination address"
+                        label={tr("Destination address")}
                         value={data.targetAddress}
                         onChange={(v) => update("targetAddress", v)}
                       />
@@ -473,16 +487,18 @@ export default function Editor({
                     </div>
                   )}
                   <div className="panel-tip">
-                    Listeners are restricted to loopback. Start and stop the
-                    tunnel from its card.
+                    {tr(
+                      "Listeners are restricted to loopback. Start and stop the tunnel from its card.",
+                    )}
                   </div>
                 </>
               )}
               {record.kind === "workspace" && (
                 <>
                   <p className="muted">
-                    Select the hosts to reopen in this workspace. Connections
-                    will authenticate again.
+                    {tr(
+                      "Select the hosts to reopen in this workspace. Connections will authenticate again.",
+                    )}
                   </p>
                   <div className="workspace-options">
                     {hosts.map((h) => (
@@ -517,12 +533,12 @@ export default function Editor({
                     ))}
                   </div>
                   <Select
-                    label="Layout"
+                    label={tr("Layout")}
                     value={data.layout ?? "split"}
                     onChange={(v) => update("layout", v)}
                     options={[
-                      { value: "split", label: "Split panels" },
-                      { value: "focus", label: "Focus one terminal" },
+                      { value: "split", label: tr("Split panels") },
+                      { value: "focus", label: tr("Focus one terminal") },
                     ]}
                   />
                 </>
@@ -530,12 +546,12 @@ export default function Editor({
               {record.kind === "knownHost" && (
                 <>
                   <Field
-                    label="Server address"
+                    label={tr("Server address")}
                     value={data.address}
                     onChange={(v) => update("address", v)}
                   />
                   <TextArea
-                    label="Trusted public key"
+                    label={tr("Trusted public key")}
                     value={data.publicKey}
                     onChange={(v) => update("publicKey", v)}
                   />
@@ -548,7 +564,7 @@ export default function Editor({
                     {data.endedAt} {data.truncated && " · Truncated at 4 MB"}
                   </div>
                   <TextArea
-                    label="Notes / bookmarks"
+                    label={tr("Notes / bookmarks")}
                     value={data.notes}
                     onChange={(v) => update("notes", v)}
                     rows={3}
@@ -562,17 +578,17 @@ export default function Editor({
             <>
               <div className="section-title">
                 <Terminal size={15} />
-                Protocol & authentication
+                {tr("Protocol & authentication")}
               </div>
               <Select
-                label="Protocol"
+                label={tr("Protocol")}
                 value={data.protocol ?? "ssh"}
                 onChange={(v) => update("protocol", v)}
                 options={[
                   { value: "ssh", label: "SSH" },
                   { value: "mosh", label: "Mosh (SSH + UDP)" },
                   { value: "telnet", label: "Telnet" },
-                  { value: "serial", label: "Serial port" },
+                  { value: "serial", label: tr("Serial port") },
                 ]}
               />
               {data.protocol !== "serial" ? (
@@ -583,14 +599,14 @@ export default function Editor({
                     onChange={(v) => update("port", v)}
                     type="number"
                     placeholder="22 (SSH) / 23 (Telnet)"
-                    hint="Leave empty to inherit from the group."
+                    hint={tr("Leave empty to inherit from the group.")}
                   />
                   <Select
-                    label="Identity"
+                    label={tr("Identity")}
                     value={data.credentialId ?? ""}
                     onChange={(v) => update("credentialId", v)}
                     options={[
-                      { value: "", label: "Enter credentials below" },
+                      { value: "", label: tr("Enter credentials below") },
                       ...credentials.map((r) => ({
                         value: r.id,
                         label: r.data.label,
@@ -598,30 +614,33 @@ export default function Editor({
                     ]}
                   />
                   <Field
-                    label="Username"
+                    label={tr("Username")}
                     value={data.username}
                     onChange={(v) => update("username", v)}
-                    placeholder="Inherited or requested on connect"
+                    placeholder={tr("Inherited or requested on connect")}
                   />
                   <Field
-                    label="Password"
+                    label={tr("Password")}
                     value={data.password}
                     onChange={(v) => update("password", v)}
                     type="password"
-                    placeholder="Inherited or requested on connect"
+                    placeholder={tr("Inherited or requested on connect")}
                   />
                   {data.protocol === "mosh" && (
                     <Field
-                      label="Mosh UDP address (optional)"
+                      label={tr("Mosh UDP address (optional)")}
                       value={data.moshAddress}
                       onChange={(v) => update("moshAddress", v)}
-                      placeholder="Defaults to host address"
-                      hint="UDP must be reachable directly; SSH proxies do not carry Mosh UDP."
+                      placeholder={tr("Defaults to host address")}
+                      hint={tr(
+                        "UDP must be reachable directly; SSH proxies do not carry Mosh UDP.",
+                      )}
                     />
                   )}
                   <div className="panel-tip">
-                    MFA challenges appear when requested by the SSH server. Add
-                    private keys and certificates in Keychain.
+                    {tr(
+                      "MFA challenges appear when requested by the SSH server. Add private keys and certificates in Keychain.",
+                    )}
                   </div>
                 </>
               ) : (
@@ -634,20 +653,20 @@ export default function Editor({
                         .then((ports) => {
                           setSerialPorts(ports);
                           if (!ports.length)
-                            setError("No serial devices were found.");
+                            setError(tr("No serial devices were found."));
                         })
                         .catch((e) => setError(errorText(e)))
                     }
                   >
-                    Refresh serial devices
+                    {tr("Refresh serial devices")}
                   </button>
                   {!!serialPorts.length && (
                     <Select
-                      label="Detected device"
+                      label={tr("Detected device")}
                       value={data.address ?? ""}
                       onChange={(v) => update("address", v)}
                       options={[
-                        { value: "", label: "Choose a serial device" },
+                        { value: "", label: tr("Choose a serial device") },
                         ...serialPorts.map((port) => ({
                           value: port,
                           label: port,
@@ -656,13 +675,13 @@ export default function Editor({
                     />
                   )}
                   <Field
-                    label="Baud rate"
+                    label={tr("Baud rate")}
                     value={data.serialBaud ?? 115200}
                     onChange={(v) => update("serialBaud", v)}
                     type="number"
                   />
                   <Select
-                    label="Data bits"
+                    label={tr("Data bits")}
                     value={String(data.serialDataBits ?? 8)}
                     onChange={(v) => update("serialDataBits", Number(v))}
                     options={[5, 6, 7, 8].map((n) => ({
@@ -671,7 +690,7 @@ export default function Editor({
                     }))}
                   />
                   <Select
-                    label="Parity"
+                    label={tr("Parity")}
                     value={data.serialParity ?? "none"}
                     onChange={(v) => update("serialParity", v)}
                     options={["none", "odd", "even"].map((v) => ({
@@ -680,7 +699,7 @@ export default function Editor({
                     }))}
                   />
                   <Select
-                    label="Stop bits"
+                    label={tr("Stop bits")}
                     value={String(data.serialStopBits ?? 1)}
                     onChange={(v) => update("serialStopBits", Number(v))}
                     options={[1, 2].map((n) => ({
@@ -689,7 +708,7 @@ export default function Editor({
                     }))}
                   />
                   <Select
-                    label="Flow control"
+                    label={tr("Flow control")}
                     value={data.serialFlowControl ?? "none"}
                     onChange={(v) => update("serialFlowControl", v)}
                     options={["none", "hardware", "software"].map((v) => ({
@@ -705,18 +724,19 @@ export default function Editor({
             <>
               <div className="section-title">
                 <Link size={15} />
-                Host chain
+                {tr("Host chain")}
               </div>
               <p className="muted small">
-                Connect through these hosts in order. Group chains are inherited
-                unless overridden.
+                {tr(
+                  "Connect through these hosts in order. Group chains are inherited unless overridden.",
+                )}
               </p>
               {(data.chain ?? []).map((id: string, i: number) => (
                 <div className="chain-step" key={`${id}-${i}`}>
                   <b>{i + 1}</b>
                   <span>
                     {records.find((r) => r.id === id)?.data.label ??
-                      "Missing host"}
+                      tr("Missing host")}
                   </span>
                   <button
                     type="button"
@@ -746,11 +766,11 @@ export default function Editor({
               ))}
               <div className="add-chain">
                 <Select
-                  label="Jump host"
+                  label={tr("Jump host")}
                   value={jump}
                   onChange={setJump}
                   options={[
-                    { value: "", label: "Select an intermediate host" },
+                    { value: "", label: tr("Select an intermediate host") },
                     ...hosts.map((r) => ({ value: r.id, label: r.data.label })),
                   ]}
                 />
@@ -771,14 +791,14 @@ export default function Editor({
                 className="text-btn"
                 onClick={() => update("chain", null)}
               >
-                Use group chain
+                {tr("Use group chain")}
               </button>
               <div className="section-title">
                 <Shield size={15} />
-                Proxy
+                {tr("Proxy")}
               </div>
               <Select
-                label="Proxy type"
+                label={tr("Proxy type")}
                 value={data.proxy?.kind ?? "none"}
                 onChange={(v) =>
                   update(
@@ -789,7 +809,7 @@ export default function Editor({
                   )
                 }
                 options={[
-                  { value: "none", label: "No proxy / inherit group" },
+                  { value: "none", label: tr("No proxy / inherit group") },
                   { value: "socks5", label: "SOCKS5" },
                   { value: "http", label: "HTTP CONNECT" },
                 ]}
@@ -798,7 +818,7 @@ export default function Editor({
                 <>
                   <div className="form-row">
                     <Field
-                      label="Proxy address"
+                      label={tr("Proxy address")}
                       value={data.proxy.host}
                       onChange={(v) => changeProxy("host", v)}
                     />
@@ -810,12 +830,12 @@ export default function Editor({
                     />
                   </div>
                   <Field
-                    label="Proxy username"
+                    label={tr("Proxy username")}
                     value={data.proxy.username}
                     onChange={(v) => changeProxy("username", v)}
                   />
                   <Field
-                    label="Proxy password"
+                    label={tr("Proxy password")}
                     value={data.proxy.password}
                     onChange={(v) => changeProxy("password", v)}
                     type="password"
@@ -824,16 +844,16 @@ export default function Editor({
               )}
               <div className="section-title">
                 <Terminal size={15} />
-                Session startup
+                {tr("Session startup")}
               </div>
               <TextArea
-                label="Startup command"
+                label={tr("Startup command")}
                 value={data.startup}
                 onChange={(v) => update("startup", v)}
                 rows={3}
               />
               <TextArea
-                label="Environment variables (KEY=value, one per line)"
+                label={tr("Environment variables (KEY=value, one per line)")}
                 value={Object.entries(data.environment ?? {})
                   .map(([k, v]) => `${k}=${v}`)
                   .join("\n")}
@@ -858,15 +878,15 @@ export default function Editor({
         </div>
         <footer className="editor-footer">
           <button type="button" className="secondary" onClick={onClose}>
-            Cancel
+            {tr("Cancel")}
           </button>
           <button disabled={busy} className="primary">
             {busy ? (
-              <Busy label="Saving…" />
+              <Busy label={tr("Saving…")} />
             ) : (
               <>
                 <Save size={15} />
-                Save
+                {tr("Save")}
               </>
             )}
           </button>

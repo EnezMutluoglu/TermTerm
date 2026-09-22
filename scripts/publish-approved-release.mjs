@@ -34,6 +34,9 @@ const remote=await api('/branches/main');
 if(remote.commit.sha!==sha)throw Error('Remote main differs from the approved commit');
 let release;
 try{release=await api(`/releases/tags/v${version}`);}catch(e){if(!String(e).includes('HTTP 404'))throw e;}
+// Draft tags may not resolve through /tags yet. Resume a prior upload without
+// creating a second draft for the same approved version.
+if(!release)release=(await api('/releases?per_page=100')).find(r=>r.tag_name===`v${version}`);
 if(release&&!release.draft)throw Error('An already published release cannot be overwritten');
 release??=await api('/releases','POST',{tag_name:`v${version}`,target_commitish:sha,name:`TermTerm ${version}`,body:feed.notes,draft:true,prerelease:false});
 for(const name of files){

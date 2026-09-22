@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 import { useState, useEffect, useRef, memo } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -224,7 +225,7 @@ function Sftp({
           (t.source.connection === previous || t.dest.connection === previous),
       )
     ) {
-      notify("Finish or cancel transfers using this connection first.");
+      notify(tr("Finish or cancel transfers using this connection first."));
       return;
     }
     const epoch = ++epochs.current[i];
@@ -270,7 +271,7 @@ function Sftp({
         id: t.id,
         action,
       });
-      if (!accepted) notify("Transfer is finishing or has already ended.");
+      if (!accepted) notify(tr("Transfer is finishing or has already ended."));
     } catch (e) {
       notify(errorText(e));
     }
@@ -324,7 +325,7 @@ function Sftp({
     const source = paneRef.current[i],
       dest = paneRef.current[1 - i];
     if (!dest.endpoint.connection) {
-      notify("Connect the destination panel first.");
+      notify(tr("Connect the destination panel first."));
       return;
     }
     const selected =
@@ -360,7 +361,7 @@ function Sftp({
   dropRef.current = async (i, paths) => {
     const endpoint = { ...paneRef.current[i].endpoint };
     if (!endpoint.connection) {
-      notify("Connect the destination panel first.");
+      notify(tr("Connect the destination panel first."));
       return;
     }
     const transfers: Transfer[] = paths.map((path) => ({
@@ -389,11 +390,11 @@ function Sftp({
       ["mkdir", "rename"].includes(action.type) &&
       (!value.trim() || value === "." || value === ".." || /[\\/]/.test(value))
     ) {
-      notify("Enter a single file or folder name.");
+      notify(tr("Enter a single file or folder name."));
       return;
     }
     if (action.type === "chmod" && !/^[0-7]{3,4}$/.test(value)) {
-      notify("Enter 3 or 4 octal permission digits.");
+      notify(tr("Enter 3 or 4 octal permission digits."));
       return;
     }
     actionBusy.current = true;
@@ -432,7 +433,10 @@ function Sftp({
         await load(action.pane);
         if (failed.length)
           notify(
-            `${failed.length} item(s) could not be deleted. ${errors.join("; ")}`,
+            tr("{count} item(s) could not be deleted. {errors}", {
+              count: failed.length,
+              errors: errors.join("; "),
+            }),
           );
         return;
       }
@@ -508,7 +512,7 @@ function Sftp({
     if (entry && entries.length === 1 && entry.directory)
       actions.push({
         id: "open",
-        label: "Open folder",
+        label: tr("Open folder"),
         icon: <Folder size={15} />,
         run: () => load(i, { ...pane.endpoint, path: entry.path }),
       });
@@ -520,21 +524,21 @@ function Sftp({
     )
       actions.push({
         id: "edit",
-        label: "Open in external editor",
+        label: tr("Open in external editor"),
         icon: <Pencil size={15} />,
         run: () => editFile(i, entry),
       });
     if (entry) {
       actions.push({
         id: "transfer",
-        label: "Copy to target directory",
+        label: tr("Copy to target directory"),
         icon: i ? <ArrowLeft size={15} /> : <ArrowRight size={15} />,
         disabled: !paneRef.current[1 - i].endpoint.connection,
         run: () => transfer(i, entries),
       });
       actions.push({
         id: "path",
-        label: "Copy path",
+        label: tr("Copy path"),
         icon: <Copy size={15} />,
         separator: true,
         run: () => copyText(entries.map((file) => file.path).join("\n")),
@@ -542,21 +546,21 @@ function Sftp({
       if (entries.length === 1) {
         actions.push({
           id: "rename",
-          label: "Rename…",
+          label: tr("Rename…"),
           icon: <Pencil size={15} />,
           run: () => begin("rename"),
         });
         if (pane.endpoint.connection !== "local")
           actions.push({
             id: "permissions",
-            label: "Permissions…",
+            label: tr("Permissions…"),
             icon: <Info size={15} />,
             run: () => begin("chmod"),
           });
       }
       actions.push({
         id: "delete",
-        label: "Delete…",
+        label: tr("Delete…"),
         icon: <Trash2 size={15} />,
         danger: true,
         separator: true,
@@ -565,13 +569,13 @@ function Sftp({
     } else {
       actions.push({
         id: "new",
-        label: "New folder…",
+        label: tr("New folder…"),
         icon: <FolderPlus size={15} />,
         run: () => begin("mkdir"),
       });
       actions.push({
         id: "all",
-        label: "Select all",
+        label: tr("Select all"),
         run: () =>
           patch(i, {
             selected: pane.entries
@@ -582,7 +586,7 @@ function Sftp({
     }
     actions.push({
       id: "refresh",
-      label: "Refresh",
+      label: tr("Refresh"),
       icon: <RefreshCw size={15} />,
       separator: true,
       run: () => load(i),
@@ -591,8 +595,8 @@ function Sftp({
       position: menuPosition(e),
       title:
         entries.length > 1
-          ? `${entries.length} files`
-          : (entry?.name ?? "Directory"),
+          ? tr("{count} files", { count: entries.length })
+          : (entry?.name ?? tr("Directory")),
       actions,
     });
   }
@@ -609,24 +613,26 @@ function Sftp({
       )}
       <div className="page-heading">
         <div>
-          <span className="eyebrow">FILE TRANSFER</span>
+          <span className="eyebrow">{tr("FILE TRANSFER")}</span>
           <h1>SFTP</h1>
-          <p>Two panels. Every file within reach.</p>
+          <p>{tr("Two panels. Every file within reach.")}</p>
         </div>
         <div className="button-row">
           <Check checked={hidden} onChange={setHidden}>
-            Hidden files
+            {tr("Hidden files")}
           </Check>
           <Check checked={overwrite} onChange={setOverwrite}>
-            Overwrite existing files
+            {tr("Overwrite existing files")}
           </Check>
         </div>
       </div>
       {edits.map((edit) => (
         <div className="notice" key={edit.id}>
           <span>
-            Editing {edit.name} in your external editor. Save there, then
-            upload. A temporary plain-text copy is kept while editing.
+            {tr("Editing")} {edit.name}{" "}
+            {tr(
+              "in your external editor. Save there, then upload. A temporary plain-text copy is kept while editing.",
+            )}
           </span>
           <button
             className="secondary"
@@ -637,13 +643,13 @@ function Sftp({
                   overwrite,
                   close: false,
                 });
-                notify("Remote file updated.");
+                notify(tr("Remote file updated."));
               } catch (e) {
                 notify(errorText(e));
               }
             }}
           >
-            Upload saved changes
+            {tr("Upload saved changes")}
           </button>
           <button
             className="text-btn"
@@ -656,7 +662,7 @@ function Sftp({
               setEdits((a) => a.filter((e) => e.id !== edit.id));
             }}
           >
-            Finish editing
+            {tr("Finish editing")}
           </button>
         </div>
       ))}
@@ -693,12 +699,12 @@ function Sftp({
                 <Server size={17} />
               )}
               <select
-                aria-label={i ? "Right connection" : "Left connection"}
+                aria-label={i ? tr("Right connection") : tr("Left connection")}
                 value={hosts[i]}
                 onChange={(e) => void connect(i, e.target.value)}
               >
-                <option value="">Select a connection…</option>
-                <option value="local">Local computer</option>
+                <option value="">{tr("Select a connection…")}</option>
+                <option value="local">{tr("Local computer")}</option>
                 {records
                   .filter(
                     (r) =>
@@ -713,7 +719,7 @@ function Sftp({
               </select>
               <button
                 className="icon-btn"
-                title="Refresh directory"
+                title={tr("Refresh directory")}
                 disabled={p.loading || !p.endpoint.connection}
                 onClick={() => void load(i)}
               >
@@ -723,7 +729,7 @@ function Sftp({
             <div className="path-bar">
               <button
                 className="icon-btn"
-                title="Parent directory"
+                title={tr("Parent directory")}
                 disabled={!p.endpoint.connection}
                 onClick={() => {
                   const path =
@@ -747,8 +753,8 @@ function Sftp({
                 <ArrowUp size={16} />
               </button>
               <input
-                aria-label={i ? "Right path" : "Left path"}
-                placeholder="Directory path"
+                aria-label={i ? tr("Right path") : tr("Left path")}
+                placeholder={tr("Directory path")}
                 value={paths[i]}
                 onChange={(e) =>
                   setPaths((a) =>
@@ -763,7 +769,7 @@ function Sftp({
               {p.endpoint.connection === "local" && (
                 <button
                   className="icon-btn"
-                  title="Choose local directory"
+                  title={tr("Choose local directory")}
                   onClick={async () => {
                     const path = await open({
                       directory: true,
@@ -791,27 +797,29 @@ function Sftp({
                 }}
               >
                 <FolderPlus size={15} />
-                New folder
+                {tr("New folder")}
               </button>
-              <span>{p.entries.length} items</span>
+              <span>
+                {p.entries.length} {tr("items")}
+              </span>
             </div>
             <div className="file-columns">
-              <span>Name</span>
-              <span>Size</span>
-              <span>Modified</span>
+              <span>{tr("Name")}</span>
+              <span>{tr("Size")}</span>
+              <span>{tr("Modified")}</span>
             </div>
             <div className="file-list" onContextMenu={(e) => fileMenu(e, i)}>
               {p.loading ? (
                 <div className="file-empty">
-                  <Busy label="Loading files…" />
+                  <Busy label={tr("Loading files…")} />
                 </div>
               ) : p.error ? (
                 <div className="notice error">{p.error}</div>
               ) : !p.endpoint.connection ? (
                 <div className="file-empty">
                   <Server size={35} />
-                  <h3>Connect to a server</h3>
-                  <p>Choose an SSH host above to browse its files.</p>
+                  <h3>{tr("Connect to a server")}</h3>
+                  <p>{tr("Choose an SSH host above to browse its files.")}</p>
                 </div>
               ) : (
                 p.entries
@@ -881,7 +889,9 @@ function Sftp({
             </div>
             <footer>
               <span>
-                {p.selected.length ? "Selected " + p.selected.length : "Ready"}
+                {p.selected.length
+                  ? tr("{count} selected", { count: p.selected.length })
+                  : tr("Ready")}
               </span>
               {p.selected.length === 1 &&
                 (() => {
@@ -890,7 +900,7 @@ function Sftp({
                     file && (
                       <span className="file-properties" title={file.path}>
                         {file.name} ·{" "}
-                        {file.directory ? "Folder" : bytes(file.size)}
+                        {file.directory ? tr("Folder") : bytes(file.size)}
                         {file.permissions != null
                           ? " · " + (file.permissions & 0o7777).toString(8)
                           : ""}
@@ -905,7 +915,7 @@ function Sftp({
       <section className="transfer-queue">
         <header>
           <ArrowDownToLine size={16} />
-          <h3>Transfer queue</h3>
+          <h3>{tr("Transfer queue")}</h3>
           <span>
             {queue.filter((t) => t.state === "done").length} completed
           </span>
@@ -913,13 +923,14 @@ function Sftp({
             className="text-btn"
             onClick={() => setQueue((q) => q.filter((t) => t.state !== "done"))}
           >
-            Clear completed
+            {tr("Clear completed")}
           </button>
         </header>
         {!queue.length ? (
           <div className="queue-empty">
-            Drag files between panels or right-click and choose Copy to target
-            directory.
+            {tr(
+              "Drag files between panels or right-click and choose Copy to target directory.",
+            )}
           </div>
         ) : (
           queue.map((t) => (
@@ -946,7 +957,7 @@ function Sftp({
                 />
               </div>
               <span className={t.state === "error" ? "danger" : "muted"}>
-                {t.state}
+                {tr(t.state[0].toUpperCase() + t.state.slice(1))}
               </span>
               {["queued", "running", "paused"].includes(t.state) && (
                 <div className="button-row">
@@ -960,12 +971,12 @@ function Sftp({
                         )
                       }
                     >
-                      {t.state === "paused" ? "Resume" : "Pause"}
+                      {t.state === "paused" ? tr("Resume") : tr("Pause")}
                     </button>
                   )}
                   <button
                     className="icon-btn"
-                    title="Cancel transfer"
+                    title={tr("Cancel transfer")}
                     onClick={() => void control(t, "cancel")}
                   >
                     <X size={16} />
@@ -975,7 +986,7 @@ function Sftp({
               {(t.state === "error" || t.state === "cancelled") && (
                 <button
                   className="icon-btn"
-                  title="Retry transfer"
+                  title={tr("Retry transfer")}
                   onClick={() => {
                     cancelled.current.delete(t.id);
                     void runTransfer(t);
@@ -992,10 +1003,10 @@ function Sftp({
         <Modal
           title={
             {
-              mkdir: "New folder",
-              rename: "Rename",
-              chmod: "Change permissions",
-              remove: "Delete files",
+              mkdir: tr("New folder"),
+              rename: tr("Rename"),
+              chmod: tr("Change permissions"),
+              remove: tr("Delete files"),
             }[action.type]!
           }
           onClose={() => {
@@ -1005,17 +1016,23 @@ function Sftp({
           <div className="modal-body">
             {action.type === "remove" ? (
               <p>
-                Delete{" "}
+                {tr("Delete")}{" "}
                 <strong>
                   {(action.entries?.length ?? 0) > 1
-                    ? `${action.entries!.length} selected items`
+                    ? tr("{count} selected items", {
+                        count: action.entries!.length,
+                      })
                     : action.entry?.name}
                 </strong>
-                ? Directories must be empty.
+                {tr("? Directories must be empty.")}
               </p>
             ) : (
               <Field
-                label={action.type === "chmod" ? "Permissions (octal)" : "Name"}
+                label={
+                  action.type === "chmod"
+                    ? tr("Permissions (octal)")
+                    : tr("Name")
+                }
                 value={value}
                 onChange={setValue}
               />
@@ -1027,14 +1044,14 @@ function Sftp({
               disabled={actionPending}
               onClick={() => setAction(null)}
             >
-              Cancel
+              {tr("Cancel")}
             </button>
             <button
               className={action.type === "remove" ? "danger-button" : "primary"}
               disabled={actionPending}
               onClick={() => void doAction()}
             >
-              {action.type === "remove" ? "Delete" : "Apply"}
+              {action.type === "remove" ? tr("Delete") : tr("Apply")}
             </button>
           </footer>
         </Modal>

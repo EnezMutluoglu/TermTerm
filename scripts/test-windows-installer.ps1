@@ -12,6 +12,8 @@ if ($running.Count) { throw 'TermTerm is running, possibly as a portable applica
 if (Test-Path -LiteralPath $target) { throw 'Installer test directory already exists; inspect it before reusing.' }
 $shortcuts=@((Join-Path ([Environment]::GetFolderPath('Desktop')) 'TermTerm.lnk'),(Join-Path ([Environment]::GetFolderPath('Programs')) 'TermTerm.lnk'))
 $saved=@{}
+$recentPath=Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'local.termterm.desktop/recent.json'
+$recentBackup=$null
 foreach($file in $shortcuts) { if(Test-Path -LiteralPath $file) {$saved[$file]=[IO.File]::ReadAllBytes($file)} }
 try {
   $process=Start-Process -FilePath $Installer -ArgumentList @('/S',"/D=$target") -WindowStyle Hidden -Wait -PassThru
@@ -34,6 +36,12 @@ try {
   if(!(Test-Path -LiteralPath $helper)){throw 'Installed Mosh runtime is missing.'}
   & $helper --version
   if($LASTEXITCODE -ne 0){throw 'Installed Mosh runtime cannot start.'}
+  # Automatic remembered unlock must not open a user's vault in an installer test.
+  # Temporarily rename only the recent-file pointer; restore its exact bytes below.
+  if(Test-Path -LiteralPath $recentPath) {
+    $recentBackup=$recentPath+'.installer-check-'+[Guid]::NewGuid().ToString('N')
+    Move-Item -LiteralPath $recentPath -Destination $recentBackup
+  }
   $app=Start-Process -FilePath $exe -WindowStyle Hidden -PassThru
   try {
     $deadline=[DateTime]::UtcNow.AddSeconds(25)
@@ -53,5 +61,9 @@ try {
   if (!(Get-ChildItem -LiteralPath $target -Force)) { Remove-Item -LiteralPath $target }
   Write-Output 'Verified silent installation, installed executable hash, bundled Mosh, real window, graceful close, no production test port and uninstall.'
 } finally {
+  if($recentBackup -and (Test-Path -LiteralPath $recentBackup)) {
+    if(Test-Path -LiteralPath $recentPath){throw "Recent vault pointer changed during the test. Original retained at $recentBackup"}
+    Move-Item -LiteralPath $recentBackup -Destination $recentPath
+  }
   foreach($file in $saved.Keys){[IO.File]::WriteAllBytes($file,$saved[$file])}
 }

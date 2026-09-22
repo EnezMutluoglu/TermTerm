@@ -103,3 +103,9 @@ Eski MobaXterm dosyalarında Türkçe karakter kodlaması için Import ekranınd
 SFTP kuyruğunda Pause/Resume/Cancel bulunur. Devam aynı geçici dosya üzerinden yapılır; kaynak boyutu/zamanı değişmişse dosya yeniden başlatılır. Cancel hedefte daha önce bulunan dosyayı korur. Son yeniden adlandırma kısa bir commit adımıdır; bu adım başladıktan sonra iptal kabul edilmez. Klasör aktarımında daha önce tamamlanmış dosyalar korunur; klasörün tümü tek işlem değildir.
 
 Settings → PostgreSQL sync altında bağlantı testi şema/sürüm durumunu da gösterir. Şema eksikse ayrı migration kimliğiyle hazırlanabilir. Mevcut kasanın ilk bağlantısında **Preview & connect** kullanın; hedef değiştirme veya önizleme sırasında kayıtların değişmesi yeniden inceleme gerektirir.
+
+## 0.3.4: Türkçe arayüz ve parola hatırlama
+
+Giriş, gezinme, düzenleme, SFTP ve güncelleme ekranları varsayılan olarak Türkçedir. Sunucu adları ve terminal çıktıları çevrilmez. Eski sürümde kayıt silindiyse parolanızı bir kez girip **Parolayı … ile hatırla** kutusunu işaretleyin. Sonraki uygulama açılışı kayıtlı parolayı kullanır. **Kasayı kilitle** kasayı kilitli tutar; boş parola alanıyla **Kasanın kilidini aç** düğmesine basarak kayıtlı parolayı kullanabilirsiniz. Kutuyu bilerek kaldırıp açarsanız bu cihazdaki parola kaydı silinir. Depo hatasında uyarı görünür; parola ile devam edebilirsiniz.
+
+Yeni sürüm kontrolü: **Güncellemeler → Güncellemeleri denetle**. Kurulum kullanıcı tarafından başlatılır.

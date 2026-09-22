@@ -2,6 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import type { Session } from "./types";
+import { tr } from "./i18n";
 export const desktop = isTauri();
 export async function call<T>(
   command: string,
@@ -9,20 +10,22 @@ export async function call<T>(
 ): Promise<T> {
   if (!desktop)
     throw new Error(
-      "Open the desktop application to use the encrypted vault and connections.",
+      tr(
+        "Open the desktop application to use the encrypted vault and connections.",
+      ),
     );
   return invoke<T>(command, args);
 }
 export const errorText = (e: unknown) =>
-  e instanceof Error ? e.message : String(e);
+  tr(e instanceof Error ? e.message : String(e));
 export async function chooseFile(
   extensions: string[],
-  title = "Open file",
+  title = tr("Open file"),
 ): Promise<string | null> {
   const p = await open({
     title,
     multiple: false,
-    filters: [{ name: "Supported files", extensions }],
+    filters: [{ name: tr("Supported files"), extensions }],
   });
   return typeof p === "string" ? p : null;
 }

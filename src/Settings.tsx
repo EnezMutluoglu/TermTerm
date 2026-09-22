@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 import Integrations from "./Integrations";
 import Updates from "./Updates";
 
@@ -73,8 +74,12 @@ export default function Settings({
   const preferences = vault.records.find((r) => r.kind === "settings");
 
   const [logging, setLogging] = useState(preferences?.data.logging !== false);
-  const [copyOnSelect, setCopyOnSelect] = useState(preferences?.data.copyOnSelect !== false);
-  const [rightClickPaste, setRightClickPaste] = useState(preferences?.data.rightClickPaste !== false);
+  const [copyOnSelect, setCopyOnSelect] = useState(
+    preferences?.data.copyOnSelect !== false,
+  );
+  const [rightClickPaste, setRightClickPaste] = useState(
+    preferences?.data.rightClickPaste !== false,
+  );
 
   const [externalEditor, setExternalEditor] = useState(
     preferences?.data.externalEditor ?? "",
@@ -182,7 +187,7 @@ export default function Settings({
 
     setProfileId(record.id);
 
-    setResult("Profile saved in your encrypted local vault.");
+    setResult(tr("Profile saved in your encrypted local vault."));
   }
 
   async function sync() {
@@ -199,7 +204,12 @@ export default function Settings({
     setConflicts(report.conflicts);
 
     setResult(
-      `Synced · ${report.uploaded} uploaded · ${report.downloaded} downloaded · revision ${report.revision}`,
+      tr("Synced · {uploaded} uploaded · {downloaded} downloaded", {
+        uploaded: report.uploaded,
+        downloaded: report.downloaded,
+      }) +
+        " · " +
+        tr("revision {revision}", { revision: report.revision }),
     );
 
     onVault(await call<Vault>("vault_info"));
@@ -222,7 +232,7 @@ export default function Settings({
         setConflicts(r.conflicts);
 
         setResult(
-          `Synced · ${r.uploaded} uploaded · ${r.downloaded} downloaded`,
+          tr("Synced · {uploaded} uploaded · {downloaded} downloaded", r),
         );
 
         void call<Vault>("vault_info").then(onVault);
@@ -252,7 +262,7 @@ export default function Settings({
 
       setRemote(null);
 
-      setResult("Remote vault opened as an encrypted local file.");
+      setResult(tr("Remote vault opened as an encrypted local file."));
     }
   }
 
@@ -260,32 +270,36 @@ export default function Settings({
     <div className="settings-page">
       <div className="page-heading">
         <div>
-          <span className="eyebrow">MAKE IT YOURS</span>
+          <span className="eyebrow">{tr("MAKE IT YOURS")}</span>
 
-          <h1>Settings</h1>
+          <h1>{tr("Settings")}</h1>
 
-          <p>Your workspace, on your terms.</p>
+          <p>{tr("Your workspace, on your terms.")}</p>
         </div>
 
         <span className="local-badge">
           <ShieldCheck size={15} />
-          Local vault active
+          {tr("Local vault active")}
         </span>
       </div>
 
       <div className="settings-layout">
         <nav className="settings-nav">
           {[
-            { id: "general", icon: Settings2, label: "General" },
+            { id: "general", icon: Settings2, label: tr("General") },
 
-            { id: "sync", icon: Database, label: "PostgreSQL sync" },
+            { id: "sync", icon: Database, label: tr("PostgreSQL sync") },
 
-            { id: "team", icon: Users, label: "Team vault" },
+            { id: "team", icon: Users, label: tr("Team vault") },
 
-            { id: "integrations", icon: PlugZap, label: "Integrations" },
+            { id: "integrations", icon: PlugZap, label: tr("Integrations") },
 
-            { id: "shortcuts", icon: Keyboard, label: "Keyboard shortcuts" },
-            { id: "updates", icon: Download, label: "Updates" },
+            {
+              id: "shortcuts",
+              icon: Keyboard,
+              label: tr("Keyboard shortcuts"),
+            },
+            { id: "updates", icon: Download, label: tr("Updates") },
           ].map((t) => (
             <button
               key={t.id}
@@ -309,20 +323,20 @@ export default function Settings({
           {tab === "updates" && <Updates />}
           {tab === "general" && (
             <>
-              <h2>General</h2>
+              <h2>{tr("General")}</h2>
 
               <p className="muted">
-                Your files stay available without a database connection.
+                {tr("Your files stay available without a database connection.")}
               </p>
 
               <div className="settings-card">
                 <h3>
                   <HardDrive size={18} />
-                  Local storage
+                  {tr("Local storage")}
                 </h3>
 
                 <Field
-                  label="Vault file"
+                  label={tr("Vault file")}
 
                   value={vault.path}
 
@@ -332,25 +346,25 @@ export default function Settings({
                 />
 
                 <div className="settings-facts">
-                  <span>Encryption</span>
+                  <span>{tr("Encryption")}</span>
 
                   <strong>XChaCha20-Poly1305</strong>
 
-                  <span>Password derivation</span>
+                  <span>{tr("Password derivation")}</span>
 
-                  <strong>Argon2id · 64 MiB · 3 passes</strong>
+                  <strong>{tr("Argon2id · 64 MiB · 3 passes")}</strong>
 
-                  <span>Device identity</span>
+                  <span>{tr("Device identity")}</span>
 
                   <code>{vault.deviceId}</code>
                 </div>
               </div>
 
               <div className="settings-card">
-                <h3>Terminal appearance</h3>
+                <h3>{tr("Terminal appearance")}</h3>
 
                 <Select
-                  label="Terminal color theme"
+                  label={tr("Terminal color theme")}
 
                   value={themeId}
 
@@ -365,31 +379,36 @@ export default function Settings({
 
                 {/win/i.test(navigator.platform) ? (
                   <Select
-                    label="Local terminal shell"
+                    label={tr("Local terminal shell")}
 
                     value={localShell}
 
                     onChange={setLocalShell}
 
                     options={[
-                      { value: "", label: "System default (PowerShell)" },
+                      { value: "", label: tr("System default (PowerShell)") },
 
                       { value: "powershell.exe", label: "Windows PowerShell" },
 
                       {
                         value: "pwsh.exe",
 
-                        label: "PowerShell 7 (if installed)",
+                        label: tr("PowerShell 7 (if installed)"),
                       },
 
-                      { value: "cmd.exe", label: "Command Prompt" },
+                      { value: "cmd.exe", label: tr("Command Prompt") },
 
-                      { value: "wsl.exe", label: "WSL default distribution" },
+                      {
+                        value: "wsl.exe",
+                        label: tr("WSL default distribution"),
+                      },
                     ]}
                   />
                 ) : (
                   <Field
-                    label="Local shell executable (blank uses login shell)"
+                    label={tr(
+                      "Local shell executable (blank uses login shell)",
+                    )}
 
                     value={localShell}
 
@@ -398,7 +417,7 @@ export default function Settings({
                 )}
 
                 <Field
-                  label="Font size"
+                  label={tr("Font size")}
 
                   type="number"
 
@@ -408,16 +427,26 @@ export default function Settings({
                 />
 
                 <TerminalPreview themeId={themeId} fontSize={fontSize} />
-                <Check checked={copyOnSelect} onChange={setCopyOnSelect}>Copy text when mouse selection finishes</Check>
-                <Check checked={rightClickPaste} onChange={setRightClickPaste}>Right-click pastes into the terminal</Check>
-                <p className="muted small">Shift+Insert also pastes. Hold Shift to select or paste while a remote application is using the mouse.</p>
+                <Check checked={copyOnSelect} onChange={setCopyOnSelect}>
+                  {tr("Copy text when mouse selection finishes")}
+                </Check>
+                <Check checked={rightClickPaste} onChange={setRightClickPaste}>
+                  {tr("Right-click pastes into the terminal")}
+                </Check>
+                <p className="muted small">
+                  {tr(
+                    "Shift+Insert also pastes. Hold Shift to select or paste while a remote application is using the mouse.",
+                  )}
+                </p>
 
                 <Check checked={logging} onChange={setLogging}>
-                  Save terminal output in the encrypted vault
+                  {tr("Save terminal output in the encrypted vault")}
                 </Check>
 
                 <Field
-                  label="External editor executable (blank uses system default)"
+                  label={tr(
+                    "External editor executable (blank uses system default)",
+                  )}
 
                   value={externalEditor}
 
@@ -425,7 +454,7 @@ export default function Settings({
                 />
 
                 <Field
-                  label="Log retention (days; 0 keeps all logs)"
+                  label={tr("Log retention (days; 0 keeps all logs)")}
 
                   type="number"
 
@@ -448,7 +477,7 @@ export default function Settings({
                               data: {
                                 ...preferences?.data,
 
-                                label: "Preferences",
+                                label: tr("Preferences"),
 
                                 fontSize,
 
@@ -469,11 +498,11 @@ export default function Settings({
                         }),
                       );
 
-                      notify("Preferences saved.");
+                      notify(tr("Preferences saved."));
                     })
                   }
                 >
-                  Save preferences
+                  {tr("Save preferences")}
                 </button>
               </div>
             </>
@@ -481,18 +510,19 @@ export default function Settings({
 
           {tab === "sync" && (
             <>
-              <h2>PostgreSQL sync</h2>
+              <h2>{tr("PostgreSQL sync")}</h2>
 
               <p className="muted">
-                Connect directly to your PostgreSQL server. Only encrypted vault
-                records leave this computer.
+                {tr(
+                  "Connect directly to your PostgreSQL server. Only encrypted vault records leave this computer.",
+                )}
               </p>
 
               <div className="settings-card">
                 <div className="section-header">
                   <h3>
                     <Database size={18} />
-                    Connection profile
+                    {tr("Connection profile")}
                   </h3>
 
                   {import.meta.env.DEV && (
@@ -504,18 +534,20 @@ export default function Settings({
                           setProfile(await call<SyncProfile>("lab_profile"));
 
                           setResult(
-                            "WSL lab profile loaded. Save it to keep it in this vault.",
+                            tr(
+                              "WSL lab profile loaded. Save it to keep it in this vault.",
+                            ),
                           );
                         })
                       }
                     >
-                      Load WSL test profile
+                      {tr("Load WSL test profile")}
                     </button>
                   )}
                 </div>
 
                 <Select
-                  label="Saved profile"
+                  label={tr("Saved profile")}
 
                   value={profileId}
 
@@ -541,7 +573,7 @@ export default function Settings({
                   }
 
                   options={[
-                    { value: "", label: "New profile" },
+                    { value: "", label: tr("New profile") },
 
                     ...profiles.map((p) => ({
                       value: p.id,
@@ -552,7 +584,7 @@ export default function Settings({
                 />
 
                 <Field
-                  label="Profile name"
+                  label={tr("Profile name")}
 
                   value={profile.label}
 
@@ -561,7 +593,7 @@ export default function Settings({
 
                 <div className="form-row wide-left">
                   <Field
-                    label="Server address"
+                    label={tr("Server address")}
 
                     value={profile.host}
 
@@ -581,7 +613,7 @@ export default function Settings({
 
                 <div className="form-row">
                   <Field
-                    label="Database"
+                    label={tr("Database")}
 
                     value={profile.database}
 
@@ -589,7 +621,7 @@ export default function Settings({
                   />
 
                   <Field
-                    label="Schema"
+                    label={tr("Schema")}
 
                     value={profile.schema}
 
@@ -599,7 +631,7 @@ export default function Settings({
 
                 <div className="form-row">
                   <Field
-                    label="Username"
+                    label={tr("Username")}
 
                     value={profile.username}
 
@@ -607,7 +639,7 @@ export default function Settings({
                   />
 
                   <Field
-                    label="Password"
+                    label={tr("Password")}
 
                     value={profile.password}
 
@@ -619,13 +651,13 @@ export default function Settings({
 
                 <div className="file-field">
                   <Field
-                    label="CA certificate (optional for public CAs)"
+                    label={tr("CA certificate (optional for public CAs)")}
 
                     value={profile.caPath}
 
                     onChange={(v) => update("caPath", v)}
 
-                    placeholder="Path to a PEM CA certificate"
+                    placeholder={tr("Path to a PEM CA certificate")}
                   />
 
                   <button
@@ -643,8 +675,9 @@ export default function Settings({
 
                 <div className="panel-tip">
                   <ShieldCheck size={16} />
-                  TLS certificate and server hostname verification are always
-                  enabled.
+                  {tr(
+                    "TLS certificate and server hostname verification are always enabled.",
+                  )}
                 </div>
 
                 <div className="button-row">
@@ -658,13 +691,28 @@ export default function Settings({
                         const r = await call<any>("sync_test", { profile });
 
                         setResult(
-                          `Connected to ${r.database} as ${r.username} · TLS verified · ${r.schemaReady ? `Schema v${r.schemaVersion} ready` : `Schema requires preparation (version ${r.schemaVersion ?? "none"}, missing tables: ${r.missingTables?.length ?? 0})`}`,
+                          tr(
+                            "Connected to {database} as {username} · TLS verified",
+                            { database: r.database, username: r.username },
+                          ) +
+                            " · " +
+                            (r.schemaReady
+                              ? tr("Schema v{version} ready", {
+                                  version: r.schemaVersion,
+                                })
+                              : tr(
+                                  "Schema requires preparation (version {version}, missing tables: {count})",
+                                  {
+                                    version: r.schemaVersion ?? tr("None"),
+                                    count: r.missingTables?.length ?? 0,
+                                  },
+                                )),
                         );
                       })
                     }
                   >
                     <PlugZap size={16} />
-                    Test connection
+                    {tr("Test connection")}
                   </button>
 
                   <button
@@ -674,28 +722,28 @@ export default function Settings({
 
                     onClick={() => void execute(save)}
                   >
-                    Save profile
+                    {tr("Save profile")}
                   </button>
                 </div>
               </div>
 
               <div className="settings-card">
-                <h3>Prepare database schema</h3>
+                <h3>{tr("Prepare database schema")}</h3>
 
                 <p className="muted small">
-                  Run versioned migrations with a separate schema owner. These
-                  credentials are used only for this operation. Application role
-                  grants remain in the provided migration scripts.
+                  {tr(
+                    "Run versioned migrations with a separate schema owner. These credentials are used only for this operation. Application role grants remain in the provided migration scripts.",
+                  )}
                 </p>
 
                 <Field
-                  label="Migration username"
+                  label={tr("Migration username")}
                   value={migrationUser}
                   onChange={setMigrationUser}
                 />
 
                 <Field
-                  label="Migration password"
+                  label={tr("Migration password")}
                   type="password"
                   value={migrationPassword}
                   onChange={setMigrationPassword}
@@ -718,17 +766,19 @@ export default function Settings({
 
                       setMigrationPassword("");
                       setResult(
-                        "Database schema is ready. Test the application connection next.",
+                        tr(
+                          "Database schema is ready. Test the application connection next.",
+                        ),
                       );
                     })
                   }
                 >
-                  Create / upgrade schema
+                  {tr("Create / upgrade schema")}
                 </button>
               </div>
 
               <div className="settings-card">
-                <h3>Connect this vault</h3>
+                <h3>{tr("Connect this vault")}</h3>
 
                 <button
                   className="secondary"
@@ -739,19 +789,19 @@ export default function Settings({
                     })
                   }
                 >
-                  Preview database changes
+                  {tr("Preview database changes")}
                 </button>
 
                 {syncPreview && (
                   <div className="notice">
                     <p>
-                      {syncPreview.localRecords} local records ·{" "}
-                      {syncPreview.pending} pending changes ·{" "}
+                      {syncPreview.localRecords} {tr("local records ·")}{" "}
+                      {syncPreview.pending} {tr("pending changes ·")}{" "}
                       {syncPreview.registered
-                        ? "Remote vault found"
-                        : "Vault has not been uploaded"}
+                        ? tr("Remote vault found")
+                        : tr("Vault has not been uploaded")}
                       {syncPreview.targetChanged
-                        ? " · Database target changed"
+                        ? tr(" · Database target changed")
                         : ""}
                     </p>
 
@@ -765,8 +815,8 @@ export default function Settings({
 
                     {syncPreview.changes.length > 100 && (
                       <p>
-                        {syncPreview.changes.length} changes total; showing the
-                        first 100.
+                        {syncPreview.changes.length}{" "}
+                        {tr("changes total; showing the first 100.")}
                       </p>
                     )}
 
@@ -782,19 +832,22 @@ export default function Settings({
                           setSyncPreview(null);
 
                           setResult(
-                            "Database target connected. Choose Upload local vault for a new target, or Sync now for an existing vault. Conflicting records require your choice.",
+                            tr(
+                              "Database target connected. Choose Upload local vault for a new target, or Sync now for an existing vault. Conflicting records require your choice.",
+                            ),
                           );
                         })
                       }
                     >
-                      Connect reviewed target
+                      {tr("Connect reviewed target")}
                     </button>
                   </div>
                 )}
 
                 <p className="muted small">
-                  Upload this local vault to a prepared database, or open a
-                  remote vault into a new local file.
+                  {tr(
+                    "Upload this local vault to a prepared database, or open a remote vault into a new local file.",
+                  )}
                 </p>
 
                 <div className="button-row">
@@ -814,7 +867,7 @@ export default function Settings({
                     }
                   >
                     <Upload size={16} />
-                    Upload local vault
+                    {tr("Upload local vault")}
                   </button>
 
                   <button
@@ -829,7 +882,7 @@ export default function Settings({
                     }
                   >
                     <Download size={16} />
-                    Open remote vault
+                    {tr("Open remote vault")}
                   </button>
 
                   <button
@@ -840,7 +893,7 @@ export default function Settings({
                     onClick={() => void execute(sync)}
                   >
                     <RefreshCw size={16} />
-                    Sync now
+                    {tr("Sync now")}
                   </button>
                 </div>
 
@@ -855,13 +908,15 @@ export default function Settings({
                     })
                   }
                 >
-                  Keep syncing in the background (notifications + 15-second
-                  fallback)
+                  {tr(
+                    "Keep syncing in the background (notifications + 15-second fallback)",
+                  )}
                 </Check>
 
                 <p className="muted small">
-                  Database schema setup and role grants are included in the
-                  migration scripts. Use a separate migration account.
+                  {tr(
+                    "Database schema setup and role grants are included in the migration scripts. Use a separate migration account.",
+                  )}
                 </p>
               </div>
             </>
@@ -869,16 +924,17 @@ export default function Settings({
 
           {tab === "team" && (
             <>
-              <h2>Team vault</h2>
+              <h2>{tr("Team vault")}</h2>
 
               <p className="muted">
-                Each member uses a distinct PostgreSQL login. Permissions are
-                enforced by the database.
+                {tr(
+                  "Each member uses a distinct PostgreSQL login. Permissions are enforced by the database.",
+                )}
               </p>
 
               <div className="settings-card">
                 <div className="section-header">
-                  <h3>Members</h3>
+                  <h3>{tr("Members")}</h3>
 
                   <button
                     disabled={busy}
@@ -892,7 +948,7 @@ export default function Settings({
                     }
                   >
                     <RefreshCw size={15} />
-                    Refresh
+                    {tr("Refresh")}
                   </button>
                 </div>
 
@@ -929,23 +985,25 @@ export default function Settings({
                             })
                           }
                         >
-                          Remove
+                          {tr("Remove")}
                         </button>
                       )}
                     </div>
                   ))
                 ) : (
                   <p className="muted small">
-                    Connect a profile and refresh to view vault membership.
+                    {tr(
+                      "Connect a profile and refresh to view vault membership.",
+                    )}
                   </p>
                 )}
               </div>
 
               <div className="settings-card">
-                <h3>Add or update a member</h3>
+                <h3>{tr("Add or update a member")}</h3>
 
                 <Field
-                  label="Existing PostgreSQL login"
+                  label={tr("Existing PostgreSQL login")}
 
                   value={username}
 
@@ -953,27 +1011,30 @@ export default function Settings({
                 />
 
                 <Select
-                  label="Vault role"
+                  label={tr("Vault role")}
 
                   value={role}
 
                   onChange={setRole}
 
                   options={[
-                    { value: "viewer", label: "Viewer · connect and read" },
+                    { value: "viewer", label: tr("Viewer · connect and read") },
 
                     {
                       value: "editor",
 
-                      label: "Editor · connect, read and write",
+                      label: tr("Editor · connect, read and write"),
                     },
 
-                    { value: "owner", label: "Owner · manage vault members" },
+                    {
+                      value: "owner",
+                      label: tr("Owner · manage vault members"),
+                    },
                   ]}
                 />
 
                 <Field
-                  label="Member vault password"
+                  label={tr("Member vault password")}
 
                   value={memberPassword}
 
@@ -981,7 +1042,9 @@ export default function Settings({
 
                   type="password"
 
-                  hint="Wraps this vault key specifically for the member. Share it securely outside the app."
+                  hint={tr(
+                    "Wraps this vault key specifically for the member. Share it securely outside the app.",
+                  )}
                 />
 
                 <button
@@ -1005,12 +1068,12 @@ export default function Settings({
 
                       setMembers(await call<any[]>("team_list", { profile }));
 
-                      setResult("Membership updated.");
+                      setResult(tr("Membership updated."));
                     })
                   }
                 >
                   <Users size={16} />
-                  Save membership
+                  {tr("Save membership")}
                 </button>
               </div>
             </>
@@ -1022,15 +1085,15 @@ export default function Settings({
 
           {tab === "shortcuts" && (
             <>
-              <h2>Keyboard shortcuts</h2>
+              <h2>{tr("Keyboard shortcuts")}</h2>
 
               <div className="settings-card shortcuts">
                 {shortcuts.map((s) => (
                   <div key={s.id}>
                     <span>
-                      {s.label}
+                      {tr(s.label)}
 
-                      {!s.terminal ? " (outside terminal)" : ""}
+                      {!s.terminal ? tr(" (outside terminal)") : ""}
                     </span>
 
                     <kbd>{shortcutLabel(s.id)}</kbd>
@@ -1039,8 +1102,9 @@ export default function Settings({
               </div>
 
               <p className="muted">
-                Control keys belong to the shell while a terminal is focused.
-                Function keys, AltGr and terminal modes are handled by xterm.
+                {tr(
+                  "Control keys belong to the shell while a terminal is focused. Function keys, AltGr and terminal modes are handled by xterm.",
+                )}
               </p>
             </>
           )}
@@ -1059,7 +1123,9 @@ export default function Settings({
 
           {conflicts.length > 0 && (
             <div className="settings-card">
-              <h3>{conflicts.length} conflicts need review</h3>
+              <h3>
+                {conflicts.length} {tr("conflicts need review")}
+              </h3>
 
               {conflicts.map((c) => (
                 <div className="conflict" key={c.id}>
@@ -1096,7 +1162,7 @@ export default function Settings({
                           })
                         }
                       >
-                        Keep {choice}
+                        {tr("Keep")} {choice}
                       </button>
                     ))}
                   </div>
@@ -1108,33 +1174,34 @@ export default function Settings({
       </div>
 
       {remote && (
-        <Modal title="Open remote vault" onClose={() => setRemote(null)}>
+        <Modal title={tr("Open remote vault")} onClose={() => setRemote(null)}>
           <div className="modal-body">
             <p>
-              Choose a vault and enter its vault password. PostgreSQL
-              credentials alone cannot decrypt it.
+              {tr(
+                "Choose a vault and enter its vault password. PostgreSQL credentials alone cannot decrypt it.",
+              )}
             </p>
 
             <Select
-              label="Remote vault"
+              label={tr("Remote vault")}
 
               value={remoteId}
 
               onChange={setRemoteId}
 
               options={[
-                { value: "", label: "Select a vault" },
+                { value: "", label: tr("Select a vault") },
 
                 ...remote.map((r) => ({
                   value: r.id,
 
-                  label: `${r.id.slice(0, 8)}… · ${r.role} · revision ${r.revision}`,
+                  label: `${r.id.slice(0, 8)}… · ${tr(r.role[0].toUpperCase() + r.role.slice(1))} · ${tr("revision {revision}", { revision: r.revision })}`,
                 })),
               ]}
             />
 
             <Field
-              label="Vault password"
+              label={tr("Vault password")}
 
               value={remotePassword}
 
@@ -1148,7 +1215,7 @@ export default function Settings({
 
           <footer>
             <button className="secondary" onClick={() => setRemote(null)}>
-              Cancel
+              {tr("Cancel")}
             </button>
 
             <button
@@ -1158,7 +1225,7 @@ export default function Settings({
 
               onClick={() => void execute(openRemote)}
             >
-              {busy ? <Busy /> : "Open in new file"}
+              {busy ? <Busy /> : tr("Open in new file")}
             </button>
           </footer>
         </Modal>

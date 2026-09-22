@@ -134,8 +134,34 @@ pub async fn vault_open_remembered(
     path: String,
 ) -> Api<VaultInfo> {
     let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let password = crate::remember::load(&root, &PathBuf::from(&path)).map_err(err)?;
+    let target = PathBuf::from(&path);
+    let password = blocking(move || crate::remember::load(&root, &target)).await?;
     vault_open(app, state, path, password.to_string()).await
+}
+#[tauri::command]
+pub async fn vault_remember_status(app: AppHandle, path: String) -> Api<bool> {
+    let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    blocking(move || Ok(crate::remember::load_optional(&root, &PathBuf::from(path))?.is_some())).await
+}
+#[tauri::command]
+pub async fn vault_try_open_remembered(
+    app: AppHandle,
+    state: State<'_, Shared>,
+    path: String,
+) -> Api<Option<VaultInfo>> {
+    let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let candidate = blocking(move || {
+        let path = PathBuf::from(path);
+        crate::remember::load_optional(&root, &path)?
+            .map(|password| Vault::open(&path, &password))
+            .transpose()
+    }).await?;
+    let Some(vault) = candidate else { return Ok(None) };
+    let result = vault.info().map_err(err)?;
+    close_connections(&state).await?;
+    *state.vault.lock().map_err(|_| "Vault lock")? = Some(vault);
+    recent(&app, &result.path);
+    Ok(Some(result))
 }
 #[tauri::command]
 pub async fn vault_lock(state: State<'_, Shared>) -> Api<()> {

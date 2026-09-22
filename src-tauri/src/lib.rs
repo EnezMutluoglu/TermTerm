@@ -46,6 +46,8 @@ pub fn run() {
             vault_create,
             vault_open,
             vault_open_remembered,
+            vault_try_open_remembered,
+            vault_remember_status,
             vault_remember,
             vault_info,
             vault_lock,

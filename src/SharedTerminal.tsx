@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 import { useState, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { Users, RefreshCw } from "lucide-react";
@@ -59,36 +60,37 @@ export default function SharedTerminal({
     };
   }, [profileId]);
   return (
-    <Modal title="Shared terminals" onClose={onClose} wide>
+    <Modal title={tr("Shared terminals")} onClose={onClose} wide>
       <div className="modal-body">
         <p>
-          Share a live terminal with members of this PostgreSQL vault. The owner
-          grants one editor control at a time. Sessions end when the owner
-          disconnects.
+          {tr(
+            "Share a live terminal with members of this PostgreSQL vault. The owner grants one editor control at a time. Sessions end when the owner disconnects.",
+          )}
         </p>
         <Select
-          label="PostgreSQL profile"
+          label={tr("PostgreSQL profile")}
           value={profileId}
           onChange={setProfileId}
           options={profiles.map((p) => ({ value: p.id, label: p.data.label }))}
         />
         {!profiles.length && (
           <div className="notice">
-            Save a PostgreSQL profile and upload or open this vault before
-            sharing.
+            {tr(
+              "Save a PostgreSQL profile and upload or open this vault before sharing.",
+            )}
           </div>
         )}
         <div className="settings-card">
           <h3>
             <Users size={17} />
-            Share an open terminal
+            {tr("Share an open terminal")}
           </h3>
           <Select
-            label="Local terminal"
+            label={tr("Local terminal")}
             value={localId}
             onChange={setLocalId}
             options={[
-              { value: "", label: "Select a connected terminal" },
+              { value: "", label: tr("Select a connected terminal") },
               ...sessions
                 .filter((s) => s.connected && !s.label.startsWith("Shared ·"))
                 .map((s) => ({ value: s.id, label: s.label })),
@@ -104,18 +106,18 @@ export default function SharedTerminal({
               })
             }
           >
-            Start sharing
+            {tr("Start sharing")}
           </button>
         </div>
         <div className="section-header">
-          <h3>Live sessions</h3>
+          <h3>{tr("Live sessions")}</h3>
           <button
             className="secondary"
             disabled={busy || !profile}
             onClick={() => void run(refresh)}
           >
             <RefreshCw size={15} />
-            Refresh
+            {tr("Refresh")}
           </button>
         </div>
         {list.map((s) => (
@@ -123,11 +125,13 @@ export default function SharedTerminal({
             <p>
               <strong>{s.owner}</strong> · {s.id.slice(0, 8)}
             </p>
-            <p className="muted">Writing: {s.writer}</p>
+            <p className="muted">
+              {tr("Writing:")} {s.writer}
+            </p>
             {s.owner === profile?.username ? (
               <div className="button-row">
                 <Select
-                  label="Give keyboard control"
+                  label={tr("Give keyboard control")}
                   value={s.writer}
                   onChange={(writer) =>
                     void run(async () => {
@@ -158,7 +162,7 @@ export default function SharedTerminal({
                     })
                   }
                 >
-                  End sharing
+                  {tr("End sharing")}
                 </button>
               </div>
             ) : (
@@ -182,23 +186,25 @@ export default function SharedTerminal({
                   })
                 }
               >
-                Join live terminal
+                {tr("Join live terminal")}
               </button>
             )}
           </div>
         ))}
-        {!list.length && <p className="muted">No live shared terminals.</p>}
+        {!list.length && (
+          <p className="muted">{tr("No live shared terminals.")}</p>
+        )}
         {busy && <Busy />}
         {error && <div className="notice error">{error}</div>}
         <p className="muted small">
-          Only new output is streamed. Inputs expire after two seconds and are
-          never replayed after reconnection. SSH and SFTP connections stay on
-          the owner's computer.
+          {tr(
+            "Only new output is streamed. Inputs expire after two seconds and are never replayed after reconnection. SSH and SFTP connections stay on the owner's computer.",
+          )}
         </p>
       </div>
       <footer>
         <button className="secondary" onClick={onClose}>
-          Close
+          {tr("Close")}
         </button>
       </footer>
     </Modal>

@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 import type { Entity } from "./types";
 
 export const UNGROUPED_FOLDER = "__ungrouped__";
@@ -49,7 +50,7 @@ export function indexHostFolders(records: Entity[]) {
   const ungrouped: Entity = {
     id: UNGROUPED_FOLDER,
     kind: "group",
-    data: { label: "Ungrouped" },
+    data: { label: tr("Ungrouped") },
     updatedAt: 0,
   };
   byId.set(UNGROUPED_FOLDER, ungrouped);

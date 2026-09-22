@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -152,6 +153,12 @@ const iconFor = (kind: string) =>
 export default function App() {
   const [vault, setVault] = useState<Vault | null>(null);
   const [info, setInfo] = useState<AppInfo>();
+  const [starting, setStarting] = useState(desktop);
+  const startup = useRef<Promise<{
+    info: AppInfo;
+    vault: Vault | null;
+    error?: string;
+  }> | null>(null);
   const [nav, setNav] = useState<Nav>("hosts");
   const [sftpVisited, setSftpVisited] = useState(false);
   const [settingsTarget, setSettingsTarget] = useState({ tab: "sync", key: 0 });
@@ -239,8 +246,58 @@ export default function App() {
   }, []);
   const report = (e: unknown) => setError(errorText(e));
   useEffect(() => {
+    if (vault)
+      setInfo((current) =>
+        current ? { ...current, recent: { path: vault.path } } : current,
+      );
+  }, [vault?.path]);
+  useEffect(() => {
+    let current = true;
     if (desktop) {
-      void call<AppInfo>("app_info").then(setInfo).catch(report);
+      // Share the startup request across StrictMode's effect replay. Locking the
+      // vault later never reruns this automatic unlock.
+      startup.current ??= (async () => {
+        const info = await call<AppInfo>("app_info");
+        const active = await call<Vault>("vault_info").catch(() => null);
+        if (active || !info.recent?.path) return { info, vault: active };
+        try {
+          return {
+            info,
+            vault: await call<Vault | null>("vault_try_open_remembered", {
+              path: info.recent.path,
+            }),
+          };
+        } catch (e) {
+          return {
+            info,
+            vault: null,
+            error:
+              tr(
+                "Could not use the remembered password. Enter your vault password to continue.",
+              ) +
+              " " +
+              errorText(e),
+          };
+        }
+      })();
+      void startup.current
+        .then((result) => {
+          if (!current) return;
+          setInfo(result.info);
+          if (result.vault) setVault(result.vault);
+          if (result.error) setError(result.error);
+        })
+        .catch((e) => {
+          if (current) report(e);
+        })
+        .finally(() => {
+          if (current) {
+            // The resolved promise contains plaintext vault records. Release it
+            // after startup so an explicit lock can release that data as well.
+            startup.current = null;
+            setStarting(false);
+          }
+        });
       void prepareEvents();
     }
     const un = onSession((e) => {
@@ -264,6 +321,7 @@ export default function App() {
         setPrompts((p) => [...p, payload]);
       });
     return () => {
+      current = false;
       un();
       void unsub?.then((f) => f());
     };
@@ -397,7 +455,7 @@ export default function App() {
       desktop
     )
       return;
-    const g = newEntity("group", { label: "Production" });
+    const g = newEntity("group", { label: tr("Production") });
     const hosts = [
       ["web-01", "10.0.1.12", "ubuntu", ["production", "web"]],
       ["api-server", "10.0.1.24", "deploy", ["production", "api"]],
@@ -433,7 +491,7 @@ export default function App() {
       );
     const previewGroups = [g];
     if (new URLSearchParams(location.search).has("previewNested")) {
-      const parent = newEntity("group", { label: "Environments" });
+      const parent = newEntity("group", { label: tr("Environments") });
       g.data.groupId = parent.id;
       previewGroups.unshift(parent);
     }
@@ -492,7 +550,7 @@ export default function App() {
     setVault(await call<Vault>("records_save", { records: [r] }));
     setEditor(null);
     setDetails(r);
-    notify(`${r.data.label} saved.`);
+    notify(tr("{name} saved.", { name: r.data.label }));
   }
   async function connect(hostId?: string, shell?: string, statsEnabled = true) {
     try {
@@ -508,7 +566,7 @@ export default function App() {
       const label =
         records.find((r) => r.id === hostId)?.data.label ??
         shell ??
-        "Local terminal";
+        tr("Local terminal");
       setSessions((s) => [
         ...s,
         {
@@ -701,7 +759,7 @@ export default function App() {
     const actions: MenuAction[] = [
       {
         id: "focus",
-        label: "Focus terminal",
+        label: tr("Focus terminal"),
         icon: <Maximize2 size={15} />,
         run: () => {
           setActive(session.id);
@@ -711,7 +769,7 @@ export default function App() {
       },
       {
         id: "split",
-        label: "Show split view",
+        label: tr("Show split view"),
         icon: <Columns2 size={15} />,
         run: () => {
           setActive(session.id);
@@ -723,27 +781,27 @@ export default function App() {
     if (session.hostId)
       actions.push({
         id: "duplicate",
-        label: "New connection to this host",
+        label: tr("New connection to this host"),
         icon: <Terminal size={15} />,
         run: () => connect(session.hostId),
       });
     actions.push({
       id: "copy",
-      label: "Copy tab name",
+      label: tr("Copy tab name"),
       icon: <Copy size={15} />,
       separator: true,
       run: () => copyText(session.label),
     });
     actions.push({
       id: "close",
-      label: "Close terminal",
+      label: tr("Close terminal"),
       icon: <X size={15} />,
       separator: true,
       run: () => closeSession(session.id),
     });
     actions.push({
       id: "others",
-      label: "Close other terminals",
+      label: tr("Close other terminals"),
       disabled: sessions.length < 2,
       run: async () => {
         for (const other of sessions.filter((s) => s.id !== session.id))
@@ -760,12 +818,18 @@ export default function App() {
     );
     const available = Math.max(0, 16 - sessions.length);
     if (!available) {
-      notify("Close a terminal before opening another (16 panels maximum).");
+      notify(
+        tr("Close a terminal before opening another (16 panels maximum)."),
+      );
       return;
     }
     for (const host of hosts.slice(0, available)) await connect(host.id);
     if (hosts.length > available)
-      notify(`${available} hosts opened; the workspace limit is 16 terminals.`);
+      notify(
+        tr("{count} hosts opened; the workspace limit is 16 terminals.", {
+          count: available,
+        }),
+      );
   }
   async function pasteRecords(destination: string) {
     const clipboard = recordClipboard;
@@ -799,7 +863,7 @@ export default function App() {
     if (single && record.kind === "group")
       actions.push({
         id: "open",
-        label: "Open group",
+        label: tr("Open group"),
         icon: <FolderOpen size={15} />,
         run: () => openGroup(record.id),
       });
@@ -807,7 +871,9 @@ export default function App() {
       actions.push({
         id: "connect",
         label:
-          single && record.kind === "host" ? "Connect" : "Quick connect hosts",
+          single && record.kind === "host"
+            ? tr("Connect")
+            : tr("Quick connect hosts"),
         icon: <Terminal size={15} />,
         run: () => connectMany(ids),
       });
@@ -818,14 +884,14 @@ export default function App() {
     )
       actions.push({
         id: "sftp",
-        label: "Open SFTP",
+        label: tr("Open SFTP"),
         icon: <ArrowLeftRight size={15} />,
         run: () => openSftp(record.id),
       });
     if (single && record.kind === "snippet")
       actions.push({
         id: "run",
-        label: "Run in active terminal",
+        label: tr("Run in active terminal"),
         icon: <Play size={15} />,
         disabled: !sessions.some((s) => s.connected),
         run: () => runSnippet(record),
@@ -834,22 +900,22 @@ export default function App() {
       actions.push({
         id: "run",
         label: runningTunnels.includes(record.id)
-          ? "Stop forwarding"
-          : "Start forwarding",
+          ? tr("Stop forwarding")
+          : tr("Start forwarding"),
         icon: <Link size={15} />,
         run: () => tunnel(record),
       });
     if (single && record.kind === "workspace")
       actions.push({
         id: "open",
-        label: "Open workspace",
+        label: tr("Open workspace"),
         icon: <Columns2 size={15} />,
         run: () => openWorkspace(record),
       });
     if (single)
       actions.push({
         id: "details",
-        label: "Details",
+        label: tr("Details"),
         icon: <Info size={15} />,
         separator: !!actions.length,
         run: () => showDetails(record),
@@ -857,14 +923,14 @@ export default function App() {
     if (single && !virtual)
       actions.push({
         id: "edit",
-        label: "Edit",
+        label: tr("Edit"),
         icon: <Pencil size={15} />,
         run: () => editRecord(record),
       });
     if (!virtual)
       actions.push({
         id: "duplicate",
-        label: "Duplicate",
+        label: tr("Duplicate"),
         icon: <Copy size={15} />,
         separator: true,
         run: () => duplicate(ids),
@@ -872,7 +938,7 @@ export default function App() {
     if (movable) {
       actions.push({
         id: "move",
-        label: "Move to group…",
+        label: tr("Move to group…"),
         icon: <Folder size={15} />,
         run: () => {
           setMoveTo("");
@@ -881,7 +947,7 @@ export default function App() {
       });
       actions.push({
         id: "copy-to",
-        label: "Copy to group…",
+        label: tr("Copy to group…"),
         icon: <Copy size={15} />,
         run: () => {
           setMoveTo("");
@@ -890,21 +956,25 @@ export default function App() {
       });
       actions.push({
         id: "copy",
-        label: "Copy",
+        label: tr("Copy"),
         icon: <Copy size={15} />,
         run: () => {
           setRecordClipboard({ ids, cut: false, vaultId: vault!.id });
-          notify("Records copied. Right-click a destination group to paste.");
+          notify(
+            tr("Records copied. Right-click a destination group to paste."),
+          );
         },
       });
       actions.push({
         id: "cut",
-        label: "Cut",
+        label: tr("Cut"),
         icon: <Scissors size={15} />,
         run: () => {
           setRecordClipboard({ ids, cut: true, vaultId: vault!.id });
           notify(
-            "Records ready to move. Right-click a destination group to paste.",
+            tr(
+              "Records ready to move. Right-click a destination group to paste.",
+            ),
           );
         },
       });
@@ -912,14 +982,14 @@ export default function App() {
     if (single && record.kind === "group" && recordClipboard)
       actions.push({
         id: "paste",
-        label: "Paste here",
+        label: tr("Paste here"),
         icon: <ClipboardPaste size={15} />,
         run: () => pasteRecords(storedGroupId(record.id)),
       });
     if (single && record.data.address)
       actions.push({
         id: "address",
-        label: "Copy address",
+        label: tr("Copy address"),
         separator: true,
         icon: <Copy size={15} />,
         run: () => copyText(String(record.data.address)),
@@ -927,42 +997,42 @@ export default function App() {
     if (single && data.username)
       actions.push({
         id: "username",
-        label: "Copy username",
+        label: tr("Copy username"),
         icon: <Copy size={15} />,
         run: () => copyText(String(data.username)),
       });
     if (single && record.kind === "snippet")
       actions.push({
         id: "command",
-        label: "Copy command",
+        label: tr("Copy command"),
         icon: <Copy size={15} />,
         run: () => copyText(record.data.command ?? ""),
       });
     if (single && record.kind === "credential" && record.data.publicKey)
       actions.push({
         id: "key",
-        label: "Copy public key",
+        label: tr("Copy public key"),
         icon: <Copy size={15} />,
         run: () => copyText(record.data.publicKey),
       });
     if (single && record.kind === "knownHost")
       actions.push({
         id: "fingerprint",
-        label: "Copy fingerprint",
+        label: tr("Copy fingerprint"),
         icon: <Copy size={15} />,
         run: () => copyText(record.data.fingerprint ?? ""),
       });
     if (single && record.kind === "log")
       actions.push({
         id: "log",
-        label: "Copy log",
+        label: tr("Copy log"),
         icon: <Copy size={15} />,
         run: () => copyText(record.data.content ?? ""),
       });
     if (!virtual) {
       actions.push({
         id: "backup",
-        label: "Export encrypted backup…",
+        label: tr("Export encrypted backup…"),
         icon: <Download size={15} />,
         separator: true,
         run: () => {
@@ -972,24 +1042,30 @@ export default function App() {
       });
       actions.push({
         id: "delete",
-        label: "Delete…",
+        label: tr("Delete…"),
         icon: <Trash2 size={15} />,
         danger: true,
         separator: true,
         run: () => setDeleting(targets.map((r) => r.id)),
       });
     }
-    showMenu(e, single ? record.data.label : `${ids.length} selected`, actions);
+    showMenu(
+      e,
+      single
+        ? record.data.label
+        : tr("{count} selected", { count: ids.length }),
+      actions,
+    );
   }
   async function tunnel(record: Entity) {
     if (runningTunnels.includes(record.id)) {
       await call("tunnel_stop", { id: record.id });
       setRunningTunnels((ids) => ids.filter((id) => id !== record.id));
     } else {
-      notify("Connecting tunnel…");
+      notify(tr("Connecting tunnel…"));
       await call("tunnel_start", { id: record.id, tunnel: record.data });
       setRunningTunnels((ids) => [...ids, record.id]);
-      notify("Port forwarding is running.");
+      notify(tr("Port forwarding is running."));
     }
   }
   function runSnippet(r: Entity) {
@@ -997,7 +1073,7 @@ export default function App() {
       sessions.find((s) => s.id === active && s.connected)?.id ||
       sessions.find((s) => s.connected)?.id;
     if (!target) {
-      notify("Open a terminal before running a snippet.");
+      notify(tr("Open a terminal before running a snippet."));
       return;
     }
     sendInput(target, r.data.command + (r.data.newline !== false ? "\r" : ""));
@@ -1096,7 +1172,7 @@ export default function App() {
           >
             <span
               role="button"
-              aria-label="Toggle group"
+              aria-label={tr("Toggle group")}
               onClick={(e) => {
                 e.stopPropagation();
                 setCollapsed((a) =>
@@ -1116,8 +1192,10 @@ export default function App() {
             <span className="sidebar-group-label">{g.data.label}</span>
             <small
               className="sidebar-group-count"
-              title="Hosts including subfolders"
-              aria-label={`${folders.totalHosts.get(g.id) ?? 0} hosts including subfolders`}
+              title={tr("Hosts including subfolders")}
+              aria-label={tr("{count} hosts including subfolders", {
+                count: folders.totalHosts.get(g.id) ?? 0,
+              })}
             >
               {folders.totalHosts.get(g.id) ?? 0}
             </small>
@@ -1132,6 +1210,7 @@ export default function App() {
       <>
         <Onboarding
           info={info}
+          loading={starting}
           onOpen={setVault}
           onRestore={() => setDataMode("restore")}
         />
@@ -1165,13 +1244,17 @@ export default function App() {
           </div>
           TermTerm
         </div>
-        <div className="top-tabs" ref={topTabs} aria-label="Workspace tabs">
+        <div
+          className="top-tabs"
+          ref={topTabs}
+          aria-label={tr("Workspace tabs")}
+        >
           <button
             className={nav !== "terminal" && nav !== "sftp" ? "active" : ""}
             onClick={() => navigate("hosts")}
           >
             <HardDrive size={14} />
-            Vault
+            {tr("Vault")}
           </button>
           <button
             className={nav === "sftp" ? "active" : ""}
@@ -1208,7 +1291,7 @@ export default function App() {
               </button>
               <button
                 className="tab-close"
-                aria-label={`Close tab ${s.label}`}
+                aria-label={tr("Close tab {name}", { name: s.label })}
                 onClick={() => void closeSession(s.id)}
               >
                 <X size={13} />
@@ -1217,7 +1300,7 @@ export default function App() {
           ))}
           <button
             className="plus-tab"
-            title="New local terminal"
+            title={tr("New local terminal")}
             onClick={() => void connect()}
           >
             <Plus size={16} />
@@ -1226,11 +1309,11 @@ export default function App() {
         <div className="top-actions">
           <span className="local-badge">
             <span className="status-dot live" />
-            Local vault
+            {tr("Local vault")}
           </span>
           <button
             className="icon-btn"
-            title="Lock vault"
+            title={tr("Lock vault")}
             onClick={() => void lock()}
           >
             <LockKeyhole size={17} />
@@ -1246,7 +1329,7 @@ export default function App() {
             </div>
             <span>
               <strong>{vault.name}</strong>
-              <small>Encrypted workspace</small>
+              <small>{tr("Encrypted workspace")}</small>
             </span>
             <ChevronDown size={14} />
           </button>
@@ -1281,15 +1364,15 @@ export default function App() {
                 }}
               >
                 <Link size={15} />
-                Shared terminals
+                {tr("Shared terminals")}
               </button>
               <button onClick={() => void lock()}>
                 <LockKeyhole size={15} />
-                Lock / switch vault
+                {tr("Lock / switch vault")}
               </button>
             </div>
           )}
-          <div className="nav-label">WORKSPACE</div>
+          <div className="nav-label">{tr("WORKSPACE")}</div>
           <nav className="main-nav">
             {navItems.map((n) => (
               <button
@@ -1303,7 +1386,11 @@ export default function App() {
                 <n.icon size={17} />
                 <span>{n.label}</span>
                 {n.id === "hosts" && (
-                  <small title="Total hosts in this vault, including all groups">
+                  <small
+                    title={tr(
+                      "Total hosts in this vault, including all groups",
+                    )}
+                  >
                     {folders.hostCount}
                   </small>
                 )}
@@ -1311,10 +1398,10 @@ export default function App() {
             ))}
           </nav>
           <div className="nav-label with-action">
-            GROUPS
+            {tr("GROUPS")}
             <button
               className="icon-btn"
-              title="New group"
+              title={tr("New group")}
               onClick={() => create("group")}
             >
               <Plus size={13} />
@@ -1325,23 +1412,24 @@ export default function App() {
               groupTree()
             ) : (
               <p className="sidebar-empty">
-                Organize your connections
+                {tr("Organize your connections")}
                 <br />
-                with groups.
+                {tr("with groups.")}
               </p>
             )}
           </div>
           <div className="sidebar-bottom">
             <button onClick={() => void connect()}>
               <Terminal size={17} />
-              Local terminal<kbd>{shortcutLabel("local")}</kbd>
+              {tr("Local terminal")}
+              <kbd>{shortcutLabel("local")}</kbd>
             </button>
             <button
               className={nav === "knownHost" ? "active" : ""}
               onClick={() => navigate("knownHost")}
             >
               <ShieldCheck size={17} />
-              Known hosts
+              {tr("Known hosts")}
             </button>
             <button
               className={nav === "settings" ? "active" : ""}
@@ -1351,7 +1439,7 @@ export default function App() {
               }}
             >
               <SettingsIcon size={17} />
-              Settings
+              {tr("Settings")}
             </button>
             <button
               className="updates-nav"
@@ -1360,14 +1448,14 @@ export default function App() {
                 navigate("settings");
               }}
             >
-              <Download size={17} /> Updates{" "}
+              <Download size={17} /> {tr("Updates")}{" "}
               <span className="app-version">
                 v{info?.version ?? "0.3.3-dev.1"}
               </span>
             </button>
             <div className="vault-status">
               <ShieldCheck size={13} />
-              <span>Saved locally · encrypted</span>
+              <span>{tr("Saved locally · encrypted")}</span>
               <i />
             </div>
           </div>
@@ -1413,12 +1501,14 @@ export default function App() {
             {broadcast && (
               <div className="broadcast-bar">
                 <Radio size={14} />
-                Broadcast is on. Your input goes to all connected terminals.
+                {tr(
+                  "Broadcast is on. Your input goes to all connected terminals.",
+                )}
                 <button
                   className="text-btn"
                   onClick={() => setBroadcast(false)}
                 >
-                  Turn off
+                  {tr("Turn off")}
                 </button>
               </div>
             )}
@@ -1468,12 +1558,12 @@ export default function App() {
               {!sessions.length && (
                 <Empty
                   icon={<Terminal size={30} />}
-                  title="A fresh terminal awaits"
+                  title={tr("A fresh terminal awaits")}
                   detail="Connect to a host or start a local shell."
                 >
                   <button className="primary" onClick={() => void connect()}>
                     <Plus size={16} />
-                    Open local terminal
+                    {tr("Open local terminal")}
                   </button>
                 </Empty>
               )}
@@ -1481,19 +1571,19 @@ export default function App() {
             <div
               className="workspace-toolbar"
               role="toolbar"
-              aria-label="Terminal workspace tools"
+              aria-label={tr("Terminal workspace tools")}
             >
               <div className="button-row">
                 <button
                   className="icon-btn"
-                  title="Shared terminals"
+                  title={tr("Shared terminals")}
                   onClick={() => setShareOpen(true)}
                 >
                   <Link size={16} />
                 </button>
                 <button
                   className={"icon-btn " + (broadcast ? "broadcast-on" : "")}
-                  title="Broadcast input to all connected terminals"
+                  title={tr("Broadcast input to all connected terminals")}
                   onClick={() => setBroadcast(!broadcast)}
                 >
                   <Radio size={16} />
@@ -1501,7 +1591,9 @@ export default function App() {
                 <button
                   className="icon-btn"
                   title={
-                    layout === "split" ? "Focus terminal" : "Split terminals"
+                    layout === "split"
+                      ? tr("Focus terminal")
+                      : tr("Split terminals")
                   }
                   onClick={() =>
                     setLayout(layout === "split" ? "focus" : "split")
@@ -1515,14 +1607,16 @@ export default function App() {
                 </button>
                 <button
                   className="icon-btn"
-                  title="Save workspace"
+                  title={tr("Save workspace")}
                   onClick={() => create("workspace")}
                 >
                   <Save size={16} />
                 </button>
                 <button
                   className="icon-btn"
-                  title={`Add local terminal (${shortcutLabel("local")})`}
+                  title={tr("Add local terminal ({shortcut})", {
+                    shortcut: shortcutLabel("local"),
+                  })}
                   onClick={() => void connect()}
                 >
                   <Plus size={17} />
@@ -1546,7 +1640,8 @@ export default function App() {
                     : [
                         {
                           id: "new",
-                          label: nav === "hosts" ? "New host" : "New record",
+                          label:
+                            nav === "hosts" ? tr("New host") : tr("New record"),
                           icon: <Plus size={15} />,
                           run: () =>
                             create(
@@ -1557,20 +1652,20 @@ export default function App() {
                 if (nav === "hosts")
                   actions.push({
                     id: "group",
-                    label: "New group",
+                    label: tr("New group"),
                     icon: <Folder size={15} />,
                     run: () => create("group"),
                   });
                 if (nav === "hosts" && recordClipboard)
                   actions.push({
                     id: "paste",
-                    label: "Paste here",
+                    label: tr("Paste here"),
                     icon: <ClipboardPaste size={15} />,
                     run: () => pasteRecords(storedGroupId(group)),
                   });
                 actions.push({
                   id: "all",
-                  label: "Select all",
+                  label: tr("Select all"),
                   separator: true,
                   run: () =>
                     setSelected(
@@ -1596,7 +1691,7 @@ export default function App() {
                 <ChevronRight size={12} />
                 {nav === "hosts" ? (
                   <>
-                    <button onClick={() => openGroup("")}>Hosts</button>
+                    <button onClick={() => openGroup("")}>{tr("Hosts")}</button>
                     {groupTrail.map((g) => (
                       <span className="folder-crumb" key={g.id}>
                         <ChevronRight size={12} />
@@ -1607,18 +1702,20 @@ export default function App() {
                     ))}
                   </>
                 ) : (
-                  <span>{navLabels[nav]}</span>
+                  <span>{tr(navLabels[nav])}</span>
                 )}
               </div>
               <div className="page-heading">
                 <div>
                   <span className="eyebrow">
-                    {nav === "hosts" ? "YOUR CONNECTIONS" : "YOUR WORKSPACE"}
+                    {nav === "hosts"
+                      ? tr("YOUR CONNECTIONS")
+                      : tr("YOUR WORKSPACE")}
                   </span>
                   <h1>
                     {nav === "hosts"
-                      ? (currentGroup?.data.label ?? "Hosts")
-                      : navLabels[nav]}
+                      ? (currentGroup?.data.label ?? tr("Hosts"))
+                      : tr(navLabels[nav])}
                   </h1>
                   <p>
                     {
@@ -1644,7 +1741,7 @@ export default function App() {
                       onClick={() => create("group")}
                     >
                       <Folder size={16} />
-                      New group
+                      {tr("New group")}
                     </button>
                   )}
                   {!["log", "knownHost"].includes(nav) && (
@@ -1656,14 +1753,14 @@ export default function App() {
                     >
                       <Plus size={17} />
                       {nav === "hosts"
-                        ? "New host"
+                        ? tr("New host")
                         : nav === "credential"
-                          ? "New identity"
+                          ? tr("New identity")
                           : nav === "tunnel"
-                            ? "New rule"
+                            ? tr("New rule")
                             : nav === "snippet"
-                              ? "New snippet"
-                              : "New workspace"}
+                              ? tr("New snippet")
+                              : tr("New workspace")}
                     </button>
                   )}
                 </div>
@@ -1673,13 +1770,13 @@ export default function App() {
                   <Search size={17} />
                   <input
                     ref={searchRef}
-                    aria-label="Search records"
+                    aria-label={tr("Search records")}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder={
                       nav === "hosts"
-                        ? "Search this folder…"
-                        : `Search ${navLabels[nav].toLowerCase()}…`
+                        ? tr("Search this folder…")
+                        : tr("Search {type}…", { type: tr(navLabels[nav]) })
                     }
                   />
                   <kbd>{shortcutLabel("hosts")}</kbd>
@@ -1693,21 +1790,30 @@ export default function App() {
                   <span>
                     {nav === "hosts"
                       ? group
-                        ? `${filtered.length} hosts in this folder · ${childGroups.length} folders`
-                        : `${childGroups.length} folders · ${folders.hostCount} hosts total`
-                      : `${filtered.length} items`}
+                        ? tr(
+                            "{hosts} hosts in this folder · {folders} folders",
+                            {
+                              hosts: filtered.length,
+                              folders: childGroups.length,
+                            },
+                          )
+                        : tr("{folders} folders · {hosts} hosts total", {
+                            folders: childGroups.length,
+                            hosts: folders.hostCount,
+                          })
+                      : tr("{count} items", { count: filtered.length })}
                   </span>
                   <div className="view-toggle">
                     <button
                       className={view === "grid" ? "active" : ""}
-                      title="Card view"
+                      title={tr("Card view")}
                       onClick={() => setView("grid")}
                     >
                       <LayoutGrid size={16} />
                     </button>
                     <button
                       className={view === "list" ? "active" : ""}
-                      title="List view"
+                      title={tr("List view")}
                       onClick={() => setView("list")}
                     >
                       <List size={17} />
@@ -1715,7 +1821,7 @@ export default function App() {
                   </div>
                   <button
                     className="icon-btn"
-                    title="Import connections"
+                    title={tr("Import connections")}
                     onClick={() => setDataMode("import")}
                   >
                     <Upload size={17} />
@@ -1747,10 +1853,13 @@ export default function App() {
                         </div>
                         <div>
                           <strong>{g.data.label}</strong>
-                          <small title="Host count includes every subfolder">
-                            {folders.totalHosts.get(g.id) ?? 0} hosts
+                          <small
+                            title={tr("Host count includes every subfolder")}
+                          >
+                            {folders.totalHosts.get(g.id) ?? 0} {tr("hosts")}
                             {" · "}
-                            {folders.children.get(g.id)?.length ?? 0} folders
+                            {folders.children.get(g.id)?.length ?? 0}{" "}
+                            {tr("folders")}
                           </small>
                         </div>
                         <ChevronRight size={16} />
@@ -1767,10 +1876,10 @@ export default function App() {
                   })()}
                   title={
                     search
-                      ? "No matching records"
+                      ? tr("No matching records")
                       : nav === "hosts"
-                        ? "Your next connection starts here"
-                        : `No ${navLabels[nav].toLowerCase()} yet`
+                        ? tr("Your next connection starts here")
+                        : tr("No {type} yet", { type: tr(navLabels[nav]) })
                   }
                   detail={
                     search
@@ -1789,14 +1898,14 @@ export default function App() {
                         onClick={() => create("host")}
                       >
                         <Plus size={16} />
-                        New host
+                        {tr("New host")}
                       </button>
                       <button
                         className="secondary"
                         onClick={() => setDataMode("import")}
                       >
                         <Upload size={16} />
-                        Import hosts
+                        {tr("Import hosts")}
                       </button>
                     </div>
                   )}
@@ -1839,7 +1948,7 @@ export default function App() {
                               {r.kind === "host"
                                 ? `${r.data.username ? r.data.username + "@" : ""}${r.data.address}`
                                 : r.kind === "credential"
-                                  ? r.data.username || "SSH identity"
+                                  ? r.data.username || tr("SSH identity")
                                   : r.kind === "tunnel"
                                     ? `${r.data.bindAddress}:${r.data.bindPort}`
                                     : r.kind === "log"
@@ -1849,8 +1958,12 @@ export default function App() {
                                       : r.kind === "knownHost"
                                         ? r.data.fingerprint
                                         : r.kind === "workspace"
-                                          ? `${r.data.hostIds?.length ?? 0} terminals`
-                                          : r.data.package || "Command snippet"}
+                                          ? tr("{count} terminals", {
+                                              count:
+                                                r.data.hostIds?.length ?? 0,
+                                            })
+                                          : r.data.package ||
+                                            tr("Command snippet")}
                             </span>
                           </div>
                         </div>
@@ -1868,7 +1981,7 @@ export default function App() {
                           {r.data.chain?.length > 0 && (
                             <span className="chain-tag">
                               <Link size={11} />
-                              {r.data.chain.length} hop
+                              {r.data.chain.length} {tr("hop")}
                               {r.data.chain.length > 1 ? "s" : ""}
                             </span>
                           )}
@@ -1879,17 +1992,17 @@ export default function App() {
                               ? `${(r.data.protocol ?? "SSH").toUpperCase()} · ${r.data.port ?? 22}`
                               : r.kind === "credential"
                                 ? r.data.privateKey
-                                  ? "SSH KEY"
-                                  : "PASSWORD"
+                                  ? tr("SSH KEY")
+                                  : tr("PASSWORD")
                                 : r.kind === "tunnel"
-                                  ? `${r.data.mode?.toUpperCase()} FORWARDING`
+                                  ? tr("Port forwarding")
                                   : r.kind === "knownHost"
-                                    ? "TRUSTED KEY"
+                                    ? tr("TRUSTED KEY")
                                     : r.kind === "log"
-                                      ? "ENCRYPTED LOG"
+                                      ? tr("ENCRYPTED LOG")
                                       : r.kind === "workspace"
-                                        ? "SAVED LAYOUT"
-                                        : "SHELL COMMAND"}
+                                        ? tr("SAVED LAYOUT")
+                                        : tr("SHELL COMMAND")}
                           </span>
                         </footer>
                       </article>
@@ -1904,31 +2017,33 @@ export default function App() {
                     disabled={page === 0}
                     onClick={() => setPage((p) => p - 1)}
                   >
-                    Previous
+                    {tr("Previous")}
                   </button>
                   <span>
                     {page + 1} / {Math.ceil(filtered.length / 120)} ·{" "}
-                    {filtered.length} records
+                    {filtered.length} {tr("records")}
                   </span>
                   <button
                     className="secondary"
                     disabled={(page + 1) * 120 >= filtered.length}
                     onClick={() => setPage((p) => p + 1)}
                   >
-                    Next
+                    {tr("Next")}
                   </button>
                 </div>
               )}
               {nav === "hosts" && (
                 <div className="workspace-hint">
                   <Keyboard size={15} />
-                  <span>Double-click a host to connect</span>
+                  <span>{tr("Double-click a host to connect")}</span>
                   <i>·</i>
                   <span>
-                    Right-click for actions · Ctrl / Shift + click to select
+                    {tr(
+                      "Right-click for actions · Ctrl / Shift + click to select",
+                    )}
                   </span>
                   <button onClick={() => setDataMode("import")}>
-                    Bring your existing hosts
+                    {tr("Bring your existing hosts")}
                     <ArrowRight size={13} />
                   </button>
                 </div>
@@ -1995,53 +2110,56 @@ export default function App() {
       )}
       {deleting && (
         <Modal
-          title="Delete records"
+          title={tr("Delete records")}
           onClose={() => {
             if (!operationLock.current) setDeleting(null);
           }}
         >
           <div className="modal-body">
             <p>
-              Delete {deleting.length} record
-              {deleting.length === 1 ? "" : "s"} from this vault?
+              {tr("Delete")} {deleting.length} {tr("record")}
+              {deleting.length === 1 ? "" : "s"} {tr("from this vault?")}
             </p>
             <p className="muted small">
-              Selected groups include their hosts and subgroups. Records
-              referenced outside this selection must be unlinked first.
+              {tr(
+                "Selected groups include their hosts and subgroups. Records referenced outside this selection must be unlinked first.",
+              )}
             </p>
           </div>
           <footer>
             <button className="secondary" onClick={() => setDeleting(null)}>
-              Cancel
+              {tr("Cancel")}
             </button>
             <button
               className="danger-button"
               disabled={operationBusy}
               onClick={() => void remove()}
             >
-              Delete
+              {tr("Delete")}
             </button>
           </footer>
         </Modal>
       )}
       {moving && (
         <Modal
-          title={moving.copy ? "Copy to group" : "Move to group"}
+          title={moving.copy ? tr("Copy to group") : tr("Move to group")}
           onClose={() => {
             if (!operationLock.current) setMoving(null);
           }}
         >
           <div className="modal-body">
             <p className="muted small">
-              {moving.ids.length} selected · subgroups keep their contents and
-              relationships.
+              {moving.ids.length}{" "}
+              {tr(
+                "selected · subgroups keep their contents and relationships.",
+              )}
             </p>
             <Select
-              label="Destination group"
+              label={tr("Destination group")}
               value={moveTo}
               onChange={setMoveTo}
               options={[
-                { value: "", label: "No group" },
+                { value: "", label: tr("No group") },
                 ...groups
                   .filter(
                     (g) =>
@@ -2060,7 +2178,7 @@ export default function App() {
               disabled={operationBusy}
               onClick={() => setMoving(null)}
             >
-              Cancel
+              {tr("Cancel")}
             </button>
             <button
               className="primary"
@@ -2076,10 +2194,10 @@ export default function App() {
               }
             >
               {operationBusy
-                ? "Saving…"
+                ? tr("Saving…")
                 : moving.copy
-                  ? "Copy records"
-                  : "Move records"}
+                  ? tr("Copy records")
+                  : tr("Move records")}
             </button>
           </footer>
         </Modal>
@@ -2088,8 +2206,8 @@ export default function App() {
         <Modal
           title={
             prompts[0].kind === "hostKey"
-              ? "Verify server identity"
-              : prompts[0].detail.name || "Authentication required"
+              ? tr("Verify server identity")
+              : prompts[0].detail.name || tr("Authentication required")
           }
           onClose={() => {
             void call("prompt_answer", { id: prompts[0].id, answers: [] });
@@ -2103,12 +2221,13 @@ export default function App() {
                   <ShieldCheck size={32} />
                 </div>
                 <p>
-                  First connection to{" "}
+                  {tr("First connection to")}{" "}
                   <strong>{prompts[0].detail.address}</strong>.
                 </p>
                 <p className="muted">
-                  Compare this fingerprint with a trusted source before saving
-                  the server key.
+                  {tr(
+                    "Compare this fingerprint with a trusted source before saving the server key.",
+                  )}
                 </p>
                 <div className="fingerprint">
                   {prompts[0].detail.fingerprint}
@@ -2144,7 +2263,7 @@ export default function App() {
                 setPrompts((p) => p.slice(1));
               }}
             >
-              Cancel
+              {tr("Cancel")}
             </button>
             <button
               className="primary"
@@ -2162,7 +2281,9 @@ export default function App() {
                 setPrompts((p) => p.slice(1));
               }}
             >
-              {prompts[0].kind === "hostKey" ? "Trust and connect" : "Continue"}
+              {prompts[0].kind === "hostKey"
+                ? tr("Trust and connect")
+                : tr("Continue")}
             </button>
           </footer>
         </Modal>
@@ -2178,7 +2299,7 @@ export default function App() {
         >
           {error ? <Info size={18} /> : <Check size={18} />}
           <span>{error || notice}</span>
-          <button className="icon-btn" aria-label="Dismiss message">
+          <button className="icon-btn" aria-label={tr("Dismiss message")}>
             <X size={15} />
           </button>
         </div>

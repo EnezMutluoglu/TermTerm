@@ -37,6 +37,23 @@ export const config = {
   },
   waitforTimeout: 15000,
   logLevel: "warn",
+  before: async function () {
+    // Existing native interaction suites use English selectors; the dedicated
+    // remember/restart suite verifies the actual default Turkish application.
+    const locale = process.env.TERMTERM_LOCALE ??
+      (process.env.TERMTERM_SPEC?.includes("remember-vault") ? "tr" : "en");
+    await browser.execute((value) => {
+      if (value === "tr") localStorage.removeItem("termterm.locale");
+      else localStorage.setItem("termterm.locale", value);
+      if (document.documentElement.lang !== value) {
+        window.__localeReloadPending = true;
+        setTimeout(() => location.reload(), 100);
+      }
+    }, locale);
+    await browser.waitUntil(async () =>
+      (await browser.execute(() => window.__localeReloadPending ? "pending" : document.documentElement.lang)) === locale,
+    );
+  },
   outputDir: process.env.TERMTERM_LOG_DIR ?? ".tools/wdio",
   afterTest: async function (test, context, { passed }) {
     if (!passed) {

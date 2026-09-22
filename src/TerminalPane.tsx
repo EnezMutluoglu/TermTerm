@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -51,19 +52,36 @@ export default function TerminalPane({
   const fitRef = useRef<FitAddon | null>(null);
   const input = useRef(onInput);
   input.current = onInput;
-  const latest = useRef({ onError, onFocus, copyOnSelect, rightClickPaste, closed: session.closed });
-  latest.current = { onError, onFocus, copyOnSelect, rightClickPaste, closed: session.closed };
+  const latest = useRef({
+    onError,
+    onFocus,
+    copyOnSelect,
+    rightClickPaste,
+    closed: session.closed,
+  });
+  latest.current = {
+    onError,
+    onFocus,
+    copyOnSelect,
+    rightClickPaste,
+    closed: session.closed,
+  };
   function copySelection() {
     const text = term.current?.getSelection();
-    if (text) void copyText(text).catch(e => latest.current.onError?.(e));
+    if (text) void copyText(text).catch((e) => latest.current.onError?.(e));
   }
   async function paste() {
     const target = term.current;
     if (!target || latest.current.closed) return;
     try {
       const text = await readClipboard();
-      if (term.current === target && !latest.current.closed) { target.paste(text); target.focus(); }
-    } catch (e) { latest.current.onError?.(e); }
+      if (term.current === target && !latest.current.closed) {
+        target.paste(text);
+        target.focus();
+      }
+    } catch (e) {
+      latest.current.onError?.(e);
+    }
   }
   const [search, setSearch] = useState(false);
   const [query, setQuery] = useState("");
@@ -99,8 +117,11 @@ export default function TerminalPane({
     finder.current = searchAddon;
     for (const bytes of terminalHistory.get(session.id) ?? []) t.write(bytes);
     const data = t.onData((data) => input.current(session.id, data));
-    const resized = t.onResize(({cols, rows}) => {
-      if (!latest.current.closed) void call("session_input", { id: session.id, cols, rows }).catch(() => {});
+    const resized = t.onResize(({ cols, rows }) => {
+      if (!latest.current.closed)
+        void call("session_input", { id: session.id, cols, rows }).catch(
+          () => {},
+        );
     });
     const resize = () => {
       if (container.current && container.current.clientWidth > 0) {
@@ -113,22 +134,35 @@ export default function TerminalPane({
     const surface = container.current;
     let selecting = false;
     let selectionFrame = 0;
-    const beginSelection = (e: PointerEvent) => { if (e.button === 0) selecting = true; };
+    const beginSelection = (e: PointerEvent) => {
+      if (e.button === 0) selecting = true;
+    };
     const endSelection = (e: PointerEvent) => {
       if (e.button !== 0 || !selecting) return;
       selecting = false;
       cancelAnimationFrame(selectionFrame);
-      selectionFrame = requestAnimationFrame(() => { if (latest.current.copyOnSelect) copySelection(); });
+      selectionFrame = requestAnimationFrame(() => {
+        if (latest.current.copyOnSelect) copySelection();
+      });
     };
     const interceptRight = (e: MouseEvent) => {
-      if (e.button === 2 && latest.current.rightClickPaste && (t.modes.mouseTrackingMode === "none" || e.shiftKey)) {
-        e.preventDefault(); e.stopImmediatePropagation();
-        if (e.type === "contextmenu") { latest.current.onFocus(); void paste(); }
+      if (
+        e.button === 2 &&
+        latest.current.rightClickPaste &&
+        (t.modes.mouseTrackingMode === "none" || e.shiftKey)
+      ) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (e.type === "contextmenu") {
+          latest.current.onFocus();
+          void paste();
+        }
       }
     };
     surface.addEventListener("pointerdown", beginSelection);
     window.addEventListener("pointerup", endSelection);
-    for (const event of ["mousedown", "mouseup", "contextmenu"]) surface.addEventListener(event, interceptRight as EventListener, true);
+    for (const event of ["mousedown", "mouseup", "contextmenu"])
+      surface.addEventListener(event, interceptRight as EventListener, true);
     const unsubscribe = onSession((e) => {
       if (e.id !== session.id) return;
       if (e.kind === "data")
@@ -160,7 +194,8 @@ export default function TerminalPane({
         return false;
       }
       if (action === "scrollUp" || action === "scrollDown") {
-        e.stopPropagation(); e.preventDefault();
+        e.stopPropagation();
+        e.preventDefault();
         if (e.type === "keydown") t.scrollPages(action === "scrollUp" ? -1 : 1);
         return false;
       }
@@ -173,7 +208,12 @@ export default function TerminalPane({
       cancelAnimationFrame(selectionFrame);
       surface.removeEventListener("pointerdown", beginSelection);
       window.removeEventListener("pointerup", endSelection);
-      for (const event of ["mousedown", "mouseup", "contextmenu"]) surface.removeEventListener(event, interceptRight as EventListener, true);
+      for (const event of ["mousedown", "mouseup", "contextmenu"])
+        surface.removeEventListener(
+          event,
+          interceptRight as EventListener,
+          true,
+        );
       unsubscribe();
       resized.dispose();
       data.dispose();
@@ -209,26 +249,28 @@ export default function TerminalPane({
         <span className={"status-dot " + (session.connected ? "live" : "")} />
         <Terminal size={14} />
         <strong>{session.label}</strong>
-        <span className="terminal-status" title={session.status}>
-          {session.status}
+        <span className="terminal-status" title={tr(session.status ?? "")}>
+          {tr(session.status ?? "")}
         </span>
         <button
           className="icon-btn"
-          title={`Search terminal (${shortcutLabel("find")})`}
+          title={tr("Search terminal ({shortcut})", {
+            shortcut: shortcutLabel("find"),
+          })}
           onClick={() => setSearch(!search)}
         >
           <Search size={14} />
         </button>
         <button
           className="icon-btn"
-          title="Copy terminal selection"
+          title={tr("Copy terminal selection")}
           onClick={copySelection}
         >
           <Copy size={14} />
         </button>
         <button
           className="icon-btn"
-          title={`Paste (${shortcutLabel("paste")})`}
+          title={tr("Paste ({shortcut})", { shortcut: shortcutLabel("paste") })}
           disabled={session.closed}
           onClick={() => void paste()}
         >
@@ -236,24 +278,28 @@ export default function TerminalPane({
         </button>
         <button
           className="icon-btn"
-          title="Clear screen"
+          title={tr("Clear screen")}
           onClick={() => term.current?.clear()}
         >
           <Trash2 size={14} />
         </button>
         <label
           className="terminal-stats-toggle"
-          title="Show CPU, memory and mounted filesystems"
+          title={tr("Show CPU, memory and mounted filesystems")}
         >
           <input
             type="checkbox"
-            aria-label="Show resource monitor"
+            aria-label={tr("Show resource monitor")}
             checked={session.statsEnabled !== false}
             onChange={(e) => onStats?.(e.target.checked)}
           />
-          Stats
+          {tr("Stats")}
         </label>
-        <button className="icon-btn" title="Close terminal" onClick={onClose}>
+        <button
+          className="icon-btn"
+          title={tr("Close terminal")}
+          onClick={onClose}
+        >
           <X size={15} />
         </button>
       </header>
@@ -267,7 +313,7 @@ export default function TerminalPane({
         <div className="terminal-search">
           <input
             autoFocus
-            placeholder="Find in terminal…"
+            placeholder={tr("Find in terminal…")}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -275,7 +321,10 @@ export default function TerminalPane({
             }}
             onKeyDown={(e) => {
               e.stopPropagation();
-              if (e.key === "Enter") e.shiftKey ? finder.current?.findPrevious(query) : finder.current?.findNext(query);
+              if (e.key === "Enter")
+                e.shiftKey
+                  ? finder.current?.findPrevious(query)
+                  : finder.current?.findNext(query);
               if (e.key === "Escape") setSearch(false);
             }}
           />
@@ -283,13 +332,13 @@ export default function TerminalPane({
             className="text-btn"
             onClick={() => finder.current?.findPrevious(query)}
           >
-            Previous
+            {tr("Previous")}
           </button>
           <button
             className="text-btn"
             onClick={() => finder.current?.findNext(query)}
           >
-            Next
+            {tr("Next")}
           </button>
           <button className="icon-btn" onClick={() => setSearch(false)}>
             <X size={14} />

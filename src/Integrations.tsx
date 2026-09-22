@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 import { useState } from "react";
 import { call, errorText } from "./api";
 import { Field, Select, Busy } from "./components";
@@ -40,15 +41,16 @@ export default function Integrations({
   }
   return (
     <>
-      <h2>Integrations</h2>
+      <h2>{tr("Integrations")}</h2>
       <div className="settings-card">
-        <h3>Cloud host discovery</h3>
+        <h3>{tr("Cloud host discovery")}</h3>
         <p className="muted">
-          List your existing cloud instances, review them, then import selected
-          connection details.
+          {tr(
+            "List your existing cloud instances, review them, then import selected connection details.",
+          )}
         </p>
         <Select
-          label="Provider"
+          label={tr("Provider")}
           value={provider}
           onChange={(v) => {
             setProvider(v);
@@ -62,16 +64,16 @@ export default function Integrations({
         {provider === "aws" ? (
           <>
             <Field
-              label="Configured AWS CLI profile"
+              label={tr("Configured AWS CLI profile")}
               value={profile}
               onChange={setProfile}
             />
-            <Field label="Region" value={region} onChange={setRegion} />
+            <Field label={tr("Region")} value={region} onChange={setRegion} />
           </>
         ) : (
           <>
             <Field
-              label="Read-only DigitalOcean API token"
+              label={tr("Read-only DigitalOcean API token")}
               value={token}
               onChange={setToken}
               type="password"
@@ -93,7 +95,7 @@ export default function Integrations({
                 )
               }
             >
-              Save token in encrypted vault
+              {tr("Save token in encrypted vault")}
             </button>
           </>
         )}
@@ -113,7 +115,7 @@ export default function Integrations({
             )
           }
         >
-          Discover hosts
+          {tr("Discover hosts")}
         </button>
         {preview && (
           <>
@@ -144,32 +146,33 @@ export default function Integrations({
                 })
               }
             >
-              Import discovered hosts
+              {tr("Import discovered hosts")}
             </button>
           </>
         )}
       </div>
       <div className="settings-card">
-        <h3>Localhost API Bridge</h3>
+        <h3>{tr("Localhost API Bridge")}</h3>
         <p className="muted">
-          Allow your scripts to list and update host connection details. The
-          bridge never returns passwords or private keys and does not execute
-          commands.
+          {tr(
+            "Allow your scripts to list and update host connection details. The bridge never returns passwords or private keys and does not execute commands.",
+          )}
         </p>
         <p className="muted small">
-          A new token and local port are generated each time. Locking the vault
-          stops the bridge.
+          {tr(
+            "A new token and local port are generated each time. Locking the vault stops the bridge.",
+          )}
         </p>
         {bridge && (
           <>
             <Field
-              label="Base URL"
+              label={tr("Base URL")}
               value={bridge.url}
               onChange={() => {}}
               readOnly
             />
             <Field
-              label="Bearer token"
+              label={tr("Bearer token")}
               value={bridge.token}
               readOnly
               type="password"
@@ -183,7 +186,7 @@ export default function Integrations({
                   .catch((e) => setError(errorText(e)))
               }
             >
-              Copy bearer token
+              {tr("Copy bearer token")}
             </button>
             <pre className="export-preview">
               GET /v1/hosts{"\n"}POST /v1/hosts{"\n"}Authorization: Bearer
@@ -205,7 +208,9 @@ export default function Integrations({
               )
             }
           >
-            {bridge ? "Restart with new token" : "Start / restart bridge"}
+            {bridge
+              ? tr("Restart with new token")
+              : tr("Start / restart bridge")}
           </button>
           <button
             className="secondary"
@@ -216,7 +221,7 @@ export default function Integrations({
               })
             }
           >
-            Stop bridge
+            {tr("Stop bridge")}
           </button>
         </div>
       </div>

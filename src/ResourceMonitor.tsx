@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { call, desktop, errorText } from "./api";
@@ -157,7 +158,7 @@ export default function ResourceMonitor({
     <aside
       className={"resource-monitor" + (stale ? " stale" : "")}
       data-testid="resource-monitor"
-      aria-label="Terminal resources"
+      aria-label={tr("Terminal resources")}
     >
       <div
         className="resource-source"
@@ -170,27 +171,30 @@ export default function ResourceMonitor({
         ) : (
           <>
             <span className="resource-origin">
-              {sample?.source ?? "Resources"}
+              {sample?.source ?? tr("Resources")}
             </span>
             <span className={stale ? "stale-badge" : ""}>
               {!connected
-                ? "Disconnected"
+                ? tr("Disconnected")
                 : !visible || !foreground
-                  ? "Paused"
+                  ? tr("Paused")
                   : error || sample?.error
-                    ? "Unavailable"
+                    ? tr("Unavailable")
                     : stale
-                      ? "Stale"
+                      ? tr("Stale")
                       : sample?.sampledAt
-                        ? "Live"
-                        : "Sampling…"}
+                        ? tr("Live")
+                        : tr("Sampling…")}
             </span>
           </>
         )}
       </div>
       {sample?.supported !== false && (
         <div className="resource-summary">
-          <div className="resource-value resource-cpu" title="Total CPU usage">
+          <div
+            className="resource-value resource-cpu"
+            title={tr("Total CPU usage")}
+          >
             <Cpu size={12} />
             <span>
               CPU{" "}
@@ -207,7 +211,7 @@ export default function ResourceMonitor({
             title={
               sample?.memory
                 ? `${size(sample.memory.used)} / ${size(sample.memory.total)}`
-                : "Memory unavailable"
+                : tr("Memory unavailable")
             }
           >
             <MemoryStick size={12} />
@@ -230,11 +234,11 @@ export default function ResourceMonitor({
             className="resource-disk"
             onClick={() => setDetails(!details)}
             aria-expanded={details}
-            title={sample?.diskError ?? "Mounted filesystems"}
+            title={sample?.diskError ?? tr("Mounted filesystems")}
           >
             <HardDrive size={12} />
             <span>
-              {root?.mountPoint ?? "Disks"}{" "}
+              {root?.mountPoint ?? tr("Disks")}{" "}
               <b>
                 {root ? `${percent(root.used, root.total).toFixed(0)}%` : "—"}
               </b>
@@ -260,17 +264,17 @@ export default function ResourceMonitor({
         <div
           className="resource-details"
           role="dialog"
-          aria-label="Mounted filesystems"
+          aria-label={tr("Mounted filesystems")}
           onKeyDown={(e) => {
             e.stopPropagation();
             if (e.key === "Escape") setDetails(false);
           }}
         >
           <header>
-            <strong>Mounted filesystems</strong>
+            <strong>{tr("Mounted filesystems")}</strong>
             <button
               className="icon-btn"
-              aria-label="Close filesystem details"
+              aria-label={tr("Close filesystem details")}
               onClick={() => setDetails(false)}
             >
               <X size={14} />
@@ -282,11 +286,11 @@ export default function ResourceMonitor({
               checked={virtual}
               onChange={(e) => setVirtual(e.target.checked)}
             />{" "}
-            Show virtual mounts
+            {tr("Show virtual mounts")}
           </label>
           {(sample?.diskError || diskStale) && (
             <p className="resource-warning">
-              {sample?.diskError ?? "Stale disk counters"}
+              {sample?.diskError ?? tr("Stale disk counters")}
             </p>
           )}
           <div className="resource-mount-list">
@@ -300,7 +304,7 @@ export default function ResourceMonitor({
                   <b>{percent(d.used, d.total).toFixed(0)}%</b>
                 </div>
                 <span title={d.device}>
-                  {d.filesystem || "Filesystem"} · {d.device}
+                  {d.filesystem || tr("Filesystem")} · {d.device}
                 </span>
                 <span className="capacity-track">
                   <i
@@ -314,14 +318,16 @@ export default function ResourceMonitor({
                 </span>
                 <small>
                   {size(d.used)} / {size(d.total)} · {size(d.available)}{" "}
-                  available
+                  {tr("available")}
                 </small>
               </div>
             ))}
-            {!disks.length && <p>Waiting for filesystem counters…</p>}
+            {!disks.length && <p>{tr("Waiting for filesystem counters…")}</p>}
           </div>
           <footer>
-            Shared filesystem capacity is shown per mount, never added together.
+            {tr(
+              "Shared filesystem capacity is shown per mount, never added together.",
+            )}
           </footer>
         </div>
       )}

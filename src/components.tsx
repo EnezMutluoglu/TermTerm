@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 import { useState, type ReactNode } from "react";
 import { X, Eye, EyeOff, LoaderCircle, ChevronDown } from "lucide-react";
 export function Field({
@@ -49,7 +50,7 @@ export function Field({
           <button
             type="button"
             className="icon-btn reveal"
-            aria-label={show ? "Hide password" : "Show password"}
+            aria-label={show ? tr("Hide password") : tr("Show password")}
             onClick={() => setShow(!show)}
           >
             {show ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -164,7 +165,7 @@ export function Modal({
           <h2>{title}</h2>
           <button
             className="icon-btn"
-            aria-label="Close dialog"
+            aria-label={tr("Close dialog")}
             onClick={onClose}
           >
             <X size={18} />
@@ -175,7 +176,7 @@ export function Modal({
     </div>
   );
 }
-export function Busy({ label = "Working…" }: { label?: string }) {
+export function Busy({ label = tr("Working…") }: { label?: string }) {
   return (
     <span className="busy">
       <LoaderCircle size={16} className="spin" />
