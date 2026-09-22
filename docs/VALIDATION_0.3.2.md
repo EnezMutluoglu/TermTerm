@@ -21,7 +21,15 @@
 
 ## Final release checks
 
-Pending final updater test build, browser UI checks, installer signature/tamper test, package manifests and published feed verification. This paragraph is replaced with measured outcomes before publication.
+- Final Rust run including updater feed restrictions: 39 passed, 0 failed, 4 ignored in the batch (two PostgreSQL lab cases, subprocess crash helper, release artifact signature check). The signature test subsequently passed separately against the final installer.
+- 8 Playwright UI tests passed, including update disabled on development builds, network failure recovery and explicit installation confirmation. Updater UI cases mock IPC; they do not install a native update. 10,000-host search: 42.4 ms.
+- GitHub development source-check workflow passed (run 35740687633). Production dependency graph contains no WebDriver plugin; production frontend excludes private previews and test harness content.
+- Public Git index audited: 238 files; no private/build paths, credential patterns or real exported SSH key material.
+- Signing-key probe passed signature verification and tamper rejection.
+- Stable Windows 0.3.2 production build and NSIS packaging completed. The actual installer passed signature verification and tamper rejection.
+- Silent installation into an isolated directory passed: installed executable matched the release binary except for Tauri's bundle marker, bundled Mosh started, the real application window opened and closed gracefully, no test driver port was exposed, and uninstall removed the application.
+- Package verification passed: SHA-256 manifests, x64 executable, source archive allowlist, portable Mosh runtime, offline WebView2 installer, notices and guides.
+- No newer-version native update has been installed yet: this first release bootstraps the updater. That end-to-end check requires a subsequent owner-approved version. Published release asset/feed checks are recorded separately after publication.
 
 ## Compatibility limits
 

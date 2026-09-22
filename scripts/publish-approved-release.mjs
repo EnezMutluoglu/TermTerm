@@ -18,7 +18,7 @@ const dir=path.join(root,'artifacts',`release-${version}`);
 const installer=`TermTerm_${version}_x64-setup.exe`;
 const required=[installer,`${installer}.sig`,`TermTerm-${version}-windows-x64-portable.zip`,`TermTerm-${version}-source.zip`,'RELEASE-OKU.md',`VALIDATION_${version}.md`];
 for(const name of required) if(!fs.existsSync(path.join(dir,name))) throw Error(`Missing release asset: ${name}`);
-const feed={version,approved:true,notes:fs.readFileSync(path.join(dir,'RELEASE-OKU.md'),'utf8'),pub_date:new Date().toISOString(),platforms:{'windows-x86_64':{signature:fs.readFileSync(path.join(dir,`${installer}.sig`),'utf8').trim(),url:`https://github.com/${repo}/releases/download/v${version}/${installer}`}}};
+const feed={version,approved:true,notes:fs.readFileSync(path.join(dir,'RELEASE-OKU.md'),'utf8'),pub_date:git('show','-s','--format=%cI',sha),platforms:{'windows-x86_64':{signature:fs.readFileSync(path.join(dir,`${installer}.sig`),'utf8').trim(),url:`https://github.com/${repo}/releases/download/v${version}/${installer}`}}};
 fs.writeFileSync(path.join(dir,'latest.json'),JSON.stringify(feed,null,2)+'\n');
 const files=[...required,'latest.json'];
 fs.writeFileSync(path.join(dir,'SHA256SUMS.txt'),files.map(name=>`${crypto.createHash('sha256').update(fs.readFileSync(path.join(dir,name))).digest('hex')}  ${name}`).join('\n')+'\n');
@@ -37,13 +37,17 @@ try{release=await api(`/releases/tags/v${version}`);}catch(e){if(!String(e).incl
 if(release&&!release.draft)throw Error('An already published release cannot be overwritten');
 release??=await api('/releases','POST',{tag_name:`v${version}`,target_commitish:sha,name:`TermTerm ${version}`,body:feed.notes,draft:true,prerelease:false});
 for(const name of files){
-  if(release.assets?.some(a=>a.name===name))throw Error(`Draft already has ${name}; review it manually before retrying`);
   const bytes=fs.readFileSync(path.join(dir,name));
+  const digest='sha256:'+crypto.createHash('sha256').update(bytes).digest('hex');
+  const existing=release.assets?.find(a=>a.name===name);
+  if(existing){
+    if(existing.state==='uploaded'&&existing.size===bytes.length&&existing.digest===digest){console.log(`Verified existing draft asset: ${name}`);continue;}
+    throw Error(`Draft asset ${name} differs or lacks a verified digest; review manually before retrying`);
+  }
   const url=release.upload_url.replace(/\{.*$/,'')+`?name=${encodeURIComponent(name)}`;
   const r=await fetch(url,{method:'POST',headers:{...headers,'Content-Type':'application/octet-stream','Content-Length':String(bytes.length)},body:bytes});
   if(!r.ok)throw Error(`Asset upload failed: ${name}, HTTP ${r.status}; draft remains unpublished`);
   const asset=await r.json();
-  const digest='sha256:'+crypto.createHash('sha256').update(bytes).digest('hex');
   if(asset.size!==bytes.length||(asset.digest&&asset.digest!==digest))throw Error(`Uploaded asset mismatch: ${name}`);
   console.log(`Uploaded ${name} (${bytes.length} bytes)`);
 }

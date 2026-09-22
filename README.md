@@ -12,7 +12,7 @@ RSA 2048/3072/4096, Ed25519 ve ECDSA anahtar uyumluluğu ile kayıtlı sunucu an
 
 0.3.1 klasör düzeltmesi: Hosts ana ekranı yalnızca klasörleri gösterir. Klasörsüz kayıtlar `Ungrouped` sanal klasöründen açılır; kayıtların gerçek grup ilişkileri değiştirilmez. Klasör kartları ve sol menü, alt klasörleri de içeren toplam host sayısını gösterir. Bu sürümün kontrol sonuçları [0.3.1 raporunda](docs/VALIDATION_0.3.1.md) bulunur.
 
-Windows 0.3.1 paketleri ve Linux amd64 Debian paketi `artifacts/release-0.3.1` klasöründedir; önceki Windows/Linux 0.3.0 teslimatı `artifacts/release-0.3.0` altında korunur. Windows ZIP'inin **tamamını** aynı klasöre çıkarıp `TermTerm.exe` çalıştırın; Mosh yardımcı dosyalarının da yanında olması gerekir. WebView2 Runtime Windows 11'de genellikle yüklüdür; kurucu eksikse Microsoft dağıtımını kurar.
+Windows için [0.3.2 sürüm sayfasındaki](https://github.com/EnezMutluoglu/TermTerm/releases/tag/v0.3.2) `TermTerm_0.3.2_x64-setup.exe` kurucusunu kullanın. Kurucu WebView2 çevrimdışı önkoşulunu ve Mosh çalışma dosyalarını içerir. Taşınabilir ZIP'i tercih ederseniz **tamamını** aynı klasöre çıkarıp `TermTerm.exe` çalıştırın. Önceki yerel 0.3.0/0.3.1 teslimatları geliştirme bilgisayarında korunur; kaynak deposu büyük kurucuları içermez.
 
 Debian paketini bulunduğu klasörde `sudo apt install ./TermTerm_0.3.1_amd64.deb` ile kurun; menüden TermTerm'i veya terminalden `termterm` komutunu açın. Eksik sistem bağımlılıkları APT üzerinden indirilir. Paket Ubuntu 22.04 test ortamında kurulup açıldı; ayrı Debian masaüstü doğrulaması yapılmadı. 0.3.1 için AppImage/macOS paketi bu teslimatta üretilmedi.
 

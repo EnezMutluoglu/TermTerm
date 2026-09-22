@@ -1,4 +1,4 @@
-# TermTerm 0.3.1 platform derlemeleri
+# TermTerm platform derlemeleri
 
 Hedefler Windows x64, Linux x64, macOS Intel ve Apple Silicon'dur. Node 22.12+ (CI: 24), pnpm 11.19 ve Rust 1.98.1 kullanılır. Kasa ve yedek dosya biçimi 0.1 ile aynıdır; grafik geçmişi yalnızca RAM'de tutulur.
 
@@ -14,9 +14,11 @@ scripts/package.ps1
 scripts/verify-package.ps1
 ```
 
-NSIS ve taşınabilir ZIP, proje sürümüne göre `artifacts/release-0.3.1` içine yazılır. Eski teslimat klasörlerine yazılmaz. Sertifika verilmediğinden Windows çıktıları imzasızdır. Taşınabilir paketin tamamını çıkarın; Mosh helper ve DLL dosyalarını exe yanında bırakın.
+NSIS ve taşınabilir ZIP, proje sürümüne göre `artifacts/release-0.3.2` içine yazılır. Eski teslimat klasörlerine yazılmaz. Yukarıdaki normal komutlar geliştirme kanalı üretir. Sahibinin onayladığı kararlı sürümü ve güncelleme imzasını üretmek için [yayın kılavuzunu](RELEASE_PROCESS.md) izleyin. Windows Authenticode yayıncı sertifikası yapılandırılmamıştır; güncelleme imzası ayrı bir kontroldür. Taşınabilir paketin tamamını çıkarın; Mosh helper ve DLL dosyalarını exe yanında bırakın.
 
 ## Linux
+
+Aşağıdaki paket örnekleri daha önce doğrulanan 0.3.1 Linux teslimatına aittir; 0.3.2 Windows düzeltme yayınına yeni Linux paketi eklenmemiştir.
 
 Dağıtım tabanı Ubuntu 22.04'tür. Teslim edilen paketler WSL Ubuntu 24.04 içinde ayrı Ubuntu 22.04 chroot ortamında derlendi ve çalıştırıldı. Uygulamanın GLIBC gereksinimi en fazla 2.34 olarak doğrulandı. PostgreSQL/SSH laboratuvarı dıştaki Ubuntu 24.04 dağıtımında kalır.
 

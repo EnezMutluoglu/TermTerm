@@ -28,7 +28,7 @@ After approval and with the exact clean `main` commit pushed, prepare the feed l
 node scripts/publish-approved-release.mjs --approved-version VERSION --approved-commit EXACT_COMMIT_SHA
 ```
 
-Only after approval, add `--publish` to upload a draft, verify all assets, then publish it. The command refuses mismatched versions, commits, branches and replacement of already published releases. It authenticates through `GITHUB_TOKEN` or Git's existing GitHub credential helper, without printing the token. A partial upload leaves the draft unpublished for manual review.
+Only after approval, add `--publish` to upload a draft, verify all assets, then publish it. The command refuses mismatched versions, commits, branches and replacement of already published releases. It authenticates through `GITHUB_TOKEN` or Git's existing GitHub credential helper, without printing the token. A partial upload leaves the draft unpublished. A retry skips an already uploaded asset only when its size and server SHA-256 digest match; differing assets require manual review.
 
 ## Installed applications
 
@@ -36,6 +36,6 @@ Settings → Updates checks only `releases/latest/download/latest.json`. It reje
 
 This first feed contains Windows x64 only. Tauri supports macOS bundles and Linux AppImages once they are built, signed, tested and added to the manifest. Debian packages are updated through APT/manual `.deb` installation, not by the Tauri updater. macOS remains deferred. There is no background forced installation.
 
-The 0.3.2 Windows package must be installed once manually to bootstrap updater support; 0.3.1 has no updater. The first newer-version install will be verified on a subsequent owner-approved release. Current checks cover signature verification/tampering, feed restrictions, UI, and absence of an offered update when the installed version equals the published version.
+The 0.3.2 Windows package must be installed once manually to bootstrap updater support; 0.3.1 has no updater. The first newer-version install will be verified on a subsequent owner-approved release. Current checks cover signature verification/tampering, feed restrictions, UI and the actual Windows installer. The published feed is checked separately after publication.
 
 Reference: https://v2.tauri.app/plugin/updater/
