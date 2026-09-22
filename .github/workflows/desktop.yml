@@ -1,0 +1,80 @@
+name: Desktop build and native acceptance
+on:
+  workflow_dispatch:
+# Full platform packaging is manual; no push/tag event can publish a release.
+permissions:
+  contents: read
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+          - os: macos-15
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.98.1
+      - name: Linux dependencies (Ubuntu 22.04 baseline)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libudev-dev libdbus-1-dev patchelf mosh xvfb dbus-x11 libfuse2
+      - name: macOS Mosh
+        if: runner.os == 'macOS'
+        run: brew install mosh
+      - run: pnpm install --frozen-lockfile
+      - name: Windows Mosh runtime
+        if: runner.os == 'Windows'
+        run: node scripts/fetch-mosh.mjs
+      - name: Unix Mosh runtime
+        if: runner.os != 'Windows'
+        run: bash scripts/prepare-mosh.sh
+      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml --lib -- --test-threads=1
+      - run: pnpm test:unit
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:ui
+      - name: Build isolated native test application
+        run: pnpm tauri build --debug --features e2e --config src-tauri/tauri.e2e.conf.json --no-bundle
+      - name: Native tests (Windows and macOS)
+        if: runner.os != 'Linux'
+        run: pnpm test:native
+        env:
+          TERMTERM_SPEC: ./tests/desktop/platform-smoke.mjs
+      - name: Native tests (Linux)
+        if: runner.os == 'Linux'
+        run: dbus-run-session -- xvfb-run -a pnpm test:native
+        env:
+          TERMTERM_SPEC: ./tests/desktop/platform-smoke.mjs
+          WEBKIT_DISABLE_COMPOSITING_MODE: 1
+      - name: Release packages (no test features)
+        run: pnpm tauri build
+      - name: Verify Unix packages
+        if: runner.os != 'Windows'
+        run: node scripts/verify-native-package.mjs
+      - name: Windows portable and source archives
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/package.ps1 -SkipBuild; ./scripts/verify-package.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: TermTerm-${{ matrix.target }}
+          path: |
+            artifacts/release-*/*
+            src-tauri/target/release/bundle/macos/*.app
+            .tools/wdio/
+            test-results/

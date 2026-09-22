@@ -1,0 +1,88 @@
+[package]
+name = "termterm"
+version = "0.3.2"
+description = "Local-first encrypted SSH workspace"
+edition = "2021"
+rust-version = "1.98"
+
+[features]
+e2e = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]
+
+[lib]
+name = "termterm_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-wdio = { version = "1.4", optional = true }
+tauri-plugin-wdio-webdriver = { version = "1.4", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+rusqlite = { version = "0.37", features = ["bundled", "backup"] }
+argon2 = "0.5"
+chacha20poly1305 = "0.10"
+rand = "0.8"
+zeroize = { version = "1", features = ["derive"] }
+fs2 = "0.4"
+base64 = "0.22"
+tokio = { version = "1", features = ["full"] }
+futures-util = "0.3"
+russh = { version = "0.63", default-features = false, features = ["ring", "rsa", "flate2"] }
+russh-sftp = "2"
+tokio-socks = "0.5"
+tokio-postgres = { version = "0.7", features = ["with-uuid-1", "with-serde_json-1"] }
+native-tls = "0.2"
+postgres-native-tls = "0.5"
+portable-pty = "0.9"
+serialport = "4"
+csv = "1"
+encoding_rs = "0.8"
+quick-xml = { version = "0.38", features = ["serialize"] }
+serde_yaml = "0.9"
+sha2 = "0.10"
+hex = "0.4"
+aes = "0.9"
+cbc = "0.2"
+md5 = "0.8"
+url = "2"
+tempfile = "3"
+hmac = "0.12"
+sha1 = "0.10"
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "json"] }
+sysinfo = { version = "0.39", default-features = false, features = ["system"] }
+glob = "0.3"
+tauri-plugin-updater = { version = "2.12.0", default-features = false, features = ["native-tls", "zip", "system-proxy"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3.6", default-features = false, features = ["apple-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3.6", default-features = false, features = ["sync-secret-service", "crypto-rust"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Security_Cryptography", "Win32_Foundation"] }
+
+[dev-dependencies]
+tempfile = "3"
+minisign-verify = "0.2.5"
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 8
+
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3

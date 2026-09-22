@@ -1,0 +1,13 @@
+{
+  "identifier": "local.termterm.desktop.e2e",
+  "build": {"beforeBuildCommand":"node scripts/build-e2e.mjs"},
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "capabilities": [
+        "main",
+        { "identifier": "test-driver", "windows": ["main"], "permissions": ["wdio:default", "wdio-webdriver:default"] }
+      ]
+    }
+  }
+}

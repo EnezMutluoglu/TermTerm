@@ -1,0 +1,11 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\SimonTatham\PuTTY\Sessions\%C4%B0stanbul%20Lab]
+"HostName"="127.0.0.1"
+"PortNumber"=dword:000056ce
+"UserName"="termterm_test"
+"Protocol"="ssh"
+"ProxyMethod"=dword:00000002
+"ProxyHost"="127.0.0.1"
+"ProxyPort"=dword:00000438
+"PortForwardings"="L18080=127.0.0.1:80"

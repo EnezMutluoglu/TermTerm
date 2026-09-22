@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VanDyke>
+  <key name="Sessions">
+    <key name="Example">
+      <string name="Hostname">192.0.2.10</string>
+      <string name="Username">ubuntu</string>
+      <dword name="[SSH2] Port">22</dword>
+    </key>
+  </key>
+</VanDyke>

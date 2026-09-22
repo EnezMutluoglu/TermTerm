@@ -1,0 +1,28 @@
+{
+  "bundle": {
+    "targets": [
+      "appimage",
+      "deb"
+    ],
+    "resources": {
+      "resources/mosh-native/": "mosh/"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "libayatana-appindicator3-1",
+          "libudev1",
+          "libssl3",
+          "libdbus-1-3",
+          "libgcc-s1",
+          "libc6 (>= 2.34)"
+        ]
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  }
+}

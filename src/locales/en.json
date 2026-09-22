@@ -1,0 +1,13 @@
+{
+  "nav.hosts": "Hosts",
+  "nav.sftp": "SFTP",
+  "nav.keychain": "Keychain",
+  "nav.snippets": "Snippets",
+  "nav.tunnels": "Port forwarding",
+  "nav.workspaces": "Workspaces",
+  "nav.logs": "Session logs",
+  "nav.settings": "Settings",
+  "vault.create": "Create local vault",
+  "vault.open": "Open vault file",
+  "vault.restore": "Restore a backup"
+}

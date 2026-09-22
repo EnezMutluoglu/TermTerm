@@ -1,0 +1,3 @@
+Label,Address,Port,Username,Password,Protocol,Group,Tags
+İstanbul web,192.0.2.10,22,ubuntu,,ssh,Production/Web,production;web
+Bastion,192.0.2.20,22,admin,,ssh,Production,gateway

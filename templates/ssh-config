@@ -1,0 +1,11 @@
+# Import does not execute ProxyCommand, LocalCommand, Match exec or Include.
+Host bastion
+    HostName 192.0.2.20
+    User admin
+    Port 22
+
+Host production-web
+    HostName 10.0.0.10
+    User ubuntu
+    ProxyJump bastion
+    IdentityFile ~/.ssh/id_ed25519

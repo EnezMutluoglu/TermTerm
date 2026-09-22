@@ -1,0 +1,1 @@
+{"bundle":{"targets":["app","dmg"],"resources":{"resources/mosh-native/":"mosh/"},"macOS":{"minimumSystemVersion":"11.0","signingIdentity":"-"}}}

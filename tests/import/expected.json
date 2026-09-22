@@ -1,0 +1,94 @@
+[
+  {
+    "file": "unicode.csv",
+    "format": "csv",
+    "hosts": 1,
+    "warnings": [],
+    "source": "TermTerm synthetic fixture",
+    "vendorVersion": null
+  },
+  {
+    "file": "invalid-port.csv",
+    "format": "csv",
+    "hosts": 1,
+    "warnings": [
+      "invalid port"
+    ],
+    "source": "TermTerm synthetic fixture",
+    "vendorVersion": null
+  },
+  {
+    "file": "openssh.conf",
+    "format": "openssh",
+    "hosts": 1,
+    "warnings": [
+      "missing"
+    ],
+    "source": "TermTerm synthetic fixture",
+    "vendorVersion": null
+  },
+  {
+    "file": "putty.reg",
+    "format": "putty",
+    "hosts": 1,
+    "warnings": [],
+    "source": "TermTerm synthetic fixture",
+    "vendorVersion": null
+  },
+  {
+    "file": "mobaxterm.ini",
+    "format": "mobaxterm",
+    "hosts": 1,
+    "warnings": [
+      "Encrypted MobaXterm"
+    ],
+    "source": "TermTerm synthetic fixture",
+    "vendorVersion": null
+  },
+  {
+    "file": "securecrt.xml",
+    "format": "securecrt",
+    "hosts": 1,
+    "warnings": [
+      "Password V2"
+    ],
+    "source": "TermTerm synthetic fixture",
+    "vendorVersion": null
+  },
+  {
+    "file": "inventory.ini",
+    "format": "ansible",
+    "hosts": 1,
+    "warnings": [],
+    "source": "TermTerm synthetic fixture",
+    "vendorVersion": null
+  },
+  {
+    "file": "inventory.yml",
+    "format": "ansible",
+    "hosts": 1,
+    "warnings": [],
+    "source": "TermTerm synthetic fixture",
+    "vendorVersion": null
+  },
+  {
+    "file": "wrong-port.reg",
+    "format": "putty",
+    "hosts": 0,
+    "warnings": [
+      "invalid port"
+    ],
+    "source": "TermTerm synthetic fixture",
+    "vendorVersion": null
+  },
+  {
+    "file": "dangerous.conf",
+    "format": "openssh",
+    "hosts": 1,
+    "warnings": [
+      "not executed"
+    ],
+    "source": "TermTerm synthetic fixture",
+    "vendorVersion": null
+  }
+]

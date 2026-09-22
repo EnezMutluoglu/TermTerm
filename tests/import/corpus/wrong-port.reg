@@ -1,0 +1,4 @@
+Windows Registry Editor Version 5.00
+[HKEY_CURRENT_USER\Software\SimonTatham\PuTTY\Sessions\Bad]
+"HostName"="127.0.0.1"
+"PortNumber"=dword:ffffffff

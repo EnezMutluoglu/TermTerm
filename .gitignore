@@ -1,0 +1,29 @@
+# Downloaded dependencies and generated build/test output
+node_modules/
+/dist/
+/src-tauri/target/
+/src-tauri/gen/
+/src-tauri/resources/mosh/
+/src-tauri/resources/mosh-native/
+*.tsbuildinfo
+/playwright-report/
+/test-results/
+
+# Local tools, credentials, vaults and release packages stay on this computer
+/.tools/
+/.lab/
+/artifacts/
+*.ttvault*
+*.ttbackup
+*.log
+*.pem
+*.key
+*.pfx
+*.p12
+.env*
+!tests/ssh-keys/*.pem
+
+# Syncthing device-local state; shared rules are tracked separately
+/.stignore
+/.stfolder
+/.stversions/

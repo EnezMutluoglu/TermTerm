@@ -1,0 +1,19 @@
+// Use the termterm project directory as the Syncthing folder root.
+// Keep these rules synchronized; initialize .stignore on each device.
+node_modules
+/dist
+/src-tauri/target
+/src-tauri/gen
+/src-tauri/resources/mosh
+/src-tauri/resources/mosh-native
+*.tsbuildinfo
+/playwright-report
+/test-results
+/.tools
+/.lab
+/artifacts
+(?i)*.ttvault*
+(?i)*.ttbackup
+*.log
+/.git
+/.stversions
