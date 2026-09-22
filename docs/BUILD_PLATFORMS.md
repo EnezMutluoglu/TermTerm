@@ -1,4 +1,4 @@
-# Platform derlemeleri — 0.3.3-dev.1
+# Platform derlemeleri — 0.3.3
 
 Hedefler Windows x64, Linux x64, macOS Intel/Apple Silicon. Node 22.12+ (CI 24), pnpm 11.19+ ve Rust 1.98.1 kullanılır. Normal derleme geliştirme kanalındadır; stable yayın için sahibinin ayrıca onayı ve [yayın akışı](RELEASE_PROCESS.md) gerekir. Workflow yalnızca elle çalışır, release yayımlamaz.
 
@@ -13,7 +13,7 @@ powershell -ExecutionPolicy Bypass -File scripts/package.ps1
 powershell -ExecutionPolicy Bypass -File scripts/verify-package.ps1
 ```
 
-`artifacts/release-0.3.3-dev.1` altında NSIS, portable ZIP ve kaynak ZIP oluşur. NSIS ve portable paket WebView2 x64 çevrimdışı kurucusunu içerir. Portable ZIP'in tamamını çıkarın; Mosh/DLL/lisans dosyalarını yanında tutun. Authenticode yayıncı imzası yoktur. Geliştirme paketi güncelleme akışına yüklenmez.
+`artifacts/release-0.3.3` altında NSIS, portable ZIP ve kaynak ZIP oluşur. NSIS ve portable paket WebView2 x64 çevrimdışı kurucusunu içerir. Portable ZIP'in tamamını çıkarın; Mosh/DLL/lisans dosyalarını yanında tutun. Authenticode yayıncı imzası yoktur. Kararlı Windows paketleri imzalı uygulama içi güncelleme alır; geliştirme kanalı bunu kullanmaz.
 
 ## Linux x64
 
@@ -31,19 +31,21 @@ bash scripts/build.sh package
 Ubuntu 24.04'te `libfuse2t64` kullanılır. Üç paket Tauri bundle dizininde üretilir; doğrulama betiği hepsini kontrol edip artifacts klasörüne kopyalar. Mosh yardımcı süreç ve kütüphaneleri pakette bulunur; sistem glibc'si taşınmaz. Dağıtım bağımlılıklarının kurulumu internet gerektirebilir.
 
 ```bash
-sudo apt install ./TermTerm_0.3.3-dev.1_amd64.deb
+sudo apt install ./TermTerm_0.3.3_amd64.deb
 # RPM dağıtımında:
-sudo dnf install ./TermTerm-0.3.3-dev.1-1.x86_64.rpm
+sudo dnf install ./TermTerm-0.3.3-1.x86_64.rpm
 # AppImage:
-chmod +x TermTerm_0.3.3-dev.1_amd64.AppImage
-./TermTerm_0.3.3-dev.1_amd64.AppImage
+chmod +x TermTerm_0.3.3_amd64.AppImage
+./TermTerm_0.3.3_amd64.AppImage
 # FUSE yoksa:
-./TermTerm_0.3.3-dev.1_amd64.AppImage --appimage-extract-and-run
+./TermTerm_0.3.3_amd64.AppImage --appimage-extract-and-run
 ```
 
 Yerel terminal kullanıcı shell'ini açar. Parola hatırlama kilidi açık Secret Service gerektirir; yoksa parola ile kasa açılabilir. PostgreSQL isteğe bağlıdır. WSL testi masaüstü keyring veya bütün dağıtımlarda doğrulama anlamına gelmez.
 
-## macOS: kaynak hazır, derleme Mac üzerinde
+## macOS Intel / Apple Silicon — derleme bekletiliyor
+
+23 Eylül 2026: sahibinin isteğiyle Mac CI işleri kredi harcamamak için iptal edildi. Yeniden açıkça istenmeden Mac runner başlatılmayacak. 0.3.3 için Mac paketi veya tamamlanmış Mac test sonucu yoktur; aşağıdaki komutlar gelecekteki derleme içindir.
 
 Intel Mac'te x86_64, Apple Silicon Mac'te arm64 paketi üretilir. Her mimari için ayrı kaynak kopyası/runner kullanın; Mosh dosyalarını mimariler arasında karıştırmayın. Xcode Command Line Tools, Homebrew, Node/pnpm ve Rust gerekir.
 
@@ -54,9 +56,9 @@ pnpm install --frozen-lockfile
 bash scripts/build.sh package
 ```
 
-Betik Mosh/dylib hazırlığını yapar, `.app` ve DMG üretir. Doğrulama `codesign --verify --deep --strict` çalıştırır, `.app.zip` oluşturur; DMG ve ZIP artifacts klasörüne alınır. Minimum sistem 11.0; imza ad-hoc'tur. Apple Developer sertifikası/notarization yapılandırılmamıştır. Kullanıcı kararıyla Mac derlemesi bekler; yapılandırmanın hazır olması macOS testinin geçtiği anlamına gelmez.
+Betik Mosh/dylib hazırlığını yapar, `.app` ve DMG üretir. Doğrulama `codesign --verify --deep --strict` çalıştırır, `.app.zip` oluşturur; DMG ve ZIP artifacts klasörüne alınır. Hazırlanan yapılandırma macOS 15 veya üzerini hedefler; güncel Homebrew Mosh bağımlılıklarıyla daha eski macOS sürümleri vaat edilmez. İmza ad-hoc'tur. Apple Developer sertifikası/notarization yapılandırılmamıştır. Gerçek sonuçlar [0.3.3 doğrulama raporunda](VALIDATION_0.3.3.md) yer alır.
 
-`.github/workflows/desktop.yml` içinde `macos-15-intel` ve `macos-15` runner'ları hazırdır. **Run workflow** ile başlatılır; yayın yapmaz. Kaynak ZIP'i Mac'e taşıyıp yukarıdaki komutları çalıştırabilirsiniz.
+`.github/workflows/desktop.yml` içinde `macos-15-intel` ve `macos-15` runner'ları hazırdır. **Run workflow** ile `platforms=macos` seçilerek yalnızca iki Mac mimarisi derlenir. `channel=stable` yalnızca o sürüm için sahibinin yayın onayı varsa seçilir; CI yayın yapmaz. Updater `.app.tar.gz` arşivleri CI sonrasında yerelde imzalanır. Kaynak ZIP'i Mac'e taşıyıp yukarıdaki komutları çalıştırabilirsiniz.
 
 ## Testler
 

@@ -2,21 +2,21 @@
 
 Tauri 2, Rust ve React ile geliştirilmiş kişisel SSH çalışma alanı. Windows x64, Linux x64 ve macOS Intel/Apple Silicon derleme hedefleri vardır. PostgreSQL olmadan çalışır. Bağlantılar, kimlikler ve oturum kayıtları parola korumalı `.ttvault` dosyasında tutulur.
 
-**Sürüm: 0.3.2.** Terminal başına canlı CPU/RAM/disk göstergesi, beş terminal teması, klasör içinde host görünümü, sıralı terminal girdisi ve geliştirilmiş import adaptörleri içerir. 0.1 kasa/yedek biçimi korunur. Termius düzeninden esinlenen bağımsız uygulamadır. Planın tamamıyla özellik eşitliği henüz sağlanmış değildir. Özellikle doğrudan Windows Hello/FIDO2 anahtar oluşturma ve bazı üreticiye özel şifreli import biçimleri tamamlanmamıştır. macOS yerelde doğrulanmadı. Ayrıntılar: [teslimat raporu](docs/STATUS.md), [platform derlemeleri](docs/BUILD_PLATFORMS.md), [import kapsamı](docs/IMPORT_SUPPORT.md), [PostgreSQL tablo ve kurulum akışı](docs/POSTGRES_FLOW.md).
+**Sürüm: 0.3.3.** Terminal başına canlı CPU/RAM/disk göstergesi, terminal temaları, klasör içinde host görünümü ve geliştirilmiş import adaptörleri içerir. 0.1 kasa/yedek biçimi korunur. Termius düzeninden esinlenen bağımsız uygulamadır. Planın tamamıyla özellik eşitliği henüz sağlanmış değildir. Özellikle doğrudan Windows Hello/FIDO2 anahtar oluşturma ve bazı üreticiye özel şifreli import biçimleri tamamlanmamıştır. Ayrıntılar: [0.3.3 doğrulama raporu](docs/VALIDATION_0.3.3.md), [platform derlemeleri](docs/BUILD_PLATFORMS.md), [import kapsamı](docs/IMPORT_SUPPORT.md), [PostgreSQL tablo ve kurulum akışı](docs/POSTGRES_FLOW.md).
 
-## 0.3.2 ve güncellemeler
+## 0.3.3 ve güncellemeler
 
-Geliştirme dalındaki **0.3.3-dev.1**; yumuşak antrasit–mavi kontroller, üst sırada bağlantı sekmeleri, altta terminal araçları, seçimle kopyalama, sağ tık/Shift+Insert yapıştırma ve doğrudan Updates bağlantısını içerir. Windows x64 ve Linux x64 (deb, RPM, AppImage) yerel deneme paketleri hazırlanır. macOS Intel/Apple Silicon yapılandırması hazırdır; Mac üzerinde derleme bekler. Bu geliştirme paketi kararlı güncelleme kanalında yayımlanmaz. [Derleme komutları](docs/BUILD_PLATFORMS.md).
+**0.3.3**; yumuşak antrasit–mavi kontroller, üst sırada bağlantı sekmeleri, altta terminal araçları, seçimle kopyalama, sağ tık/Shift+Insert yapıştırma ve doğrudan Updates bağlantısını içerir. Host ve klasörler tek tıkla bilgileri gösterir; düzenleme, taşıma, çoğaltma ve silme sağ tık menüsündedir. Çift tık klasörü açar veya bağlantıyı başlatır. SFTP dosya işlemleri de sağ tık menüsündedir. Windows x64 ve Linux x64 (DEB, RPM, AppImage) paketleri [sürüm sayfasında](https://github.com/EnezMutluoglu/TermTerm/releases/tag/v0.3.3) bulunur. macOS Intel/Apple Silicon derleme yapılandırması hazırdır; sahibinin isteğiyle Mac CI işleri durdurulmuştur ve bu sürümde Mac paketi yayımlanmaz. [Derleme komutları](docs/BUILD_PLATFORMS.md).
 
-RSA 2048/3072/4096, Ed25519 ve ECDSA anahtar uyumluluğu ile kayıtlı sunucu anahtarı seçimi düzeltildi. Windows 0.3.2 kurucusu ve taşınabilir paket [GitHub Releases](https://github.com/EnezMutluoglu/TermTerm/releases) üzerinden yayımlanır. İlk kez 0.3.2 kurulduktan sonra **Settings → Updates** ile onaylanmış yeni sürümler kontrol edilebilir. Güncelleme imzası kurulmadan önce doğrulanır. Geliştirme dalı develop, onaylanan sürümler main üzerindedir. Ayrıntılar: [yayın akışı](docs/RELEASE_PROCESS.md), [0.3.2 kontrol raporu](docs/VALIDATION_0.3.2.md).
+RSA 2048/3072/4096, Ed25519 ve ECDSA anahtar uyumluluğu ile kayıtlı sunucu anahtarı seçimi düzeltmeleri korunur. **Sol alt Updates → Check for updates** veya **Settings → Updates** ile onaylanmış yeni sürümler kontrol edilir. Windows ve Linux AppImage kurulmadan önce güncelleme imzasını doğrular. DEB/RPM için aynı sürümden uygun paket indirilip paket yöneticisiyle kurulur. Güncelleme kullanıcı tarafından başlatılır. Geliştirme dalı `develop`, onaylanan sürümler `main` üzerindedir. 0.3.1 ve geliştirme kanalı kullanıcıları kararlı paketi bir kez elle kurmalıdır; Windows 0.3.2 güncelleme desteği içerir. Ayrıntılar: [yayın akışı](docs/RELEASE_PROCESS.md).
 
 ## Çalıştırma
 
 0.3.1 klasör düzeltmesi: Hosts ana ekranı yalnızca klasörleri gösterir. Klasörsüz kayıtlar `Ungrouped` sanal klasöründen açılır; kayıtların gerçek grup ilişkileri değiştirilmez. Klasör kartları ve sol menü, alt klasörleri de içeren toplam host sayısını gösterir. Bu sürümün kontrol sonuçları [0.3.1 raporunda](docs/VALIDATION_0.3.1.md) bulunur.
 
-Windows için [0.3.2 sürüm sayfasındaki](https://github.com/EnezMutluoglu/TermTerm/releases/tag/v0.3.2) `TermTerm_0.3.2_x64-setup.exe` kurucusunu kullanın. Kurucu WebView2 çevrimdışı önkoşulunu ve Mosh çalışma dosyalarını içerir. Taşınabilir ZIP'i tercih ederseniz **tamamını** aynı klasöre çıkarıp `TermTerm.exe` çalıştırın. Önceki yerel 0.3.0/0.3.1 teslimatları geliştirme bilgisayarında korunur; kaynak deposu büyük kurucuları içermez.
+Windows için [0.3.3 sürüm sayfasındaki](https://github.com/EnezMutluoglu/TermTerm/releases/tag/v0.3.3) `TermTerm_0.3.3_x64-setup.exe` kurucusunu kullanın. Kurucu WebView2 çevrimdışı önkoşulunu ve Mosh çalışma dosyalarını içerir. Taşınabilir ZIP'i tercih ederseniz **tamamını** aynı klasöre çıkarıp `TermTerm.exe` çalıştırın. Kaynak deposu büyük kurucuları içermez.
 
-Debian paketini bulunduğu klasörde `sudo apt install ./TermTerm_0.3.1_amd64.deb` ile kurun; menüden TermTerm'i veya terminalden `termterm` komutunu açın. Eksik sistem bağımlılıkları APT üzerinden indirilir. Paket Ubuntu 22.04 test ortamında kurulup açıldı; ayrı Debian masaüstü doğrulaması yapılmadı. 0.3.1 için AppImage/macOS paketi bu teslimatta üretilmedi.
+Debian/Ubuntu paketini `sudo apt install ./TermTerm_0.3.3_amd64.deb`, uygun RPM dağıtımında `sudo dnf install ./TermTerm-0.3.3-1.x86_64.rpm` ile kurun. AppImage dosyasına çalıştırma izni verip açın. Eksik sistem bağımlılıkları paket yöneticisi üzerinden indirilir. Linux tabanı glibc 2.34+ ve WebKitGTK 4.1'dir; her dağıtımda test edildiği anlamına gelmez. Platform sınırları ve gerçek testler [doğrulama raporunda](docs/VALIDATION_0.3.3.md) yer alır.
 
 İlk ekranda **Create local vault**, **Open vault file** veya **Restore a backup** seçin. En az 8 karakterlik kasa parolası belirleyin. Veritabanı hesabı gerekmez. Kasa parolasının sıfırlanması mümkün değildir.
 
@@ -58,7 +58,7 @@ pnpm install --frozen-lockfile
 bash scripts/build.sh package
 ```
 
-Bu betik Mosh çalışma dosyalarını da hazırlar. Bağımlılıkları yeniden indirmek için internet gerekir; ilk temiz derleme daha uzun sürer. macOS derlemeleri hâlâ kullanıcı isteğiyle bekletilmiştir.
+Bu betik Mosh çalışma dosyalarını da hazırlar. Bağımlılıkları yeniden indirmek için internet gerekir; ilk temiz derleme daha uzun sürer. macOS her mimarinin kendi Mac ortamında veya GitHub Mac runner'larında derlenir.
 
 `.gitignore` kaynak dışı dosyaları Git'ten; `.stignore-shared` Syncthing'den hariç tutar. `artifacts` içindeki kurucular ve import görüntüleri ile `.lab` içindeki özel test verileri bu bilgisayarda korunur, bu kurallarla **GitHub'a veya Syncthing'e gönderilmez**. Başka bilgisayara kurucu taşımak isterseniz ilgili paketi ayrıca kopyalayın. Kaynak ZIP'leri üretildikleri sürümün anlık kopyasıdır; mevcut klasördeki daha yeni temizlik belgeleri ve ignore kuralları için doğrudan kaynak klasörünü kullanın.
 

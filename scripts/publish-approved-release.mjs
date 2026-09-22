@@ -16,7 +16,7 @@ if(!args.includes('--approved-commit')||get('--approved-commit')!==sha) throw Er
 if(git('branch','--show-current')!=='main'||git('status','--porcelain','--untracked-files=no')) throw Error('Publish only a clean owner-approved main commit');
 const repo='EnezMutluoglu/TermTerm';
 const dir=path.join(root,'artifacts',`release-${version}`);
-const {platforms,required}=releaseAssets(version);
+const {platforms,required}=releaseAssets(version,{includeMacos:args.includes('--include-macos')});
 for(const name of required) if(!fs.existsSync(path.join(dir,name))) throw Error(`Missing release asset: ${name}`);
 const feed={version,approved:true,notes:fs.readFileSync(path.join(dir,'RELEASE-OKU.md'),'utf8'),pub_date:git('show','-s','--format=%cI',sha),platforms:Object.fromEntries(Object.entries(platforms).map(([target,name])=>[target,{signature:fs.readFileSync(path.join(dir,`${name}.sig`),'utf8').trim(),url:`https://github.com/${repo}/releases/download/v${version}/${name}`}]))};
 fs.writeFileSync(path.join(dir,'latest.json'),JSON.stringify(feed,null,2)+'\n');

@@ -5,8 +5,8 @@ on:
       platforms:
         description: Platforms to build
         type: choice
-        options: [all, macos]
-        default: all
+        options: [windows-linux, macos, all]
+        default: windows-linux
       channel:
         description: Build channel (stable only for an owner-approved version)
         type: choice
@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(inputs.platforms == 'macos' && '[{"os":"macos-15-intel","target":"x86_64-apple-darwin"},{"os":"macos-15","target":"aarch64-apple-darwin"}]' || '[{"os":"windows-2022","target":"x86_64-pc-windows-msvc"},{"os":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu"},{"os":"macos-15-intel","target":"x86_64-apple-darwin"},{"os":"macos-15","target":"aarch64-apple-darwin"}]') }}
+        include: ${{ fromJSON(inputs.platforms == 'macos' && '[{"os":"macos-15-intel","target":"x86_64-apple-darwin"},{"os":"macos-15","target":"aarch64-apple-darwin"}]' || inputs.platforms == 'all' && '[{"os":"windows-2022","target":"x86_64-pc-windows-msvc"},{"os":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu"},{"os":"macos-15-intel","target":"x86_64-apple-darwin"},{"os":"macos-15","target":"aarch64-apple-darwin"}]' || '[{"os":"windows-2022","target":"x86_64-pc-windows-msvc"},{"os":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu"}]') }}
     runs-on: ${{ matrix.os }}
     env:
       TERMTERM_RELEASE_CHANNEL: ${{ inputs.channel || 'development' }}
