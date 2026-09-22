@@ -26,10 +26,6 @@ case "$(uname -s)" in
   node scripts/bundle-macos-mosh.mjs "$client" "$runtime"
   mkdir -p "$runtime/usr/share/terminfo/78"
   if test -f /usr/share/terminfo/78/xterm-256color; then cp /usr/share/terminfo/78/xterm-256color "$runtime/usr/share/terminfo/78/"; fi
-  for formula in mosh openssl@3 protobuf; do
-    prefix="$(brew --prefix "$formula" 2>/dev/null || true)"
-    if test -n "$prefix"; then find "$prefix" -maxdepth 1 -type f \( -iname '*license*' -o -iname '*copying*' \) -exec cp '{}' "$runtime/notices/" \;; fi
-  done
   "$runtime/bin/mosh-client" --version
   ;;
  *) echo 'Run this helper on Linux or macOS' >&2; exit 1;;

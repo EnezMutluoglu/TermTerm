@@ -118,7 +118,7 @@ test("multi-select moves exact hosts; a nested group duplicate retains relations
   await start(page);
   await folder(page, "Production");
   await card(page, "API").click();
-  await card(page, "DB").click({ modifiers: ["Control"] });
+  await card(page, "DB").click({ modifiers: [process.platform === 'darwin' ? 'Meta' : 'Control'] });
   await menu(page, "DB", "Move to group…");
   await page.getByLabel("Destination group").selectOption("dest");
   await page.getByRole("button", { name: "Move records", exact: true }).click();
@@ -343,7 +343,7 @@ test("SFTP multi-delete reports partial failure and retries only the remaining f
     first = pane.getByRole("button", { name: "First.txt", exact: true }),
     second = pane.getByRole("button", { name: "Second.txt", exact: true });
   await first.click();
-  await second.click({ modifiers: ["Control"] });
+  await second.click({ modifiers: [process.platform === 'darwin' ? 'Meta' : 'Control'] });
   await second.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Delete…", exact: true }).click();
   await expect(page.locator(".modal")).toContainText("2 selected items");

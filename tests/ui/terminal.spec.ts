@@ -1,4 +1,6 @@
 import {test,expect} from "@playwright/test";
+const closeShortcut = process.platform === 'darwin' ? 'Meta+w' : 'Control+Shift+W';
+const findShortcut = process.platform === 'darwin' ? 'Meta+Shift+f' : 'Control+Shift+f';
 async function start(page:any) {
   await page.goto('/tests/ui/terminal-harness.html');
   await page.getByTitle('New local terminal',{exact:true}).click();
@@ -21,9 +23,9 @@ test('connections live beside Vault and SFTP; switching preserves the terminal a
   await expect(page.locator('.sftp-page')).toBeVisible();
   await page.keyboard.press('Control+Tab');
   await expect(page.locator('.terminal-pane.focused')).toHaveAttribute('data-session-id','terminal-1');
-  await page.keyboard.press('Control+Shift+W');
+  await page.keyboard.press(closeShortcut);
   await expect(page.locator('.terminal-pane.focused')).toHaveAttribute('data-session-id','terminal-2');
-  await page.keyboard.press('Control+Shift+W');
+  await page.keyboard.press(closeShortcut);
   await expect(page.getByRole('heading',{name:'Hosts',exact:true})).toBeVisible();
 });
 test('mouse selection copies; right-click and Shift+Insert paste once with Unicode and bracketed paste',async({page})=>{
@@ -42,7 +44,7 @@ test('control/function keys go to xterm, search retains editing shortcuts and st
   await start(page); await page.evaluate(()=>{(window as any).inputs=[];});
   for(const combo of ['Control+c','Control+d','Control+z','Control+l','Control+k','Control+n','F1','F12','ArrowUp'])await page.keyboard.press(combo);
   await expect.poll(()=>page.evaluate(()=>(window as any).inputs.filter((i:any)=>i.data).map((i:any)=>i.data))).toEqual(['\x03','\x04','\x1a','\x0c','\x0b','\x0e','\x1bOP','\x1b[24~','\x1b[A']);
-  await page.keyboard.press('Control+Shift+f'); await page.getByPlaceholder('Find in terminal…').fill('hello');
+  await page.keyboard.press(findShortcut); await page.getByPlaceholder('Find in terminal…').fill('hello');
   await page.keyboard.press('Control+k'); await expect(page.getByPlaceholder('Find in terminal…')).toBeVisible();
   await page.keyboard.press('Escape'); await expect(page.locator('.terminal-search')).toHaveCount(0);
   await page.evaluate(()=>{const w=window as any;w.inputs=[];w.delayClipboard=true;w.clipboardText='MUST_NOT_BE_SENT';});

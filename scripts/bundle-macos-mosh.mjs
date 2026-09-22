@@ -47,4 +47,18 @@ for (let index = 0; index < queue.length; index++) {
   if (id) run('install_name_tool', ['-id', `@executable_path/../lib/${path.basename(destination)}`, destination]);
 }
 for (const { destination } of queue) run('codesign', ['--force', '--sign', '-', destination]);
+// Preserve every bundled formula's notices and source recipe without overwriting
+// another dependency's LICENSE file. No Homebrew installation is needed at runtime.
+const prefixes = new Set(queue.map(({ source }) => source.match(/^(.*\/Cellar\/[^/]+\/[^/]+)\//)?.[1]).filter(Boolean));
+for (const prefix of prefixes) {
+  const formula = path.basename(path.dirname(prefix));
+  const output = path.join(runtime, 'notices', formula);
+  fs.mkdirSync(output, { recursive: true });
+  for (const name of fs.readdirSync(prefix)) {
+    const file = path.join(prefix, name);
+    if (/license|copying|copyright|notice|INSTALL_RECEIPT/i.test(name) && fs.statSync(file).isFile()) fs.copyFileSync(file, path.join(output, name));
+  }
+  const recipe = path.join(prefix, '.brew', `${formula}.rb`);
+  if (fs.existsSync(recipe)) fs.copyFileSync(recipe, path.join(output, `${formula}.rb`));
+}
 console.log(`Bundled and signed Mosh with ${names.size} recursive Mach-O dependencies`);

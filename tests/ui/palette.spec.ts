@@ -41,7 +41,7 @@ test("host, navigation and SFTP selections share a readable visual state", async
   await page
     .locator(".record-card")
     .first()
-    .click({ modifiers: ["Control"] });
+    .click({ modifiers: [process.platform === 'darwin' ? 'Meta' : 'Control'] });
   await page.mouse.move(5, 5);
   const nav = page.locator(".main-nav button.active");
   const selected = page.locator(".record-card.selected");
