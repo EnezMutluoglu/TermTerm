@@ -42,6 +42,9 @@ import {
   RefreshCw,
   Keyboard,
   Info,
+  Pencil,
+  Scissors,
+  ClipboardPaste,
 } from "lucide-react";
 import {
   call,
@@ -81,7 +84,20 @@ import {
   storedGroupId,
   UNGROUPED_FOLDER,
 } from "./hostFolders";
-import { shortcutFor, shortcutLabel } from "./shortcuts";
+import { shortcutFor, shortcutLabel, isTextEditing } from "./shortcuts";
+import { copyText, pasteTextField } from "./clipboard";
+import ContextMenu, {
+  menuPosition,
+  type MenuAction,
+  type MenuPosition,
+} from "./ContextMenu";
+import RecordDetails from "./RecordDetails";
+import {
+  containedRecords,
+  duplicateRecords,
+  moveRecords,
+  connectionDetails,
+} from "./recordActions";
 import Sftp from "./Sftp";
 import Settings from "./Settings";
 import DataTools, { type DataMode } from "./DataTools";
@@ -138,11 +154,34 @@ export default function App() {
   const [info, setInfo] = useState<AppInfo>();
   const [nav, setNav] = useState<Nav>("hosts");
   const [sftpVisited, setSftpVisited] = useState(false);
+  const [settingsTarget, setSettingsTarget] = useState({ tab: "sync", key: 0 });
+  const topTabs = useRef<HTMLDivElement>(null);
   const [group, setGroup] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [view, setView] = useState<"grid" | "list">("grid");
   const [editor, setEditor] = useState<Entity | null>(null);
+  const [details, setDetails] = useState<Entity | null>(null);
+  const [context, setContext] = useState<{
+    position: MenuPosition;
+    title: string;
+    actions: MenuAction[];
+  } | null>(null);
+  const [recordClipboard, setRecordClipboard] = useState<{
+    ids: string[];
+    cut: boolean;
+    vaultId: string;
+  } | null>(null);
+  const [operationBusy, setOperationBusy] = useState(false);
+  const operationLock = useRef(false);
+  const vaultId = useRef(vault?.id);
+  vaultId.current = vault?.id;
+  const [sftpRequest, setSftpRequest] = useState<{
+    hostId: string;
+    key: number;
+  } | null>(null);
+  const [backupIds, setBackupIds] = useState<string[]>([]);
+  const selectionAnchor = useRef<string | undefined>(undefined);
   const [dataMode, setDataMode] = useState<DataMode | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -150,7 +189,9 @@ export default function App() {
   const [shareOpen, setShareOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [deleting, setDeleting] = useState<string[] | null>(null);
-  const [moving, setMoving] = useState(false);
+  const [moving, setMoving] = useState<{ ids: string[]; copy: boolean } | null>(
+    null,
+  );
   const [moveTo, setMoveTo] = useState("");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [active, setActive] = useState("");
@@ -159,13 +200,25 @@ export default function App() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [answers, setAnswers] = useState<string[]>([]);
   const [runningTunnels, setRunningTunnels] = useState<string[]>([]);
-  const [fontSize, setFontSize] = useState(14);
+  const [fontSize, setFontSize] = useState(15);
   const [themeId, setThemeId] = useState("graphite");
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const searchRef = useRef<HTMLInputElement>(null);
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
   const previousVault = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    setContext(null);
+    setDetails(null);
+    setRecordClipboard(null);
+    setMoving(null);
+    setDeleting(null);
+    setBackupIds([]);
+  }, [vault?.id]);
+  useEffect(() => {
+    setContext(null);
+    setDetails(null);
+  }, [nav, group]);
   useEffect(() => {
     if (previousVault.current && previousVault.current !== vault?.id) {
       clearSessions();
@@ -176,6 +229,10 @@ export default function App() {
     previousVault.current = vault?.id;
   }, [vault?.id]);
   const records = vault?.records ?? [];
+  const recordsById = useMemo(
+    () => new Map(records.map((r) => [r.id, r])),
+    [records],
+  );
   const notify = useCallback((s: string) => {
     setNotice(s);
     setTimeout(() => setNotice(""), 5500);
@@ -228,10 +285,63 @@ export default function App() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!vault) return;
-      const inTerminal = !!(e.target as HTMLElement)?.closest?.(
-        ".terminal-pane",
-      );
-      const action = shortcutFor(e, inTerminal);
+      const target = e.target;
+      if (
+        e.defaultPrevented ||
+        (target instanceof Element && target.closest('[role="menu"]'))
+      )
+        return;
+      const editing =
+        isTextEditing(target) && !(target as Element).closest(".xterm");
+      const inTerminal = !editing && nav === "terminal";
+      if (
+        editing &&
+        e.code === "Insert" &&
+        e.shiftKey &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        !e.isComposing &&
+        (target instanceof HTMLTextAreaElement ||
+          (target instanceof HTMLInputElement &&
+            ["text", "search", "url", "tel", "password"].includes(
+              target.type,
+            ))) &&
+        !target.readOnly &&
+        !target.disabled
+      ) {
+        e.preventDefault();
+        if (!e.repeat) void pasteTextField(target).catch(report);
+        return;
+      }
+      const action = shortcutFor(e, inTerminal, undefined, editing);
+      if (action && e.repeat) {
+        e.preventDefault();
+        return;
+      }
+      if (action === "close" && active) {
+        e.preventDefault();
+        void closeSession(active);
+      }
+      if (action === "tabNext" || action === "tabPrevious") {
+        e.preventDefault();
+        const tabs = ["vault", "sftp", ...sessions.map((s) => s.id)];
+        const current =
+          nav === "terminal" ? active : nav === "sftp" ? "sftp" : "vault";
+        const next =
+          tabs[
+            (tabs.indexOf(current) +
+              (action === "tabNext" ? 1 : -1) +
+              tabs.length) %
+              tabs.length
+          ];
+        if (next === "vault") navigate("hosts");
+        else if (next === "sftp") navigate("sftp");
+        else {
+          setActive(next);
+          setNav("terminal");
+        }
+      }
       if (action === "hosts") {
         e.preventDefault();
         setNav("hosts");
@@ -265,15 +375,21 @@ export default function App() {
         e.preventDefault();
         setBroadcast((b) => !b);
       }
-      if (e.key === "Escape" && !inTerminal) {
+      if (e.key === "Escape" && !inTerminal && !editing) {
         setEditor(null);
+        setDetails(null);
         setMenu(false);
         setSelected([]);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [vault, active, sessions, info, group]);
+  }, [vault, active, sessions, info, group, nav]);
+  useEffect(() => {
+    topTabs.current
+      ?.querySelector(".active")
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [active, nav, sessions.length]);
   useEffect(() => {
     if (
       !import.meta.env.DEV ||
@@ -281,7 +397,7 @@ export default function App() {
       desktop
     )
       return;
-    const g = newEntity("group", { label: "Production", color: "purple" });
+    const g = newEntity("group", { label: "Production" });
     const hosts = [
       ["web-01", "10.0.1.12", "ubuntu", ["production", "web"]],
       ["api-server", "10.0.1.24", "deploy", ["production", "api"]],
@@ -336,9 +452,12 @@ export default function App() {
     setSearch("");
     setSelected([]);
     setEditor(null);
+    setDetails(null);
+    setContext(null);
     setMenu(false);
   }
   function create(kind: EntityKind) {
+    setDetails(null);
     const defaults: Record<string, any> = {
       host: {
         label: "",
@@ -372,6 +491,7 @@ export default function App() {
   async function save(r: Entity) {
     setVault(await call<Vault>("records_save", { records: [r] }));
     setEditor(null);
+    setDetails(r);
     notify(`${r.data.label} saved.`);
   }
   async function connect(hostId?: string, shell?: string, statsEnabled = true) {
@@ -405,6 +525,7 @@ export default function App() {
       setActive(id);
       setNav("terminal");
       setEditor(null);
+      setDetails(null);
     } catch (e) {
       report(e);
     }
@@ -416,7 +537,12 @@ export default function App() {
     } catch {}
     forgetSession(id);
     setSessions((s) => s.filter((s) => s.id !== id));
-    if (active === id) setActive(sessions.find((s) => s.id !== id)?.id ?? "");
+    if (active === id) {
+      const index = sessions.findIndex((s) => s.id === id);
+      const remaining = sessions.filter((s) => s.id !== id);
+      setActive(remaining[Math.min(index, remaining.length - 1)]?.id ?? "");
+      if (!remaining.length && nav === "terminal") setNav("hosts");
+    }
   }
   const inputQueue = useRef(
     new InputQueue((id, data) => call("session_input", { id, data })),
@@ -443,30 +569,417 @@ export default function App() {
     }
   }
   async function duplicate(ids: string[]) {
-    try {
-      const copies = records
-        .filter((r) => ids.includes(r.id))
-        .map((r) =>
-          newEntity(r.kind, { ...r.data, label: `${r.data.label} copy` }),
-        );
-      setVault(await call<Vault>("records_save", { records: copies }));
-      setSelected([]);
-      notify(`${copies.length} copies created.`);
-    } catch (e) {
-      report(e);
-    }
+    await mutateRecords(
+      () => duplicateRecords(records, ids),
+      "Copies created.",
+    );
   }
   async function remove() {
-    if (!deleting) return;
+    if (!deleting || operationLock.current) return;
+    operationLock.current = true;
+    setOperationBusy(true);
+    const currentVault = vaultId.current;
     try {
-      setVault(await call<Vault>("records_delete", { ids: deleting }));
+      const next = await call<Vault>("records_delete", { ids: deleting });
+      if (vaultId.current !== currentVault) return;
+      setVault(next);
+      if (deleting.includes(group)) setGroup("");
       setEditor(null);
+      setDetails(null);
       setSelected([]);
       setDeleting(null);
     } catch (e) {
       report(e);
-      setDeleting(null);
+    } finally {
+      operationLock.current = false;
+      setOperationBusy(false);
     }
+  }
+  async function mutateRecords(build: () => Entity[], message: string) {
+    if (operationLock.current) return false;
+    operationLock.current = true;
+    setOperationBusy(true);
+    const currentVault = vaultId.current;
+    try {
+      const changes = build();
+      if (!changes.length) throw Error("No records to change.");
+      const next = await call<Vault>("records_save", { records: changes });
+      if (vaultId.current !== currentVault) return false;
+      setVault(next);
+      setSelected([]);
+      setDetails(null);
+      setEditor(null);
+      setMoving(null);
+      notify(message);
+      return true;
+    } catch (e) {
+      report(e);
+      return false;
+    } finally {
+      operationLock.current = false;
+      setOperationBusy(false);
+    }
+  }
+  function showDetails(record: Entity) {
+    setEditor(null);
+    setDetails(record);
+  }
+  function editRecord(record: Entity) {
+    setDetails(null);
+    setEditor(record);
+  }
+  function showMenu(
+    e: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>,
+    title: string,
+    actions: MenuAction[],
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    setContext({
+      position: menuPosition(e),
+      title,
+      actions: actions.map((a) => ({
+        ...a,
+        disabled: a.disabled || operationLock.current,
+      })),
+    });
+  }
+  function openSftp(hostId: string) {
+    setSftpRequest({ hostId, key: Date.now() });
+    navigate("sftp");
+  }
+  function chooseRecord(
+    e: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>,
+    r: Entity,
+  ) {
+    const visible = [...childGroups, ...filtered]
+      .filter((item) => item.id !== UNGROUPED_FOLDER)
+      .map((item) => item.id);
+    if (r.id === UNGROUPED_FOLDER) {
+      setSelected([r.id]);
+      selectionAnchor.current = r.id;
+      showDetails(r);
+      return;
+    }
+    if (
+      e.shiftKey &&
+      selectionAnchor.current &&
+      visible.includes(selectionAnchor.current)
+    ) {
+      const start = visible.indexOf(selectionAnchor.current),
+        end = visible.indexOf(r.id);
+      setSelected(
+        visible.slice(Math.min(start, end), Math.max(start, end) + 1),
+      );
+    } else if (e.ctrlKey || e.metaKey) {
+      setSelected((s) =>
+        s.includes(r.id)
+          ? s.filter((id) => id !== r.id)
+          : [...s.filter((id) => id !== UNGROUPED_FOLDER), r.id],
+      );
+      selectionAnchor.current = r.id;
+    } else {
+      setSelected([r.id]);
+      selectionAnchor.current = r.id;
+    }
+    showDetails(r);
+  }
+  function recordKey(e: React.KeyboardEvent<HTMLElement>, r: Entity) {
+    if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+      recordMenu(e, r);
+      return;
+    }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      chooseRecord(e, r);
+    }
+  }
+  function sessionMenu(
+    e: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>,
+    session: Session,
+  ) {
+    const actions: MenuAction[] = [
+      {
+        id: "focus",
+        label: "Focus terminal",
+        icon: <Maximize2 size={15} />,
+        run: () => {
+          setActive(session.id);
+          navigate("terminal");
+          setLayout("focus");
+        },
+      },
+      {
+        id: "split",
+        label: "Show split view",
+        icon: <Columns2 size={15} />,
+        run: () => {
+          setActive(session.id);
+          navigate("terminal");
+          setLayout("split");
+        },
+      },
+    ];
+    if (session.hostId)
+      actions.push({
+        id: "duplicate",
+        label: "New connection to this host",
+        icon: <Terminal size={15} />,
+        run: () => connect(session.hostId),
+      });
+    actions.push({
+      id: "copy",
+      label: "Copy tab name",
+      icon: <Copy size={15} />,
+      separator: true,
+      run: () => copyText(session.label),
+    });
+    actions.push({
+      id: "close",
+      label: "Close terminal",
+      icon: <X size={15} />,
+      separator: true,
+      run: () => closeSession(session.id),
+    });
+    actions.push({
+      id: "others",
+      label: "Close other terminals",
+      disabled: sessions.length < 2,
+      run: async () => {
+        for (const other of sessions.filter((s) => s.id !== session.id))
+          await closeSession(other.id);
+        setActive(session.id);
+        setNav("terminal");
+      },
+    });
+    showMenu(e, session.label, actions);
+  }
+  async function connectMany(ids: string[]) {
+    const hosts = containedRecords(records, ids).filter(
+      (r) => r.kind === "host",
+    );
+    const available = Math.max(0, 16 - sessions.length);
+    if (!available) {
+      notify("Close a terminal before opening another (16 panels maximum).");
+      return;
+    }
+    for (const host of hosts.slice(0, available)) await connect(host.id);
+    if (hosts.length > available)
+      notify(`${available} hosts opened; the workspace limit is 16 terminals.`);
+  }
+  async function pasteRecords(destination: string) {
+    const clipboard = recordClipboard;
+    if (!clipboard || clipboard.vaultId !== vault?.id) return;
+    const saved = await mutateRecords(
+      () =>
+        clipboard.cut
+          ? moveRecords(records, clipboard.ids, destination)
+          : duplicateRecords(records, clipboard.ids, destination),
+      clipboard.cut ? "Records moved." : "Copies created.",
+    );
+    if (saved && clipboard.cut) setRecordClipboard(null);
+  }
+  function recordMenu(
+    e: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>,
+    record: Entity,
+  ) {
+    const ids = selected.includes(record.id) ? selected : [record.id];
+    setSelected(ids);
+    const chosen = ids
+      .map((id) => recordsById.get(id))
+      .filter((r): r is Entity => !!r);
+    const single = ids.length === 1,
+      virtual = record.id === UNGROUPED_FOLDER;
+    const movable =
+      !virtual && chosen.every((r) => ["host", "group"].includes(r.kind));
+    const targets = containedRecords(records, ids),
+      hosts = targets.filter((r) => r.kind === "host");
+    const data = connectionDetails(record, records);
+    const actions: MenuAction[] = [];
+    if (single && record.kind === "group")
+      actions.push({
+        id: "open",
+        label: "Open group",
+        icon: <FolderOpen size={15} />,
+        run: () => openGroup(record.id),
+      });
+    if (hosts.length)
+      actions.push({
+        id: "connect",
+        label:
+          single && record.kind === "host" ? "Connect" : "Quick connect hosts",
+        icon: <Terminal size={15} />,
+        run: () => connectMany(ids),
+      });
+    if (
+      single &&
+      record.kind === "host" &&
+      ["ssh", "mosh"].includes(data.protocol ?? "ssh")
+    )
+      actions.push({
+        id: "sftp",
+        label: "Open SFTP",
+        icon: <ArrowLeftRight size={15} />,
+        run: () => openSftp(record.id),
+      });
+    if (single && record.kind === "snippet")
+      actions.push({
+        id: "run",
+        label: "Run in active terminal",
+        icon: <Play size={15} />,
+        disabled: !sessions.some((s) => s.connected),
+        run: () => runSnippet(record),
+      });
+    if (single && record.kind === "tunnel")
+      actions.push({
+        id: "run",
+        label: runningTunnels.includes(record.id)
+          ? "Stop forwarding"
+          : "Start forwarding",
+        icon: <Link size={15} />,
+        run: () => tunnel(record),
+      });
+    if (single && record.kind === "workspace")
+      actions.push({
+        id: "open",
+        label: "Open workspace",
+        icon: <Columns2 size={15} />,
+        run: () => openWorkspace(record),
+      });
+    if (single)
+      actions.push({
+        id: "details",
+        label: "Details",
+        icon: <Info size={15} />,
+        separator: !!actions.length,
+        run: () => showDetails(record),
+      });
+    if (single && !virtual)
+      actions.push({
+        id: "edit",
+        label: "Edit",
+        icon: <Pencil size={15} />,
+        run: () => editRecord(record),
+      });
+    if (!virtual)
+      actions.push({
+        id: "duplicate",
+        label: "Duplicate",
+        icon: <Copy size={15} />,
+        separator: true,
+        run: () => duplicate(ids),
+      });
+    if (movable) {
+      actions.push({
+        id: "move",
+        label: "Move to group…",
+        icon: <Folder size={15} />,
+        run: () => {
+          setMoveTo("");
+          setMoving({ ids, copy: false });
+        },
+      });
+      actions.push({
+        id: "copy-to",
+        label: "Copy to group…",
+        icon: <Copy size={15} />,
+        run: () => {
+          setMoveTo("");
+          setMoving({ ids, copy: true });
+        },
+      });
+      actions.push({
+        id: "copy",
+        label: "Copy",
+        icon: <Copy size={15} />,
+        run: () => {
+          setRecordClipboard({ ids, cut: false, vaultId: vault!.id });
+          notify("Records copied. Right-click a destination group to paste.");
+        },
+      });
+      actions.push({
+        id: "cut",
+        label: "Cut",
+        icon: <Scissors size={15} />,
+        run: () => {
+          setRecordClipboard({ ids, cut: true, vaultId: vault!.id });
+          notify(
+            "Records ready to move. Right-click a destination group to paste.",
+          );
+        },
+      });
+    }
+    if (single && record.kind === "group" && recordClipboard)
+      actions.push({
+        id: "paste",
+        label: "Paste here",
+        icon: <ClipboardPaste size={15} />,
+        run: () => pasteRecords(storedGroupId(record.id)),
+      });
+    if (single && record.data.address)
+      actions.push({
+        id: "address",
+        label: "Copy address",
+        separator: true,
+        icon: <Copy size={15} />,
+        run: () => copyText(String(record.data.address)),
+      });
+    if (single && data.username)
+      actions.push({
+        id: "username",
+        label: "Copy username",
+        icon: <Copy size={15} />,
+        run: () => copyText(String(data.username)),
+      });
+    if (single && record.kind === "snippet")
+      actions.push({
+        id: "command",
+        label: "Copy command",
+        icon: <Copy size={15} />,
+        run: () => copyText(record.data.command ?? ""),
+      });
+    if (single && record.kind === "credential" && record.data.publicKey)
+      actions.push({
+        id: "key",
+        label: "Copy public key",
+        icon: <Copy size={15} />,
+        run: () => copyText(record.data.publicKey),
+      });
+    if (single && record.kind === "knownHost")
+      actions.push({
+        id: "fingerprint",
+        label: "Copy fingerprint",
+        icon: <Copy size={15} />,
+        run: () => copyText(record.data.fingerprint ?? ""),
+      });
+    if (single && record.kind === "log")
+      actions.push({
+        id: "log",
+        label: "Copy log",
+        icon: <Copy size={15} />,
+        run: () => copyText(record.data.content ?? ""),
+      });
+    if (!virtual) {
+      actions.push({
+        id: "backup",
+        label: "Export encrypted backup…",
+        icon: <Download size={15} />,
+        separator: true,
+        run: () => {
+          setBackupIds(targets.map((r) => r.id));
+          setDataMode("backup");
+        },
+      });
+      actions.push({
+        id: "delete",
+        label: "Delete…",
+        icon: <Trash2 size={15} />,
+        danger: true,
+        separator: true,
+        run: () => setDeleting(targets.map((r) => r.id)),
+      });
+    }
+    showMenu(e, single ? record.data.label : `${ids.length} selected`, actions);
   }
   async function tunnel(record: Entity) {
     if (runningTunnels.includes(record.id)) {
@@ -480,12 +993,15 @@ export default function App() {
     }
   }
   function runSnippet(r: Entity) {
-    const target = active || sessions.find((s) => s.connected)?.id;
+    const target =
+      sessions.find((s) => s.id === active && s.connected)?.id ||
+      sessions.find((s) => s.connected)?.id;
     if (!target) {
       notify("Open a terminal before running a snippet.");
       return;
     }
     sendInput(target, r.data.command + (r.data.newline !== false ? "\r" : ""));
+    setActive(target);
     setNav("terminal");
   }
   async function openWorkspace(r: Entity) {
@@ -525,7 +1041,7 @@ export default function App() {
   useEffect(() => setPage(0), [search, nav, group]);
   useEffect(() => {
     const settings = records.find((r) => r.kind === "settings");
-    if (settings?.data.fontSize) setFontSize(settings.data.fontSize);
+    setFontSize(settings?.data.fontSize ?? 15);
     setThemeId(settings?.data.terminalTheme ?? "graphite");
   }, [vault?.id, records.find((r) => r.kind === "settings")?.updatedAt]);
   const folders = useMemo(() => indexHostFolders(records), [records]);
@@ -540,6 +1056,7 @@ export default function App() {
     groupTrail.unshift(current);
   }
   function openGroup(id: string) {
+    setNav("hosts");
     setGroup(id);
     setSelected([]);
     setEditor(null);
@@ -567,6 +1084,11 @@ export default function App() {
               (group === g.id && nav === "hosts" ? "active" : "")
             }
             style={{ paddingLeft: 16 + depth * 12 }}
+            onContextMenu={(e) => recordMenu(e, g)}
+            onKeyDown={(e) => {
+              if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey))
+                recordMenu(e, g);
+            }}
             onClick={() => {
               setGroup(g.id);
               navigate("hosts");
@@ -616,8 +1138,12 @@ export default function App() {
         {dataMode && (
           <DataTools
             mode={dataMode}
+            recordIds={backupIds}
             vault={vault}
-            onClose={() => setDataMode(null)}
+            onClose={() => {
+              setDataMode(null);
+              setBackupIds([]);
+            }}
             onVault={setVault}
             onNotice={notify}
           />
@@ -639,7 +1165,7 @@ export default function App() {
           </div>
           TermTerm
         </div>
-        <div className="top-tabs">
+        <div className="top-tabs" ref={topTabs} aria-label="Workspace tabs">
           <button
             className={nav !== "terminal" && nav !== "sftp" ? "active" : ""}
             onClick={() => navigate("hosts")}
@@ -654,15 +1180,41 @@ export default function App() {
             <ArrowLeftRight size={14} />
             SFTP
           </button>
-          {sessions.length > 0 && (
-            <button
-              className={nav === "terminal" ? "active" : ""}
-              onClick={() => setNav("terminal")}
+          {sessions.map((s) => (
+            <div
+              key={s.id}
+              onContextMenu={(e) => sessionMenu(e, s)}
+              onKeyDown={(e) => {
+                if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey))
+                  sessionMenu(e, s);
+              }}
+              className={
+                "top-session-tab " +
+                (nav === "terminal" && active === s.id ? "active" : "")
+              }
             >
-              <Terminal size={14} />
-              Terminals<span className="tab-count">{sessions.length}</span>
-            </button>
-          )}
+              <button
+                className="session-tab-label"
+                title={s.label}
+                aria-pressed={nav === "terminal" && active === s.id}
+                onClick={() => {
+                  setActive(s.id);
+                  setNav("terminal");
+                  setEditor(null);
+                }}
+              >
+                <span className={"status-dot " + (s.connected ? "live" : "")} />
+                <span>{s.label}</span>
+              </button>
+              <button
+                className="tab-close"
+                aria-label={`Close tab ${s.label}`}
+                onClick={() => void closeSession(s.id)}
+              >
+                <X size={13} />
+              </button>
+            </div>
+          ))}
           <button
             className="plus-tab"
             title="New local terminal"
@@ -712,6 +1264,7 @@ export default function App() {
                   <button
                     key={id as string}
                     onClick={() => {
+                      setBackupIds([]);
                       setDataMode(id as DataMode);
                       setMenu(false);
                     }}
@@ -792,10 +1345,25 @@ export default function App() {
             </button>
             <button
               className={nav === "settings" ? "active" : ""}
-              onClick={() => navigate("settings")}
+              onClick={() => {
+                setSettingsTarget((s) => ({ tab: "sync", key: s.key + 1 }));
+                navigate("settings");
+              }}
             >
               <SettingsIcon size={17} />
               Settings
+            </button>
+            <button
+              className="updates-nav"
+              onClick={() => {
+                setSettingsTarget((s) => ({ tab: "updates", key: s.key + 1 }));
+                navigate("settings");
+              }}
+            >
+              <Download size={17} /> Updates{" "}
+              <span className="app-version">
+                v{info?.version ?? "0.3.3-dev.1"}
+              </span>
             </button>
             <div className="vault-status">
               <ShieldCheck size={13} />
@@ -804,7 +1372,9 @@ export default function App() {
             </div>
           </div>
         </aside>
-        <main className={"main-content " + (editor ? "with-editor" : "")}>
+        <main
+          className={"main-content " + (editor || details ? "with-editor" : "")}
+        >
           <div
             hidden={nav !== "sftp"}
             style={{
@@ -819,6 +1389,7 @@ export default function App() {
                 home={info?.home ?? ""}
                 notify={notify}
                 visible={nav === "sftp"}
+                openRequest={sftpRequest}
               />
             )}
           </div>
@@ -831,37 +1402,87 @@ export default function App() {
               onFontSize={setFontSize}
               themeId={themeId}
               onTheme={setThemeId}
+              initialTab={settingsTarget.tab}
+              navigationKey={settingsTarget.key}
             />
           )}
           <div
             className="terminal-workspace"
             style={{ display: nav === "terminal" ? "flex" : "none" }}
           >
-            <div className="workspace-toolbar">
-              <div className="terminal-tabs">
-                {sessions.map((s) => (
-                  <button
-                    key={s.id}
-                    className={active === s.id ? "active" : ""}
-                    onClick={() => setActive(s.id)}
-                  >
-                    <span
-                      className={"status-dot " + (s.connected ? "live" : "")}
-                    />
-                    {s.label}
-                    <span
-                      role="button"
-                      aria-label={`Close ${s.label}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void closeSession(s.id);
-                      }}
-                    >
-                      <X size={12} />
-                    </span>
-                  </button>
-                ))}
+            {broadcast && (
+              <div className="broadcast-bar">
+                <Radio size={14} />
+                Broadcast is on. Your input goes to all connected terminals.
+                <button
+                  className="text-btn"
+                  onClick={() => setBroadcast(false)}
+                >
+                  Turn off
+                </button>
               </div>
+            )}
+            <div className={"terminal-grid " + layout}>
+              {sessions.map((s) => (
+                <div
+                  className="terminal-cell"
+                  key={s.id}
+                  style={{
+                    display:
+                      layout === "focus" && s.id !== active ? "none" : "flex",
+                  }}
+                >
+                  <TerminalPane
+                    session={s}
+                    focused={s.id === active}
+                    onFocus={() => setActive(s.id)}
+                    onClose={() => void closeSession(s.id)}
+                    onInput={sendInput}
+                    fontSize={fontSize}
+                    themeId={themeId}
+                    copyOnSelect={
+                      records.find((r) => r.kind === "settings")?.data
+                        .copyOnSelect !== false
+                    }
+                    rightClickPaste={
+                      records.find((r) => r.kind === "settings")?.data
+                        .rightClickPaste !== false
+                    }
+                    visible={
+                      nav === "terminal" &&
+                      (layout === "split" || s.id === active)
+                    }
+                    onStats={(enabled) =>
+                      setSessions((all) =>
+                        all.map((item) =>
+                          item.id === s.id
+                            ? { ...item, statsEnabled: enabled }
+                            : item,
+                        ),
+                      )
+                    }
+                    onError={report}
+                  />
+                </div>
+              ))}
+              {!sessions.length && (
+                <Empty
+                  icon={<Terminal size={30} />}
+                  title="A fresh terminal awaits"
+                  detail="Connect to a host or start a local shell."
+                >
+                  <button className="primary" onClick={() => void connect()}>
+                    <Plus size={16} />
+                    Open local terminal
+                  </button>
+                </Empty>
+              )}
+            </div>
+            <div
+              className="workspace-toolbar"
+              role="toolbar"
+              aria-label="Terminal workspace tools"
+            >
               <div className="button-row">
                 <button
                   className="icon-btn"
@@ -908,69 +1529,60 @@ export default function App() {
                 </button>
               </div>
             </div>
-            {broadcast && (
-              <div className="broadcast-bar">
-                <Radio size={14} />
-                Broadcast is on. Your input goes to all connected terminals.
-                <button
-                  className="text-btn"
-                  onClick={() => setBroadcast(false)}
-                >
-                  Turn off
-                </button>
-              </div>
-            )}
-            <div className={"terminal-grid " + layout}>
-              {sessions.map((s) => (
-                <div
-                  className="terminal-cell"
-                  key={s.id}
-                  style={{
-                    display:
-                      layout === "focus" && s.id !== active ? "none" : "flex",
-                  }}
-                >
-                  <TerminalPane
-                    session={s}
-                    focused={s.id === active}
-                    onFocus={() => setActive(s.id)}
-                    onClose={() => void closeSession(s.id)}
-                    onInput={sendInput}
-                    fontSize={fontSize}
-                    themeId={themeId}
-                    visible={
-                      nav === "terminal" &&
-                      (layout === "split" || s.id === active)
-                    }
-                    onStats={(enabled) =>
-                      setSessions((all) =>
-                        all.map((item) =>
-                          item.id === s.id
-                            ? { ...item, statsEnabled: enabled }
-                            : item,
-                        ),
-                      )
-                    }
-                    onError={report}
-                  />
-                </div>
-              ))}
-              {!sessions.length && (
-                <Empty
-                  icon={<Terminal size={30} />}
-                  title="A fresh terminal awaits"
-                  detail="Connect to a host or start a local shell."
-                >
-                  <button className="primary" onClick={() => void connect()}>
-                    <Plus size={16} />
-                    Open local terminal
-                  </button>
-                </Empty>
-              )}
-            </div>
           </div>
           {!["terminal", "sftp", "settings"].includes(nav) && (
-            <div className="records-page">
+            <div
+              className="records-page"
+              onContextMenu={(e) => {
+                if (
+                  (e.target as HTMLElement).closest(
+                    "input,textarea,[data-record]",
+                  )
+                )
+                  return;
+                const actions: MenuAction[] =
+                  nav === "log"
+                    ? []
+                    : [
+                        {
+                          id: "new",
+                          label: nav === "hosts" ? "New host" : "New record",
+                          icon: <Plus size={15} />,
+                          run: () =>
+                            create(
+                              nav === "hosts" ? "host" : (nav as EntityKind),
+                            ),
+                        },
+                      ];
+                if (nav === "hosts")
+                  actions.push({
+                    id: "group",
+                    label: "New group",
+                    icon: <Folder size={15} />,
+                    run: () => create("group"),
+                  });
+                if (nav === "hosts" && recordClipboard)
+                  actions.push({
+                    id: "paste",
+                    label: "Paste here",
+                    icon: <ClipboardPaste size={15} />,
+                    run: () => pasteRecords(storedGroupId(group)),
+                  });
+                actions.push({
+                  id: "all",
+                  label: "Select all",
+                  separator: true,
+                  run: () =>
+                    setSelected(
+                      [
+                        ...childGroups.filter((g) => g.id !== UNGROUPED_FOLDER),
+                        ...filtered,
+                      ].map((r) => r.id),
+                    ),
+                });
+                showMenu(e, "Workspace", actions);
+              }}
+            >
               <div className="breadcrumb">
                 <button
                   onClick={() => {
@@ -1110,62 +1722,25 @@ export default function App() {
                   </button>
                 </div>
               </div>
-              {selected.length > 0 && (
-                <div className="selection-bar">
-                  <Checkbox
-                    checked={selected.length === filtered.length}
-                    onChange={(v) =>
-                      setSelected(v ? filtered.map((r) => r.id) : [])
-                    }
-                  >
-                    {selected.length} selected
-                  </Checkbox>
-                  <button
-                    className="text-btn"
-                    onClick={() => void duplicate(selected)}
-                  >
-                    <Copy size={14} />
-                    Duplicate
-                  </button>
-                  {nav === "hosts" && (
-                    <button
-                      className="text-btn"
-                      onClick={() => {
-                        setMoveTo("");
-                        setMoving(true);
-                      }}
-                    >
-                      <Folder size={14} />
-                      Move
-                    </button>
-                  )}
-                  <button
-                    className="text-btn danger"
-                    onClick={() => setDeleting(selected)}
-                  >
-                    <Trash2 size={14} />
-                    Delete
-                  </button>
-                  <button className="icon-btn" onClick={() => setSelected([])}>
-                    <X size={15} />
-                  </button>
-                </div>
-              )}
               {nav === "hosts" && childGroups.length > 0 && (
                 <div className="groups-grid">
                   {childGroups.map((g) => (
                     <div
-                      className="group-card"
+                      className={
+                        "group-card " +
+                        (selected.includes(g.id) ? "selected" : "")
+                      }
                       key={g.id}
+                      onContextMenu={(e) => recordMenu(e, g)}
                       onDoubleClick={() => {
                         openGroup(g.id);
                       }}
                     >
                       <button
                         className="group-main"
-                        onClick={() => {
-                          openGroup(g.id);
-                        }}
+                        aria-pressed={selected.includes(g.id)}
+                        onClick={(e) => chooseRecord(e, g)}
+                        onKeyDown={(e) => recordKey(e, g)}
                       >
                         <div className="folder-square">
                           <Folder size={23} />
@@ -1180,15 +1755,6 @@ export default function App() {
                         </div>
                         <ChevronRight size={16} />
                       </button>
-                      {g.id !== UNGROUPED_FOLDER && (
-                        <button
-                          className="icon-btn"
-                          title={`Edit ${g.data.label}`}
-                          onClick={() => setEditor(g)}
-                        >
-                          <MoreHorizontal size={18} />
-                        </button>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -1243,33 +1809,26 @@ export default function App() {
                     return (
                       <article
                         key={r.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={r.data.label || r.data.address}
+                        aria-pressed={isSelected}
+                        onContextMenu={(e) => recordMenu(e, r)}
+                        onKeyDown={(e) => recordKey(e, r)}
                         className={
                           "record-card " +
                           (isSelected ? "selected " : "") +
-                          (editor?.id === r.id ? "editing" : "")
+                          (editor?.id === r.id || details?.id === r.id
+                            ? "editing"
+                            : "")
                         }
-                        onClick={(e) => {
-                          if (e.ctrlKey || e.metaKey) {
-                            setSelected((s) =>
-                              s.includes(r.id)
-                                ? s.filter((id) => id !== r.id)
-                                : [...s, r.id],
-                            );
-                          } else setEditor(r);
-                        }}
+                        onClick={(e) => chooseRecord(e, r)}
                         onDoubleClick={() => {
                           if (r.kind === "host") void connect(r.id);
                         }}
                       >
                         <div className="card-top">
-                          <div
-                            className={
-                              "host-icon " +
-                              (r.kind === "host"
-                                ? "tone-" + (r.data.label?.length % 5)
-                                : "")
-                            }
-                          >
+                          <div className="host-icon">
                             <Icon size={23} />
                           </div>
                           <div className="card-title">
@@ -1293,31 +1852,6 @@ export default function App() {
                                           ? `${r.data.hostIds?.length ?? 0} terminals`
                                           : r.data.package || "Command snippet"}
                             </span>
-                          </div>
-                          <div className="card-menu">
-                            <input
-                              type="checkbox"
-                              aria-label={`Select ${r.data.label}`}
-                              checked={isSelected}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={() =>
-                                setSelected((s) =>
-                                  isSelected
-                                    ? s.filter((id) => id !== r.id)
-                                    : [...s, r.id],
-                                )
-                              }
-                            />
-                            <button
-                              className="icon-btn"
-                              title={`Edit ${r.data.label}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditor(r);
-                              }}
-                            >
-                              <MoreHorizontal size={18} />
-                            </button>
                           </div>
                         </div>
                         {r.kind === "snippet" && (
@@ -1357,39 +1891,6 @@ export default function App() {
                                         ? "SAVED LAYOUT"
                                         : "SHELL COMMAND"}
                           </span>
-                          {["host", "snippet", "tunnel", "workspace"].includes(
-                            r.kind,
-                          ) && (
-                            <button
-                              className="card-connect"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (r.kind === "host") void connect(r.id);
-                                if (r.kind === "snippet") runSnippet(r);
-                                if (r.kind === "tunnel")
-                                  void tunnel(r).catch(report);
-                                if (r.kind === "workspace")
-                                  void openWorkspace(r);
-                              }}
-                            >
-                              {r.kind === "tunnel" &&
-                              runningTunnels.includes(r.id) ? (
-                                <>
-                                  <Square size={12} />
-                                  Stop
-                                </>
-                              ) : (
-                                <>
-                                  {r.kind === "host"
-                                    ? "Connect"
-                                    : r.kind === "workspace"
-                                      ? "Open"
-                                      : "Run"}
-                                  <ArrowUpRight size={15} />
-                                </>
-                              )}
-                            </button>
-                          )}
                         </footer>
                       </article>
                     );
@@ -1423,7 +1924,9 @@ export default function App() {
                   <Keyboard size={15} />
                   <span>Double-click a host to connect</span>
                   <i>·</i>
-                  <span>Ctrl + click to select multiple</span>
+                  <span>
+                    Right-click for actions · Ctrl / Shift + click to select
+                  </span>
                   <button onClick={() => setDataMode("import")}>
                     Bring your existing hosts
                     <ArrowRight size={13} />
@@ -1433,6 +1936,14 @@ export default function App() {
             </div>
           )}
         </main>
+        {details && !editor && (
+          <RecordDetails
+            record={records.find((r) => r.id === details.id) ?? details}
+            records={records}
+            onClose={() => setDetails(null)}
+            onContextMenu={(e) => recordMenu(e, details)}
+          />
+        )}
         {editor && (
           <Editor
             key={editor.id}
@@ -1440,7 +1951,6 @@ export default function App() {
             records={records}
             onClose={() => setEditor(null)}
             onSave={save}
-            onDelete={(id) => setDeleting([id])}
             onConnect={(id) => void connect(id)}
           />
         )}
@@ -1448,8 +1958,12 @@ export default function App() {
       {dataMode && (
         <DataTools
           mode={dataMode}
+          recordIds={backupIds}
           vault={vault}
-          onClose={() => setDataMode(null)}
+          onClose={() => {
+            setDataMode(null);
+            setBackupIds([]);
+          }}
           onVault={setVault}
           onNotice={notify}
         />
@@ -1467,66 +1981,105 @@ export default function App() {
           }}
         />
       )}
+      {context && (
+        <ContextMenu
+          key={
+            context.position.x + ":" + context.position.y + ":" + context.title
+          }
+          position={context.position}
+          title={context.title}
+          actions={context.actions}
+          onClose={() => setContext(null)}
+          onError={report}
+        />
+      )}
       {deleting && (
-        <Modal title="Delete records" onClose={() => setDeleting(null)}>
+        <Modal
+          title="Delete records"
+          onClose={() => {
+            if (!operationLock.current) setDeleting(null);
+          }}
+        >
           <div className="modal-body">
             <p>
-              Delete {deleting.length} selected record
+              Delete {deleting.length} record
               {deleting.length === 1 ? "" : "s"} from this vault?
             </p>
             <p className="muted small">
-              Records used by a host, group or chain must be unlinked first.
+              Selected groups include their hosts and subgroups. Records
+              referenced outside this selection must be unlinked first.
             </p>
           </div>
           <footer>
             <button className="secondary" onClick={() => setDeleting(null)}>
               Cancel
             </button>
-            <button className="danger-button" onClick={() => void remove()}>
+            <button
+              className="danger-button"
+              disabled={operationBusy}
+              onClick={() => void remove()}
+            >
               Delete
             </button>
           </footer>
         </Modal>
       )}
       {moving && (
-        <Modal title="Move hosts" onClose={() => setMoving(false)}>
+        <Modal
+          title={moving.copy ? "Copy to group" : "Move to group"}
+          onClose={() => {
+            if (!operationLock.current) setMoving(null);
+          }}
+        >
           <div className="modal-body">
+            <p className="muted small">
+              {moving.ids.length} selected · subgroups keep their contents and
+              relationships.
+            </p>
             <Select
               label="Destination group"
               value={moveTo}
               onChange={setMoveTo}
               options={[
                 { value: "", label: "No group" },
-                ...groups.map((g) => ({ value: g.id, label: g.data.label })),
+                ...groups
+                  .filter(
+                    (g) =>
+                      moving.copy ||
+                      !containedRecords(records, moving.ids).some(
+                        (r) => r.id === g.id,
+                      ),
+                  )
+                  .map((g) => ({ value: g.id, label: g.data.label })),
               ]}
             />
           </div>
           <footer>
-            <button className="secondary" onClick={() => setMoving(false)}>
+            <button
+              className="secondary"
+              disabled={operationBusy}
+              onClick={() => setMoving(null)}
+            >
               Cancel
             </button>
             <button
               className="primary"
-              onClick={async () => {
-                try {
-                  setVault(
-                    await call<Vault>("records_save", {
-                      records: records
-                        .filter((r) => selected.includes(r.id))
-                        .map((r) => ({
-                          ...r,
-                          data: { ...r.data, groupId: moveTo },
-                        })),
-                    }),
-                  );
-                  setMoving(false);
-                  setSelected([]);
-                } catch (e) {
-                  report(e);
-                }
-              }}
+              disabled={operationBusy}
+              onClick={() =>
+                void mutateRecords(
+                  () =>
+                    moving.copy
+                      ? duplicateRecords(records, moving.ids, moveTo)
+                      : moveRecords(records, moving.ids, moveTo),
+                  moving.copy ? "Copies created." : "Records moved.",
+                )
+              }
             >
-              Move hosts
+              {operationBusy
+                ? "Saving…"
+                : moving.copy
+                  ? "Copy records"
+                  : "Move records"}
             </button>
           </footer>
         </Modal>

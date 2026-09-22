@@ -1,5 +1,6 @@
 // Run only with an explicitly supplied personal file. Never copy it into fixtures.
 import { browser, expect } from "@wdio/globals";
+import { doubleClick } from './interaction.mjs';
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -127,7 +128,7 @@ describe("User-provided MobaXterm sessions", () => {
         const buttons = await browser.$$(".group-main");
         for (const button of buttons)
           if ((await button.$("strong").getText()) === name) {
-            await button.click();
+              await doubleClick(button);
             break;
           }
       }

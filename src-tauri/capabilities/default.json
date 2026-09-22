@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Local application window; native dialogs only.",
+  "description": "Local application window; native dialogs and text clipboard.",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save"]
+  "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save", "clipboard-manager:allow-read-text", "clipboard-manager:allow-write-text"]
 }

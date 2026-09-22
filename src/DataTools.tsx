@@ -20,12 +20,14 @@ export default function DataTools({
   onClose,
   onVault,
   onNotice,
+  recordIds = [],
 }: {
   mode: DataMode;
   vault: Vault | null;
   onClose: () => void;
   onVault: (v: Vault) => void;
   onNotice: (s: string) => void;
+  recordIds?: string[];
 }) {
   const [format, setFormat] = useState(mode === "import" ? "auto" : "openssh");
   const [encoding, setEncoding] = useState("auto");
@@ -197,7 +199,7 @@ export default function DataTools({
             includeProfiles: profiles,
             includeFiles,
             sources,
-            ids: [],
+            ids: recordIds,
           });
           onNotice(
             report.vaults +
@@ -413,6 +415,12 @@ export default function DataTools({
           )}
           {mode === "backup" && (
             <>
+              {recordIds.length > 0 && (
+                <p className="notice">
+                  Selected export: {recordIds.length} records, plus their
+                  required references.
+                </p>
+              )}
               <Field
                 label="Backup password"
                 value={password}
@@ -428,6 +436,7 @@ export default function DataTools({
               </Check>
               <button
                 className="secondary"
+                disabled={recordIds.length > 0}
                 onClick={async () => {
                   const path = await chooseFile(
                     ["ttvault"],

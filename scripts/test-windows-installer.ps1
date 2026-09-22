@@ -7,6 +7,8 @@ $target=[IO.Path]::GetFullPath((Join-Path $project '.tools/installer-check-0.3')
 if (!$target.StartsWith($project+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw 'Installer test target must remain inside the workspace.' }
 $registered=@(Get-ChildItem -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall' | Where-Object {$_.PSChildName -match '^TermTerm$|^local\.termterm\.desktop$'})
 if ($registered.Count) { throw 'An existing TermTerm installation is registered. Preserve it; use a clean Windows account for the installer smoke test.' }
+$running=@(Get-Process termterm -ErrorAction SilentlyContinue)
+if ($running.Count) { throw 'TermTerm is running, possibly as a portable application. Preserve its sessions; run the installer smoke test in a clean Windows account after closing it yourself.' }
 if (Test-Path -LiteralPath $target) { throw 'Installer test directory already exists; inspect it before reusing.' }
 $shortcuts=@((Join-Path ([Environment]::GetFolderPath('Desktop')) 'TermTerm.lnk'),(Join-Path ([Environment]::GetFolderPath('Programs')) 'TermTerm.lnk'))
 $saved=@{}

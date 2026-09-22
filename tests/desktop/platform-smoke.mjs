@@ -1,4 +1,5 @@
 import { browser, $, $$, expect } from "@wdio/globals";
+import { doubleClick } from './interaction.mjs';
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -58,7 +59,7 @@ describe("Native platform smoke", () => {
       ]).then(() => done(true));
     });
     // Use the real terminal so xterm answers ConPTY's cursor-position queries.
-    await $('button*=Local terminal').click();
+    await $('button[title="New local terminal"]').click();
     await browser.waitUntil(
       async () => {const state=await browser.execute(() => window.__smoke); const failure=state.events?.find(e=>e.kind==='error');if(failure)throw Error(String(failure.detail));return !!state.id;},
       {timeout:60000,timeoutMsg:'Local PTY did not connect'},
@@ -90,13 +91,15 @@ describe("Native platform smoke", () => {
     await invoke('records_save',{records:[outer,inner,record('host',{label:'Root host',address:'root.invalid'}),record('host',{label:'Outer host',address:'outer.invalid',groupId:outer.id}),record('host',{label:'Inner host',address:'inner.invalid',groupId:inner.id})]});
     await browser.executeAsync(done=>window.__TAURI__.event.emit('vault-changed').then(()=>done(true)));
     await $('.main-nav button:first-child').click();
-    await browser.waitUntil(async()=>(await $$('.record-card')).length===1);expect(await $('.record-card').getText()).toContain('Root host');
-    await $('.group-main*=Outer folder').click();expect(await $('.record-card').getText()).toContain('Outer host');expect(await $$('.record-card')).toHaveLength(1);
-    await $('.group-main*=Inner folder').click();expect(await $('.record-card').getText()).toContain('Inner host');expect(await $('.breadcrumb').getText()).toContain('Outer folder');
-    await $('.breadcrumb').$('button=Hosts').click();expect(await $('.record-card').getText()).toContain('Root host');
+    await $('.group-main*=Ungrouped').waitForDisplayed();expect(await $$('.record-card')).toHaveLength(0);
+    await doubleClick($('.group-main*=Ungrouped'));expect(await $('.record-card').getText()).toContain('Root host');
+    await $('.breadcrumb').$('button=Hosts').click();
+    await doubleClick($('.group-main*=Outer folder'));expect(await $('.record-card').getText()).toContain('Outer host');expect(await $$('.record-card')).toHaveLength(1);
+    await doubleClick($('.group-main*=Inner folder'));expect(await $('.record-card').getText()).toContain('Inner host');expect(await $('.breadcrumb').getText()).toContain('Outer folder');
+    await $('.breadcrumb').$('button=Hosts').click();expect(await $$('.record-card')).toHaveLength(0);await $('.group-main*=Ungrouped').waitForDisplayed();
     await $('button=Settings').click();await $('button=General').click();await browser.execute(()=>{const label=Array.from(document.querySelectorAll('label')).find(e=>e.textContent.includes('Terminal color theme'));const select=label.querySelector('select');select.value='forest';select.dispatchEvent(new Event('change',{bubbles:true}));});await $('button=Save preferences').click();
     expect((await invoke('vault_info')).records.find(r=>r.kind==='settings').data.terminalTheme).toBe('forest');
-    await $('button*=Local terminal').click();await $('.terminal-cell:last-child .terminal-pane').waitForDisplayed();expect(await browser.execute(()=>getComputedStyle(document.querySelector('.terminal-cell:last-child .terminal-surface')).backgroundColor)).toBe('rgb(16, 32, 28)');
+    await $('button[title="New local terminal"]').click();await $('.terminal-cell:last-child .terminal-pane').waitForDisplayed();expect(await browser.execute(()=>getComputedStyle(document.querySelector('.terminal-cell:last-child .terminal-surface')).backgroundColor)).toBe('rgb(16, 32, 28)');
     await fs.mkdir(path.resolve('artifacts'),{recursive:true});await browser.saveScreenshot(path.resolve('artifacts/native-forest-terminal.png'));
     await invoke("vault_copy", { path: path.join(directory, "copy.ttvault") });
     await invoke("vault_lock");

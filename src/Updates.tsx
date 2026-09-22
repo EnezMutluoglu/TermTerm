@@ -37,9 +37,9 @@ export default function Updates() {
     <p>{info ? `TermTerm ${info.version} · ${info.channel}` : "Open the desktop application to check updates."}</p>
     <p className="muted">Only owner-approved stable releases are offered. Updates are signature-verified before installation. Your encrypted vault files are kept.</p>
     {info && !info.enabled && <p>Development build: stable updates are disabled.</p>}
-    {info && !info.packageSupported && <p>For a .deb installation, install the new Debian package from GitHub Releases using your package manager.</p>}
+    {info && !info.packageSupported && <p>For a .deb or .rpm installation, download the matching package from GitHub Releases and install it using your package manager. AppImage installations support in-app updates.</p>}
     <p><a href="https://github.com/EnezMutluoglu/TermTerm/releases" target="_blank" rel="noreferrer">GitHub Releases</a></p>
-    <button disabled={!info?.enabled || busy} onClick={() => void execute(false)}>Check for updates</button>
+    <button className="primary" disabled={!info?.enabled || busy} onClick={() => void execute(false)}>Check for updates</button>
     {release?.available && <>
       <h3>TermTerm {release.version}</h3>
       <pre style={{whiteSpace:"pre-wrap"}}>{release.notes}</pre>

@@ -190,7 +190,7 @@ export default function ResourceMonitor({
       </div>
       {sample?.supported !== false && (
         <div className="resource-summary">
-          <div className="resource-value" title="Total CPU usage">
+          <div className="resource-value resource-cpu" title="Total CPU usage">
             <Cpu size={12} />
             <span>
               CPU{" "}
@@ -203,7 +203,7 @@ export default function ResourceMonitor({
             <Spark points={points} field="cpu" />
           </div>
           <div
-            className="resource-value"
+            className="resource-value resource-memory"
             title={
               sample?.memory
                 ? `${size(sample.memory.used)} / ${size(sample.memory.total)}`
@@ -241,6 +241,11 @@ export default function ResourceMonitor({
             </span>
             <span className="capacity-track">
               <i
+                className={
+                  root && percent(root.used, root.total) > 90
+                    ? "critical"
+                    : undefined
+                }
                 style={{
                   width: `${root ? percent(root.used, root.total) : 0}%`,
                 }}
@@ -299,10 +304,11 @@ export default function ResourceMonitor({
                 </span>
                 <span className="capacity-track">
                   <i
+                    className={
+                      percent(d.used, d.total) > 90 ? "critical" : undefined
+                    }
                     style={{
                       width: `${percent(d.used, d.total)}%`,
-                      background:
-                        percent(d.used, d.total) > 90 ? "#e98b82" : undefined,
                     }}
                   />
                 </span>

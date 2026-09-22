@@ -6,6 +6,8 @@ Tauri 2, Rust ve React ile geliştirilmiş kişisel SSH çalışma alanı. Windo
 
 ## 0.3.2 ve güncellemeler
 
+Geliştirme dalındaki **0.3.3-dev.1**; yumuşak antrasit–mavi kontroller, üst sırada bağlantı sekmeleri, altta terminal araçları, seçimle kopyalama, sağ tık/Shift+Insert yapıştırma ve doğrudan Updates bağlantısını içerir. Windows x64 ve Linux x64 (deb, RPM, AppImage) yerel deneme paketleri hazırlanır. macOS Intel/Apple Silicon yapılandırması hazırdır; Mac üzerinde derleme bekler. Bu geliştirme paketi kararlı güncelleme kanalında yayımlanmaz. [Derleme komutları](docs/BUILD_PLATFORMS.md).
+
 RSA 2048/3072/4096, Ed25519 ve ECDSA anahtar uyumluluğu ile kayıtlı sunucu anahtarı seçimi düzeltildi. Windows 0.3.2 kurucusu ve taşınabilir paket [GitHub Releases](https://github.com/EnezMutluoglu/TermTerm/releases) üzerinden yayımlanır. İlk kez 0.3.2 kurulduktan sonra **Settings → Updates** ile onaylanmış yeni sürümler kontrol edilebilir. Güncelleme imzası kurulmadan önce doğrulanır. Geliştirme dalı develop, onaylanan sürümler main üzerindedir. Ayrıntılar: [yayın akışı](docs/RELEASE_PROCESS.md), [0.3.2 kontrol raporu](docs/VALIDATION_0.3.2.md).
 
 ## Çalıştırma

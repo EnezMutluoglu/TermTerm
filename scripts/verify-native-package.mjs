@@ -14,12 +14,15 @@ async function walk(dir) {
   return out;
 }
 const version=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8')).version;
-const files = (await walk(bundle)).filter(file=>path.basename(file).includes(`_${version}_`)),
+const files = (await walk(bundle)).filter(file=>{
+  const name=path.basename(file);
+  return name.startsWith(`TermTerm_${version}_`) || name === `TermTerm-${version}-1.x86_64.rpm`;
+}),
   suffixes =
     process.platform === "darwin"
       ? [".dmg"]
       : process.platform === "linux"
-        ? [".AppImage", ".deb"]
+        ? [".AppImage", ".deb", ".rpm"]
         : [".exe"];
 for (const ext of suffixes)
   if (!files.some((f) => f.endsWith(ext)))
@@ -46,6 +49,11 @@ if (process.platform === "darwin") {
 const output = path.join(root, "artifacts", `release-${version}`);
 await fs.mkdir(output, { recursive: true });
 const hashes = [];
+if (process.platform === "darwin") {
+  const name=`TermTerm-${version}-macos-${process.arch}.app.zip`;
+  execFileSync("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", path.join(bundle,"macos/TermTerm.app"), path.join(output,name)]);
+  hashes.push(crypto.createHash("sha256").update(await fs.readFile(path.join(output,name))).digest("hex") + "  " + name);
+}
 for (const file of files.filter((f) =>
   suffixes.some((ext) => f.endsWith(ext)),
 )) {

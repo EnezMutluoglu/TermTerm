@@ -1,6 +1,6 @@
-# TermTerm platform derlemeleri
+# Platform derlemeleri — 0.3.3-dev.1
 
-Hedefler Windows x64, Linux x64, macOS Intel ve Apple Silicon'dur. Node 22.12+ (CI: 24), pnpm 11.19 ve Rust 1.98.1 kullanılır. Kasa ve yedek dosya biçimi 0.1 ile aynıdır; grafik geçmişi yalnızca RAM'de tutulur.
+Hedefler Windows x64, Linux x64, macOS Intel/Apple Silicon. Node 22.12+ (CI 24), pnpm 11.19+ ve Rust 1.98.1 kullanılır. Normal derleme geliştirme kanalındadır; stable yayın için sahibinin ayrıca onayı ve [yayın akışı](RELEASE_PROCESS.md) gerekir. Workflow yalnızca elle çalışır, release yayımlamaz.
 
 ## Windows
 
@@ -9,18 +9,15 @@ Visual Studio C++ Build Tools, Windows SDK ve WebView2 gerekir.
 ```powershell
 pnpm install --frozen-lockfile
 node scripts/fetch-mosh.mjs
-scripts/build.ps1 check
-scripts/package.ps1
-scripts/verify-package.ps1
+powershell -ExecutionPolicy Bypass -File scripts/package.ps1
+powershell -ExecutionPolicy Bypass -File scripts/verify-package.ps1
 ```
 
-NSIS ve taşınabilir ZIP, proje sürümüne göre `artifacts/release-0.3.2` içine yazılır. Eski teslimat klasörlerine yazılmaz. Yukarıdaki normal komutlar geliştirme kanalı üretir. Sahibinin onayladığı kararlı sürümü ve güncelleme imzasını üretmek için [yayın kılavuzunu](RELEASE_PROCESS.md) izleyin. Windows Authenticode yayıncı sertifikası yapılandırılmamıştır; güncelleme imzası ayrı bir kontroldür. Taşınabilir paketin tamamını çıkarın; Mosh helper ve DLL dosyalarını exe yanında bırakın.
+`artifacts/release-0.3.3-dev.1` altında NSIS, portable ZIP ve kaynak ZIP oluşur. NSIS ve portable paket WebView2 x64 çevrimdışı kurucusunu içerir. Portable ZIP'in tamamını çıkarın; Mosh/DLL/lisans dosyalarını yanında tutun. Authenticode yayıncı imzası yoktur. Geliştirme paketi güncelleme akışına yüklenmez.
 
-## Linux
+## Linux x64
 
-Aşağıdaki paket örnekleri daha önce doğrulanan 0.3.1 Linux teslimatına aittir; 0.3.2 Windows düzeltme yayınına yeni Linux paketi eklenmemiştir.
-
-Dağıtım tabanı Ubuntu 22.04'tür. Teslim edilen paketler WSL Ubuntu 24.04 içinde ayrı Ubuntu 22.04 chroot ortamında derlendi ve çalıştırıldı. Uygulamanın GLIBC gereksinimi en fazla 2.34 olarak doğrulandı. PostgreSQL/SSH laboratuvarı dıştaki Ubuntu 24.04 dağıtımında kalır.
+Ubuntu 22.04 derleme tabanı kullanılır. `.deb` Debian/Ubuntu ailesi, `.rpm` uygun Fedora/openSUSE türevleri, AppImage diğer uyumlu glibc masaüstleri içindir. Her dağıtımda çalıştığı iddia edilmez: ARM, Alpine/musl, eski glibc veya eksik WebKitGTK 4.1 sistemleri bu x64 hedefinin dışındadır.
 
 ```bash
 sudo apt-get update
@@ -31,63 +28,48 @@ pnpm install --frozen-lockfile
 bash scripts/build.sh package
 ```
 
-Ubuntu 24.04'te `libfuse2` yerine `libfuse2t64` kullanılır. AppImage ve `.deb` Tauri bundle dizininde üretilir, doğrulanan paketler proje sürümüne göre `artifacts/release-0.3.1` dizinine kopyalanır. Mosh kütüphaneleri ayrı helper altında paketlenir; sistem glibc'si taşınmaz.
-
-Yalnızca Debian paketi üretmek için sistem bağımlılıklarını kurduktan sonra:
+Ubuntu 24.04'te `libfuse2t64` kullanılır. Üç paket Tauri bundle dizininde üretilir; doğrulama betiği hepsini kontrol edip artifacts klasörüne kopyalar. Mosh yardımcı süreç ve kütüphaneleri pakette bulunur; sistem glibc'si taşınmaz. Dağıtım bağımlılıklarının kurulumu internet gerektirebilir.
 
 ```bash
-pnpm install --frozen-lockfile
-bash scripts/prepare-mosh.sh
-pnpm tauri build --bundles deb
-dpkg-deb --info src-tauri/target/release/bundle/deb/TermTerm_0.3.1_amd64.deb
+sudo apt install ./TermTerm_0.3.3-dev.1_amd64.deb
+# RPM dağıtımında:
+sudo dnf install ./TermTerm-0.3.3-dev.1-1.x86_64.rpm
+# AppImage:
+chmod +x TermTerm_0.3.3-dev.1_amd64.AppImage
+./TermTerm_0.3.3-dev.1_amd64.AppImage
+# FUSE yoksa:
+./TermTerm_0.3.3-dev.1_amd64.AppImage --appimage-extract-and-run
 ```
 
-Bu komutun çıktısı `src-tauri/target/release/bundle/deb/TermTerm_0.3.1_amd64.deb` olur. `verify-native-package.mjs` tam Linux teslimatı için hem AppImage hem `.deb` arar; yalnızca `.deb` derlemesinde paket ayrıca kurularak ve bağımlılıkları kontrol edilerek doğrulanır. `.deb` kullanımı FUSE gerektirmez.
+Yerel terminal kullanıcı shell'ini açar. Parola hatırlama kilidi açık Secret Service gerektirir; yoksa parola ile kasa açılabilir. PostgreSQL isteğe bağlıdır. WSL testi masaüstü keyring veya bütün dağıtımlarda doğrulama anlamına gelmez.
 
-Yerel terminal `$SHELL` veya kullanıcı hesabının login shell'iyle açılır. Parola hatırlama çalışan ve kilidi açık Secret Service gerektirir; yoksa parola ile açma kullanılabilir. Headless WSL testinde masaüstü keyring entegrasyonu doğrulanmış sayılmaz.
+## macOS: kaynak hazır, derleme Mac üzerinde
 
-## macOS
-
-Her mimari kendi runner'ında derlenir. Intel: `macos-15-intel`; Apple Silicon: `macos-15`. Xcode Command Line Tools ve Homebrew gerekir.
+Intel Mac'te x86_64, Apple Silicon Mac'te arm64 paketi üretilir. Her mimari için ayrı kaynak kopyası/runner kullanın; Mosh dosyalarını mimariler arasında karıştırmayın. Xcode Command Line Tools, Homebrew, Node/pnpm ve Rust gerekir.
 
 ```bash
+xcode-select --install # zaten kuruluysa gerekmez
 brew install mosh
 pnpm install --frozen-lockfile
 bash scripts/build.sh package
 ```
 
-`.app` ve DMG ayrı mimarilerde üretilir. Mosh ve Homebrew dylib'leri paket içindeki göreli konumlara bağlanır ve ad-hoc imzalanır. Apple Developer sertifikası/notarization bu yapılandırmaya dahil değildir. macOS derlemesi ve gerçek ölçüm testi yerelde çalıştırılmamıştır; CI'ın çalışması gerekir.
+Betik Mosh/dylib hazırlığını yapar, `.app` ve DMG üretir. Doğrulama `codesign --verify --deep --strict` çalıştırır, `.app.zip` oluşturur; DMG ve ZIP artifacts klasörüne alınır. Minimum sistem 11.0; imza ad-hoc'tur. Apple Developer sertifikası/notarization yapılandırılmamıştır. Kullanıcı kararıyla Mac derlemesi bekler; yapılandırmanın hazır olması macOS testinin geçtiği anlamına gelmez.
 
-## Native test derlemesi
+`.github/workflows/desktop.yml` içinde `macos-15-intel` ve `macos-15` runner'ları hazırdır. **Run workflow** ile başlatılır; yayın yapmaz. Kaynak ZIP'i Mac'e taşıyıp yukarıdaki komutları çalıştırabilirsiniz.
+
+## Testler
 
 ```bash
+cargo test --locked --manifest-path src-tauri/Cargo.toml --lib -- --test-threads=1
+pnpm test:unit
+pnpm exec playwright install chromium
+pnpm test:ui
 pnpm tauri build --debug --features e2e --config src-tauri/tauri.e2e.conf.json --no-bundle
 ```
 
-E2E yapılandırması ayrı `local.termterm.desktop.e2e` uygulama kimliği ve yalnızca test derlemesine eklenen JavaScript/Rust WebDriver parçaları kullanır. Normal `pnpm tauri build` test özelliklerini içermez. Üretim paketleriyle `--features e2e` kullanılmaz. Test sunucuları loopback içindir.
+Native platform smoke: `TERMTERM_SPEC=./tests/desktop/platform-smoke.mjs pnpm test:native` (PowerShell'de `$env:TERMTERM_SPEC=...`). Linux'ta `dbus-run-session -- xvfb-run -a pnpm test:native`. E2E uygulama kimliği ayrıdır; normal paketlerde WebDriver özelliği bulunmaz.
 
-Windows/macOS:
+Gerçek SSH/pano testi Windows'ta `tests/desktop/terminal-usability.mjs`; yerel `.lab/ssh.json` veya `TERMTERM_SSH_FIXTURE` gerektirir. Fixture kaynak arşivine alınmaz. Embedded sürücünün Insert/contextmenu/pointer eksikleri testte açıkça tamamlanır; gerçek tuş baytları SSH sunucusunda, pano Windows TextBox ile doğrulanır. Tarayıcı testleri gerçek browser input olaylarını ayrıca sınar. Donanım klavyesi/OS DPI/macOS sonuçları bu otomasyonla eş tutulmaz.
 
-```powershell
-$env:TERMTERM_SPEC='./tests/desktop/platform-smoke.mjs'
-pnpm test:native
-```
-
-Linux:
-
-```bash
-TERMTERM_SPEC=./tests/desktop/platform-smoke.mjs dbus-run-session -- xvfb-run -a pnpm test:native
-```
-
-WSL root hesabıyla yapılan headless testte WebKit sandbox için test sürecine özel `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` kullanıldı. Uygulama/paket bu değişkeni ayarlamaz; günlük kullanımda normal kullanıcı hesabı kullanılır.
-
-Gerçek SSH laboratuvarı gerektiren Windows regresyonu: `tests/desktop/workspace.mjs`. Kaynak göstergesi/tuş baytları/16 panel testi: `tests/desktop/metrics.mjs`; kısa kontrol için `TERMTERM_SOAK_SECONDS=30` kullanılır. Daha uzun süre isteğe bağlıdır; bu teslimatta kullanıcı isteğiyle 30 dakikalık izleme yapılmadı. `.github/workflows/desktop.yml` dört hedefte birim, arayüz, native smoke, release ve paket kontrollerini tanımlar. Bu klasör Git remote'a bağlı olmadığından workflow burada gönderilmedi veya uzaktan çalıştırılmadı.
-
-
-## 0.3 teslimat kararı
-
-macOS Intel ve Apple Silicon derlemeleri 21 Eylül 2026 tarihinde kullanıcı isteğiyle bekletilmiştir. Kaynak arşivinde iki Tauri hedefi, Homebrew Mosh/dylib hazırlığı, ad-hoc imzalama, test komutları ve CI matrisi bulunur. Mac üzerinde derlenip çalıştırılmadan macOS paketi doğrulandı sayılmaz.
-
-Windows NSIS paketi WebView2 x64 çevrimdışı kurucusunu içerir. Windows portable dağıtımında `prerequisites` klasöründeki aynı çalışma zamanı kurucusu gerekirse bir kez çalıştırılır. PostgreSQL kişisel kullanım için zorunlu değildir. WSL betikleri yalnızca isteğe bağlı geliştirme/test sunucusunu hazırlar.
-
-Linux üretim derlemesi Ubuntu 22.04 tabanında hazırlanır. AppImage için masaüstü oturumu ve FUSE2 gerekir; FUSE yoksa `--appimage-extract-and-run` kullanılabilir. `.deb` paketini `sudo apt install ./TermTerm_0.3.1_amd64.deb` ile kurmak sistem bağımlılıklarını çözümleyerek yükler; eksik sistem paketleri için internet bağlantısı gerekir.
+WSL root headless testinde süreç bazlı `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` gerekebilir; uygulama/paket bunu ayarlamaz. Günlük kullanım normal masaüstü kullanıcısıyladır. Uzun süreli 30 dakika izleme yapılmaz.

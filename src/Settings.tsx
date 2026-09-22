@@ -1,7 +1,8 @@
 import Integrations from "./Integrations";
 import Updates from "./Updates";
 
-import { terminalThemes, terminalTheme } from "./terminalThemes";
+import { terminalThemes } from "./terminalThemes";
+import TerminalPreview from "./TerminalPreview";
 
 import { shortcuts, shortcutLabel } from "./shortcuts";
 
@@ -50,6 +51,8 @@ export default function Settings({
   themeId,
 
   onTheme,
+  initialTab = "sync",
+  navigationKey = 0,
 }: {
   vault: Vault;
 
@@ -64,10 +67,14 @@ export default function Settings({
   themeId: string;
 
   onTheme: (id: string) => void;
+  initialTab?: string;
+  navigationKey?: number;
 }) {
   const preferences = vault.records.find((r) => r.kind === "settings");
 
   const [logging, setLogging] = useState(preferences?.data.logging !== false);
+  const [copyOnSelect, setCopyOnSelect] = useState(preferences?.data.copyOnSelect !== false);
+  const [rightClickPaste, setRightClickPaste] = useState(preferences?.data.rightClickPaste !== false);
 
   const [externalEditor, setExternalEditor] = useState(
     preferences?.data.externalEditor ?? "",
@@ -87,7 +94,8 @@ export default function Settings({
 
   const existing = profiles.find((r) => r.id === profileId);
 
-  const [tab, setTab] = useState("sync");
+  const [tab, setTab] = useState(initialTab);
+  useEffect(() => setTab(initialTab), [initialTab, navigationKey]);
 
   const [profile, setProfile] = useState<SyncProfile>({
     ...defaultProfile,
@@ -399,44 +407,10 @@ export default function Settings({
                   onChange={(v) => onFontSize(Math.max(10, Math.min(24, v)))}
                 />
 
-                <div
-                  className="terminal-sample"
-
-                  style={{
-                    fontSize,
-
-                    background: terminalTheme(themeId).background,
-
-                    color: terminalTheme(themeId).foreground,
-                  }}
-                >
-                  you@server <span>~</span> $ echo "Hello, TermTerm"
-                  <br />
-                  Hello, TermTerm
-                  <div className="terminal-palette">
-                    {(
-                      [
-                        "red",
-
-                        "green",
-
-                        "yellow",
-
-                        "blue",
-
-                        "magenta",
-
-                        "cyan",
-                      ] as const
-                    ).map((color) => (
-                      <span
-                        key={color}
-
-                        style={{ background: terminalTheme(themeId)[color] }}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <TerminalPreview themeId={themeId} fontSize={fontSize} />
+                <Check checked={copyOnSelect} onChange={setCopyOnSelect}>Copy text when mouse selection finishes</Check>
+                <Check checked={rightClickPaste} onChange={setRightClickPaste}>Right-click pastes into the terminal</Check>
+                <p className="muted small">Shift+Insert also pastes. Hold Shift to select or paste while a remote application is using the mouse.</p>
 
                 <Check checked={logging} onChange={setLogging}>
                   Save terminal output in the encrypted vault
@@ -479,6 +453,8 @@ export default function Settings({
                                 fontSize,
 
                                 terminalTheme: themeId,
+                                copyOnSelect,
+                                rightClickPaste,
 
                                 logging,
 

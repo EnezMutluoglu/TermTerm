@@ -19,13 +19,14 @@ test("onboarding, host search, group navigation and editor layout", async ({
     page.locator(".record-card h3").filter({ hasText: "web-01" }),
   ).toHaveCount(0);
   await page.screenshot({ path: "artifacts/hosts.png" });
-  await page.locator(".group-main").filter({ hasText: "Production" }).click();
+  await page.locator(".group-main").filter({ hasText: "Production" }).dblclick();
   await expect(page.locator(".record-card")).toHaveCount(3);
   await expect(page.locator(".breadcrumb")).toContainText("Production");
   await page.getByRole("textbox", { name: "Search records" }).fill("database");
   await expect(page.locator(".record-card")).toHaveCount(1);
   await page.getByRole("textbox", { name: "Search records" }).fill("");
-  await page.getByRole("button", { name: "Edit web-01", exact: true }).click();
+  await page.locator(".record-card").filter({hasText:"web-01"}).click({button:"right"});
+  await page.getByRole("menuitem", {name:"Edit", exact:true}).click();
   await expect(
     page
       .locator(".editor")
@@ -61,7 +62,7 @@ test("folder navigation hides nested hosts and terminal themes preview immediate
 }) => {
   await page.goto("/?preview");
   await expect(page.locator(".record-card")).toHaveCount(0);
-  await page.locator(".group-main").filter({ hasText: "Production" }).click();
+  await page.locator(".group-main").filter({ hasText: "Production" }).dblclick();
   await expect(
     page.getByRole("heading", { name: "Production", exact: true }),
   ).toBeVisible();
@@ -74,7 +75,7 @@ test("folder navigation hides nested hosts and terminal themes preview immediate
     .getByRole("button", { name: "Hosts", exact: true })
     .click();
   await expect(page.locator(".record-card")).toHaveCount(0);
-  await page.locator(".group-main").filter({ hasText: "Ungrouped" }).click();
+  await page.locator(".group-main").filter({ hasText: "Ungrouped" }).dblclick();
   await expect(
     page.locator(".record-card h3").filter({ hasText: "Development" }),
   ).toHaveCount(1);
@@ -96,7 +97,7 @@ test("10,000-host search renders a matching result promptly", async ({
   page,
 }) => {
   await page.goto("/?preview&previewCount=10000");
-  await page.locator(".group-main").filter({ hasText: "Ungrouped" }).click();
+  await page.locator(".group-main").filter({ hasText: "Ungrouped" }).dblclick();
   await expect(page.locator(".records-toolbar")).toContainText(
     "9997 hosts in this folder",
   );
@@ -150,7 +151,7 @@ test("parent folder totals include descendants while each folder lists only its 
       .filter({ hasText: "Environments" })
       .locator(".sidebar-group-count"),
   ).toHaveText("3");
-  await parent.click();
+  await parent.dblclick();
   await expect(page.locator(".record-card")).toHaveCount(0);
   await expect(page.locator(".records-toolbar")).toContainText(
     "0 hosts in this folder · 1 folders",
@@ -158,7 +159,7 @@ test("parent folder totals include descendants while each folder lists only its 
   await expect(
     page.locator(".group-main").filter({ hasText: "Production" }),
   ).toContainText("3 hosts");
-  await page.locator(".group-main").filter({ hasText: "Production" }).click();
+  await page.locator(".group-main").filter({ hasText: "Production" }).dblclick();
   await expect(page.locator(".record-card")).toHaveCount(3);
   await expect(page.locator(".records-toolbar")).toContainText(
     "3 hosts in this folder",

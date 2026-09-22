@@ -117,7 +117,7 @@ export default function Onboarding({
                 Authenticating with your encrypted keychain…
               </span>
               <br />
-              <span className="green">Connection established.</span>
+              <span className="success-text">Connection established.</span>
               <br />
               <br />
               <b>you@server</b> <span className="muted">~</span> ${" "}
@@ -167,7 +167,7 @@ export default function Onboarding({
                 setPath("");
               }}
             >
-              <div className="option-icon green">
+              <div className="option-icon">
                 <HardDrive size={22} />
               </div>
               <div>

@@ -35,14 +35,12 @@ export default function Editor({
   records,
   onClose,
   onSave,
-  onDelete,
   onConnect,
 }: {
   record: Entity;
   records: Entity[];
   onClose: () => void;
   onSave: (r: Entity) => Promise<void>;
-  onDelete: (id: string) => void;
   onConnect: (id: string) => void;
 }) {
   const [data, setData] = useState(structuredClone(record.data));
@@ -859,16 +857,6 @@ export default function Editor({
           {error && <div className="notice error">{error}</div>}
         </div>
         <footer className="editor-footer">
-          {records.some((r) => r.id === record.id) && (
-            <button
-              type="button"
-              className="icon-btn danger"
-              title="Delete record"
-              onClick={() => onDelete(record.id)}
-            >
-              <Trash2 size={17} />
-            </button>
-          )}
           <button type="button" className="secondary" onClick={onClose}>
             Cancel
           </button>

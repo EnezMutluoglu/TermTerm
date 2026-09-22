@@ -13,15 +13,23 @@ import {
   ArrowDownToLine,
   HardDrive,
   Server,
-  MoreHorizontal,
   X,
   CheckCircle2,
   RotateCcw,
   Trash2,
+  Copy,
+  Pencil,
+  Info,
 } from "lucide-react";
 import { call, errorText, desktop } from "./api";
 import { Modal, Field, Busy, Check } from "./components";
 import type { Entity, FileEntry, Endpoint } from "./types";
+import ContextMenu, {
+  menuPosition,
+  type MenuPosition,
+  type MenuAction,
+} from "./ContextMenu";
+import { copyText } from "./clipboard";
 type Pane = {
   endpoint: Endpoint;
   entries: FileEntry[];
@@ -61,11 +69,13 @@ function Sftp({
   home,
   notify,
   visible = true,
+  openRequest,
 }: {
   visible?: boolean;
   records: Entity[];
   home: string;
   notify: (s: string) => void;
+  openRequest?: { hostId: string; key: number } | null;
 }) {
   const [panes, setPanes] = useState<Pane[]>([
     {
@@ -91,10 +101,18 @@ function Sftp({
   >([]);
   const [hidden, setHidden] = useState(false);
   const [overwrite, setOverwrite] = useState(false);
+  const [context, setContext] = useState<{
+    position: MenuPosition;
+    title: string;
+    actions: MenuAction[];
+  } | null>(null);
+  const requested = useRef<number | undefined>(undefined);
   const [action, setAction] = useState<{
     pane: number;
     type: string;
     entry?: FileEntry;
+    entries?: FileEntry[];
+    endpoint?: Endpoint;
   } | null>(null);
   const [value, setValue] = useState("");
   const epochs = useRef([0, 0]);
@@ -132,6 +150,15 @@ function Sftp({
     live.current = true;
     if (home) void load(0, { connection: "local", path: home });
   }, [home]);
+  useEffect(() => {
+    if (visible && openRequest && requested.current !== openRequest.key) {
+      requested.current = openRequest.key;
+      void connect(1, openRequest.hostId);
+    }
+  }, [visible, openRequest?.key]);
+  useEffect(() => {
+    setContext(null);
+  }, [visible, hosts, paths]);
   useEffect(() => {
     live.current = true;
     return () => {
@@ -373,6 +400,42 @@ function Sftp({
     setActionPending(true);
     const pane = panes[action.pane];
     try {
+      if (
+        action.endpoint &&
+        (pane.endpoint.connection !== action.endpoint.connection ||
+          pane.endpoint.path !== action.endpoint.path)
+      )
+        throw Error("The directory changed. Choose the file again.");
+      if (action.type === "remove") {
+        const failed: FileEntry[] = [],
+          errors: string[] = [];
+        for (const file of action.entries ?? [action.entry!]) {
+          if (!live.current) return;
+          try {
+            await call("file_action", {
+              endpoint: { ...pane.endpoint, path: file.path },
+              action: "remove",
+              target: null,
+              permissions: null,
+            });
+          } catch (error) {
+            failed.push(file);
+            errors.push(`${file.name}: ${errorText(error)}`);
+          }
+        }
+        if (!live.current) return;
+        setAction(
+          failed.length
+            ? { ...action, entries: failed, entry: failed[0] }
+            : null,
+        );
+        await load(action.pane);
+        if (failed.length)
+          notify(
+            `${failed.length} item(s) could not be deleted. ${errors.join("; ")}`,
+          );
+        return;
+      }
       const endpoint = {
         ...pane.endpoint,
         path:
@@ -386,6 +449,7 @@ function Sftp({
         target: action.type === "rename" ? join(pane.endpoint, value) : null,
         permissions: action.type === "chmod" ? parseInt(value, 8) : null,
       });
+      if (!live.current) return;
       setAction(null);
       await load(action.pane);
     } catch (e) {
@@ -395,8 +459,154 @@ function Sftp({
       setActionPending(false);
     }
   }
+  async function editFile(i: number, entry: FileEntry) {
+    try {
+      const edit = await call<{ id: string; path: string; name: string }>(
+        "file_edit",
+        { endpoint: { ...paneRef.current[i].endpoint, path: entry.path } },
+      );
+      if (live.current) setEdits((a) => [...a, edit]);
+    } catch (e) {
+      notify(errorText(e));
+    }
+  }
+  function fileMenu(
+    e: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>,
+    i: number,
+    entry?: FileEntry,
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    const pane = paneRef.current[i];
+    if (!pane.endpoint.connection || pane.loading) return;
+    const selected = entry
+      ? pane.selected.includes(entry.path)
+        ? pane.selected
+        : [entry.path]
+      : [];
+    const entries = pane.entries.filter((file) => selected.includes(file.path));
+    if (entry) patch(i, { selected });
+    const actions: MenuAction[] = [];
+    const begin = (type: string) => {
+      setAction({
+        pane: i,
+        type,
+        entry,
+        entries,
+        endpoint: { ...pane.endpoint },
+      });
+      setValue(
+        type === "rename"
+          ? entry!.name
+          : type === "chmod"
+            ? entry!.permissions
+              ? (entry!.permissions & 0o7777).toString(8)
+              : "644"
+            : "",
+      );
+    };
+    if (entry && entries.length === 1 && entry.directory)
+      actions.push({
+        id: "open",
+        label: "Open folder",
+        icon: <Folder size={15} />,
+        run: () => load(i, { ...pane.endpoint, path: entry.path }),
+      });
+    if (
+      entry &&
+      entries.length === 1 &&
+      !entry.directory &&
+      pane.endpoint.connection !== "local"
+    )
+      actions.push({
+        id: "edit",
+        label: "Open in external editor",
+        icon: <Pencil size={15} />,
+        run: () => editFile(i, entry),
+      });
+    if (entry) {
+      actions.push({
+        id: "transfer",
+        label: "Copy to target directory",
+        icon: i ? <ArrowLeft size={15} /> : <ArrowRight size={15} />,
+        disabled: !paneRef.current[1 - i].endpoint.connection,
+        run: () => transfer(i, entries),
+      });
+      actions.push({
+        id: "path",
+        label: "Copy path",
+        icon: <Copy size={15} />,
+        separator: true,
+        run: () => copyText(entries.map((file) => file.path).join("\n")),
+      });
+      if (entries.length === 1) {
+        actions.push({
+          id: "rename",
+          label: "Rename…",
+          icon: <Pencil size={15} />,
+          run: () => begin("rename"),
+        });
+        if (pane.endpoint.connection !== "local")
+          actions.push({
+            id: "permissions",
+            label: "Permissions…",
+            icon: <Info size={15} />,
+            run: () => begin("chmod"),
+          });
+      }
+      actions.push({
+        id: "delete",
+        label: "Delete…",
+        icon: <Trash2 size={15} />,
+        danger: true,
+        separator: true,
+        run: () => begin("remove"),
+      });
+    } else {
+      actions.push({
+        id: "new",
+        label: "New folder…",
+        icon: <FolderPlus size={15} />,
+        run: () => begin("mkdir"),
+      });
+      actions.push({
+        id: "all",
+        label: "Select all",
+        run: () =>
+          patch(i, {
+            selected: pane.entries
+              .filter((f) => hidden || !f.name.startsWith("."))
+              .map((f) => f.path),
+          }),
+      });
+    }
+    actions.push({
+      id: "refresh",
+      label: "Refresh",
+      icon: <RefreshCw size={15} />,
+      separator: true,
+      run: () => load(i),
+    });
+    setContext({
+      position: menuPosition(e),
+      title:
+        entries.length > 1
+          ? `${entries.length} files`
+          : (entry?.name ?? "Directory"),
+      actions,
+    });
+  }
   return (
     <div className="sftp-page">
+      {context && (
+        <ContextMenu
+          position={context.position}
+          title={context.title}
+          actions={context.actions}
+          onClose={() => setContext(null)}
+          onError={(e) => notify(errorText(e))}
+        />
+      )}
       <div className="page-heading">
         <div>
           <span className="eyebrow">FILE TRANSFER</span>
@@ -572,20 +782,16 @@ function Sftp({
                 className="text-btn"
                 disabled={!p.endpoint.connection}
                 onClick={() => {
-                  setAction({ pane: i, type: "mkdir" });
+                  setAction({
+                    pane: i,
+                    type: "mkdir",
+                    endpoint: { ...p.endpoint },
+                  });
                   setValue("");
                 }}
               >
                 <FolderPlus size={15} />
                 New folder
-              </button>
-              <button
-                className="text-btn"
-                disabled={!p.selected.length}
-                onClick={() => void transfer(i)}
-              >
-                {i ? <ArrowLeft size={15} /> : <ArrowRight size={15} />}Transfer{" "}
-                {p.selected.length || ""}
               </button>
               <span>{p.entries.length} items</span>
             </div>
@@ -594,7 +800,7 @@ function Sftp({
               <span>Size</span>
               <span>Modified</span>
             </div>
-            <div className="file-list">
+            <div className="file-list" onContextMenu={(e) => fileMenu(e, i)}>
               {p.loading ? (
                 <div className="file-empty">
                   <Busy label="Loading files…" />
@@ -613,6 +819,22 @@ function Sftp({
                   .map((e) => (
                     <div
                       key={e.path}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={e.name}
+                      aria-pressed={p.selected.includes(e.path)}
+                      onContextMenu={(ev) => fileMenu(ev, i, e)}
+                      onKeyDown={(ev) => {
+                        if (
+                          ev.key === "ContextMenu" ||
+                          (ev.key === "F10" && ev.shiftKey)
+                        )
+                          fileMenu(ev, i, e);
+                        else if (ev.key === "Enter" || ev.key === " ") {
+                          ev.preventDefault();
+                          patch(i, { selected: [e.path] });
+                        }
+                      }}
                       className={
                         "file-row " +
                         (p.selected.includes(e.path) ? "selected" : "")
@@ -653,17 +875,6 @@ function Sftp({
                           ? new Date(e.modified * 1000).toLocaleDateString()
                           : "—"}
                       </span>
-                      <button
-                        className="icon-btn"
-                        title="Rename"
-                        onClick={(ev) => {
-                          ev.stopPropagation();
-                          setAction({ pane: i, type: "rename", entry: e });
-                          setValue(e.name);
-                        }}
-                      >
-                        <MoreHorizontal size={14} />
-                      </button>
                     </div>
                   ))
               )}
@@ -672,65 +883,21 @@ function Sftp({
               <span>
                 {p.selected.length ? "Selected " + p.selected.length : "Ready"}
               </span>
-              {p.selected.length === 1 && (
-                <div className="button-row">
-                  {p.endpoint.connection !== "local" &&
-                    !p.entries.find((e) => e.path === p.selected[0])
-                      ?.directory && (
-                      <button
-                        className="text-btn"
-                        onClick={async () => {
-                          try {
-                            setEdits((a) => a);
-                            const edit = await call<{
-                              id: string;
-                              path: string;
-                              name: string;
-                            }>("file_edit", {
-                              endpoint: { ...p.endpoint, path: p.selected[0] },
-                            });
-                            setEdits((a) => [...a, edit]);
-                          } catch (e) {
-                            notify(errorText(e));
-                          }
-                        }}
-                      >
-                        Edit in your external editor
-                      </button>
-                    )}
-                  {p.endpoint.connection !== "local" && (
-                    <button
-                      className="text-btn"
-                      onClick={() => {
-                        setAction({
-                          pane: i,
-                          type: "chmod",
-                          entry: p.entries.find(
-                            (e) => e.path === p.selected[0],
-                          ),
-                        });
-                        setValue("644");
-                      }}
-                    >
-                      Permissions
-                    </button>
-                  )}
-                  <button
-                    className="text-btn danger"
-                    onClick={() => {
-                      setAction({
-                        pane: i,
-                        type: "remove",
-                        entry: p.entries.find((e) => e.path === p.selected[0]),
-                      });
-                      setValue("");
-                    }}
-                  >
-                    <Trash2 size={13} />
-                    Delete
-                  </button>
-                </div>
-              )}
+              {p.selected.length === 1 &&
+                (() => {
+                  const file = p.entries.find((f) => f.path === p.selected[0]);
+                  return (
+                    file && (
+                      <span className="file-properties" title={file.path}>
+                        {file.name} ·{" "}
+                        {file.directory ? "Folder" : bytes(file.size)}
+                        {file.permissions != null
+                          ? " · " + (file.permissions & 0o7777).toString(8)
+                          : ""}
+                      </span>
+                    )
+                  );
+                })()}
             </footer>
           </section>
         ))}
@@ -751,13 +918,14 @@ function Sftp({
         </header>
         {!queue.length ? (
           <div className="queue-empty">
-            Drag files between panels or select files and click Transfer.
+            Drag files between panels or right-click and choose Copy to target
+            directory.
           </div>
         ) : (
           queue.map((t) => (
             <div className="transfer-row" key={t.id}>
               {t.state === "done" ? (
-                <CheckCircle2 size={17} className="green" />
+                <CheckCircle2 size={17} className="success-text" />
               ) : (
                 <File size={17} />
               )}
@@ -827,7 +995,7 @@ function Sftp({
               mkdir: "New folder",
               rename: "Rename",
               chmod: "Change permissions",
-              remove: "Delete file",
+              remove: "Delete files",
             }[action.type]!
           }
           onClose={() => {
@@ -837,8 +1005,13 @@ function Sftp({
           <div className="modal-body">
             {action.type === "remove" ? (
               <p>
-                Delete <strong>{action.entry?.name}</strong>? Directories must
-                be empty.
+                Delete{" "}
+                <strong>
+                  {(action.entries?.length ?? 0) > 1
+                    ? `${action.entries!.length} selected items`
+                    : action.entry?.name}
+                </strong>
+                ? Directories must be empty.
               </p>
             ) : (
               <Field
@@ -849,7 +1022,11 @@ function Sftp({
             )}
           </div>
           <footer>
-            <button className="secondary" onClick={() => setAction(null)}>
+            <button
+              className="secondary"
+              disabled={actionPending}
+              onClick={() => setAction(null)}
+            >
               Cancel
             </button>
             <button

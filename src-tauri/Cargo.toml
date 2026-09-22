@@ -1,6 +1,6 @@
 [package]
 name = "termterm"
-version = "0.3.2"
+version = "0.3.3"
 description = "Local-first encrypted SSH workspace"
 edition = "2021"
 rust-version = "1.98"
@@ -10,7 +10,9 @@ e2e = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]
 
 [lib]
 name = "termterm_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# Desktop binaries link the Rust library directly; mobile embedding libraries
+# are not part of the Windows/Linux/macOS application packages.
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -18,6 +20,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
+tauri-plugin-clipboard-manager = "2"
 tauri-plugin-wdio = { version = "1.4", optional = true }
 tauri-plugin-wdio-webdriver = { version = "1.4", optional = true }
 serde = { version = "1", features = ["derive"] }

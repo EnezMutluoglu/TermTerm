@@ -1,0 +1,102 @@
+import {test,expect} from "@playwright/test";
+async function start(page:any) {
+  await page.goto('/tests/ui/terminal-harness.html');
+  await page.getByTitle('New local terminal',{exact:true}).click();
+  await expect(page.locator('.terminal-status').first()).toHaveText('Connected');
+  await page.locator('.terminal-surface').first().click();
+}
+test('connections live beside Vault and SFTP; switching preserves the terminal and closing selects a neighbor',async({page})=>{
+  await start(page);
+  await page.getByTitle('New local terminal',{exact:true}).click();
+  await expect(page.locator('.top-session-tab')).toHaveCount(2);
+  await expect(page.locator('.terminal-tabs')).toHaveCount(0);
+  await expect(page.locator('.workspace-caption')).toHaveCount(0);
+  expect(await page.locator('.workspace-toolbar').evaluate((el: Element)=>el.getBoundingClientRect().top >= el.previousElementSibling!.getBoundingClientRect().bottom-1)).toBe(true);
+  await page.locator('.top-session-tab').first().getByRole('button',{name:'Local terminal',exact:true}).click();
+  await page.keyboard.press('Control+Tab');
+  await expect(page.locator('.terminal-pane.focused')).toHaveAttribute('data-session-id','terminal-2');
+  await page.keyboard.press('Control+Tab');
+  await expect(page.getByRole('heading',{name:'Hosts',exact:true})).toBeVisible();
+  await page.keyboard.press('Control+Tab');
+  await expect(page.locator('.sftp-page')).toBeVisible();
+  await page.keyboard.press('Control+Tab');
+  await expect(page.locator('.terminal-pane.focused')).toHaveAttribute('data-session-id','terminal-1');
+  await page.keyboard.press('Control+Shift+W');
+  await expect(page.locator('.terminal-pane.focused')).toHaveAttribute('data-session-id','terminal-2');
+  await page.keyboard.press('Control+Shift+W');
+  await expect(page.getByRole('heading',{name:'Hosts',exact:true})).toBeVisible();
+});
+test('mouse selection copies; right-click and Shift+Insert paste once with Unicode and bracketed paste',async({page})=>{
+  await start(page);
+  const screen=await page.locator('.xterm-screen').boundingBox();
+  if(!screen)throw Error('Missing xterm');
+  await page.mouse.move(screen.x+1,screen.y+28); await page.mouse.down(); await page.mouse.move(screen.x+125,screen.y+28,{steps:8}); await page.mouse.up();
+  await expect.poll(()=>page.evaluate(()=>(window as any).clipboardText)).toContain('COPY_THIS');
+  await page.evaluate(()=>{const w=window as any;w.inputs=[];w.clipboardText='ğüşöçıİ\nsecond line'; w.emitTerminal('terminal-1','\x1b[?2004h');});
+  await page.locator('.terminal-surface').click({button:'right'});
+  await expect.poll(()=>page.evaluate(()=>(window as any).inputs.filter((i:any)=>i.data).map((i:any)=>i.data))).toEqual(['\x1b[200~ğüşöçıİ\rsecond line\x1b[201~']);
+  await page.keyboard.press('Shift+Insert');
+  await expect.poll(()=>page.evaluate(()=>(window as any).inputs.filter((i:any)=>i.data).length)).toBe(2);
+});
+test('control/function keys go to xterm, search retains editing shortcuts and stale paste is discarded',async({page})=>{
+  await start(page); await page.evaluate(()=>{(window as any).inputs=[];});
+  for(const combo of ['Control+c','Control+d','Control+z','Control+l','Control+k','Control+n','F1','F12','ArrowUp'])await page.keyboard.press(combo);
+  await expect.poll(()=>page.evaluate(()=>(window as any).inputs.filter((i:any)=>i.data).map((i:any)=>i.data))).toEqual(['\x03','\x04','\x1a','\x0c','\x0b','\x0e','\x1bOP','\x1b[24~','\x1b[A']);
+  await page.keyboard.press('Control+Shift+f'); await page.getByPlaceholder('Find in terminal…').fill('hello');
+  await page.keyboard.press('Control+k'); await expect(page.getByPlaceholder('Find in terminal…')).toBeVisible();
+  await page.keyboard.press('Escape'); await expect(page.locator('.terminal-search')).toHaveCount(0);
+  await page.evaluate(()=>{const w=window as any;w.inputs=[];w.delayClipboard=true;w.clipboardText='MUST_NOT_BE_SENT';});
+  await page.keyboard.press('Shift+Insert'); await expect.poll(()=>page.evaluate(()=>!!(window as any).finishClipboard)).toBe(true);
+  await page.getByRole('button',{name:'Close tab Local terminal'}).click();
+  await page.evaluate(()=>(window as any).finishClipboard());
+  expect(await page.evaluate(()=>(window as any).inputs.filter((i:any)=>i.data))).toEqual([]);
+});
+test('terminal mouse reporting is preserved, Shift overrides for local paste',async({page})=>{
+  await start(page);
+  await page.evaluate(()=>{const w=window as any;w.inputs=[];w.clipboardText='mouse override';w.emitTerminal('terminal-1','\x1b[?1000h\x1b[?1006h');});
+  await page.locator('.terminal-surface').click({button:'right'});
+  expect(await page.evaluate(()=>(window as any).clipboardReads)).toBe(0);
+  await expect.poll(()=>page.evaluate(()=>(window as any).inputs.some((i:any)=>i.data?.startsWith('\x1b[<')))).toBe(true);
+  await page.locator('.terminal-surface').click({button:'right',modifiers:['Shift']});
+  await expect.poll(()=>page.evaluate(()=>(window as any).inputs.some((i:any)=>i.data==='mouse override'))).toBe(true);
+});
+test('Updates is discoverable and text fields accept Shift+Insert without starting a terminal',async({page})=>{
+  await start(page); await page.getByRole('button',{name:/^Updates v/}).click();
+  await expect(page.getByRole('heading',{name:'Application updates'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Check for updates'})).toHaveClass('primary');
+  await page.getByRole('button',{name:'General',exact:true}).click();
+  await page.evaluate(()=>{(window as any).clipboardText='C:\\editor.exe';});
+  const field=page.getByLabel('External editor executable (blank uses system default)'); await field.click(); await page.keyboard.press('Shift+Insert');
+  await expect(field).toHaveValue('C:\\editor.exe');
+  await page.getByRole('button',{name:/^Updates v/}).click();
+  await expect(page.getByRole('heading',{name:'Application updates'})).toBeVisible();
+});
+test('clipboard preferences save and disabling them preserves the clipboard',async({page})=>{
+  await start(page);await page.getByRole('button',{name:/^Updates v/}).click();
+  await page.getByRole('button',{name:'General',exact:true}).click();
+  await page.getByLabel('Copy text when mouse selection finishes').uncheck();
+  await page.getByLabel('Right-click pastes into the terminal').uncheck();
+  await page.getByRole('button',{name:'Save preferences',exact:true}).click();
+  await page.locator('.session-tab-label').click();
+  await page.evaluate(()=>{(window as any).clipboardText='PRESERVE_CLIPBOARD';});
+  const b=await page.locator('.xterm-screen').boundingBox();if(!b)throw Error('Missing terminal');
+  await page.mouse.move(b.x+1,b.y+28);await page.mouse.down();await page.mouse.move(b.x+150,b.y+28,{steps:6});await page.mouse.up();
+  await page.locator('.terminal-surface').click({button:'right'});
+  expect(await page.evaluate(()=>(window as any).clipboardText)).toBe('PRESERVE_CLIPBOARD');
+  expect(await page.evaluate(()=>(window as any).clipboardReads)).toBe(0);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:/^Updates v/}).click();await page.getByRole('button',{name:'General',exact:true}).click();
+  await expect(page.getByLabel('Copy text when mouse selection finishes')).not.toBeChecked();
+  await expect(page.getByLabel('Right-click pastes into the terminal')).not.toBeChecked();
+});
+for(const width of [1366,1920])for(const scale of [1,1.5])test(`tabs and terminal fit ${width}px at ${scale*100}% layout scale`,async({page})=>{
+  await page.setViewportSize({width,height:width===1366?768:1080}); await start(page);
+  await page.evaluate(scale=>{document.documentElement.style.zoom=String(scale);},scale);
+  for(let n=1;n<16;n++)await page.getByTitle('New local terminal',{exact:true}).click();
+  await expect(page.locator('.top-session-tab')).toHaveCount(16);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await expect(page.locator('.top-session-tab').last()).toBeInViewport();
+  await page.getByTitle('Split terminals',{exact:true}).click();
+  await expect(page.locator('.terminal-pane')).toHaveCount(16);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+});

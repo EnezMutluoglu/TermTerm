@@ -86,7 +86,7 @@ pub async fn update_install(
     #[cfg(target_os = "linux")]
     if std::env::var_os("APPIMAGE").is_none() {
         return Err(
-            "Update .deb installations with your package manager or the new .deb from Releases."
+            "Update .deb/.rpm installations with the matching package from Releases and your package manager."
                 .into(),
         );
     }

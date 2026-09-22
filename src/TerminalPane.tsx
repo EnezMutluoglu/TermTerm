@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import ResourceMonitor from "./ResourceMonitor";
 import { shortcutFor, shortcutLabel } from "./shortcuts";
-import { terminalTheme } from "./terminalThemes";
+import { terminalTheme, terminalFontFamily } from "./terminalThemes";
+import { copyText, readClipboard } from "./clipboard";
 import "@xterm/xterm/css/xterm.css";
 import { call, onSession, terminalHistory } from "./api";
 import type { Session } from "./types";
@@ -23,11 +24,13 @@ export default function TerminalPane({
   onFocus,
   onClose,
   onInput,
-  fontSize = 14,
+  fontSize = 15,
   themeId = "graphite",
   visible = true,
   onStats,
   onError,
+  copyOnSelect = true,
+  rightClickPaste = true,
 }: {
   session: Session;
   focused: boolean;
@@ -39,6 +42,8 @@ export default function TerminalPane({
   visible?: boolean;
   onStats?: (enabled: boolean) => void;
   onError?: (e: unknown) => void;
+  copyOnSelect?: boolean;
+  rightClickPaste?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const term = useRef<XTerm | null>(null);
@@ -46,15 +51,33 @@ export default function TerminalPane({
   const fitRef = useRef<FitAddon | null>(null);
   const input = useRef(onInput);
   input.current = onInput;
+  const latest = useRef({ onError, onFocus, copyOnSelect, rightClickPaste, closed: session.closed });
+  latest.current = { onError, onFocus, copyOnSelect, rightClickPaste, closed: session.closed };
+  function copySelection() {
+    const text = term.current?.getSelection();
+    if (text) void copyText(text).catch(e => latest.current.onError?.(e));
+  }
+  async function paste() {
+    const target = term.current;
+    if (!target || latest.current.closed) return;
+    try {
+      const text = await readClipboard();
+      if (term.current === target && !latest.current.closed) { target.paste(text); target.focus(); }
+    } catch (e) { latest.current.onError?.(e); }
+  }
   const [search, setSearch] = useState(false);
   const [query, setQuery] = useState("");
   useEffect(() => {
     if (!container.current) return;
     const t = new XTerm({
       cursorBlink: true,
-      fontFamily: "Cascadia Code, Consolas, monospace",
+      fontFamily: terminalFontFamily,
       fontSize,
       lineHeight: 1.25,
+      minimumContrastRatio: 4.5,
+      fontWeight: 400,
+      fontWeightBold: 700,
+      rightClickSelectsWord: false,
       scrollback: 10000,
       allowProposedApi: false,
       theme: terminalTheme(themeId),
@@ -76,19 +99,36 @@ export default function TerminalPane({
     finder.current = searchAddon;
     for (const bytes of terminalHistory.get(session.id) ?? []) t.write(bytes);
     const data = t.onData((data) => input.current(session.id, data));
+    const resized = t.onResize(({cols, rows}) => {
+      if (!latest.current.closed) void call("session_input", { id: session.id, cols, rows }).catch(() => {});
+    });
     const resize = () => {
       if (container.current && container.current.clientWidth > 0) {
         fit.fit();
-        void call("session_input", {
-          id: session.id,
-          cols: t.cols,
-          rows: t.rows,
-        }).catch(() => {});
       }
     };
     const observer = new ResizeObserver(resize);
     observer.observe(container.current);
     resize();
+    const surface = container.current;
+    let selecting = false;
+    let selectionFrame = 0;
+    const beginSelection = (e: PointerEvent) => { if (e.button === 0) selecting = true; };
+    const endSelection = (e: PointerEvent) => {
+      if (e.button !== 0 || !selecting) return;
+      selecting = false;
+      cancelAnimationFrame(selectionFrame);
+      selectionFrame = requestAnimationFrame(() => { if (latest.current.copyOnSelect) copySelection(); });
+    };
+    const interceptRight = (e: MouseEvent) => {
+      if (e.button === 2 && latest.current.rightClickPaste && (t.modes.mouseTrackingMode === "none" || e.shiftKey)) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        if (e.type === "contextmenu") { latest.current.onFocus(); void paste(); }
+      }
+    };
+    surface.addEventListener("pointerdown", beginSelection);
+    window.addEventListener("pointerup", endSelection);
+    for (const event of ["mousedown", "mouseup", "contextmenu"]) surface.addEventListener(event, interceptRight as EventListener, true);
     const unsubscribe = onSession((e) => {
       if (e.id !== session.id) return;
       if (e.kind === "data")
@@ -104,26 +144,24 @@ export default function TerminalPane({
       if (action === "find") {
         e.stopPropagation();
         e.preventDefault();
-        if (e.type === "keydown") setSearch((v) => !v);
+        if (e.type === "keydown" && !e.repeat) setSearch((v) => !v);
         return false;
       }
       if (action === "copy") {
         e.stopPropagation();
         e.preventDefault();
-        if (e.type === "keydown" && t.hasSelection())
-          void navigator.clipboard
-            .writeText(t.getSelection())
-            .catch((e) => onError?.(e));
+        if (e.type === "keydown" && !e.repeat) copySelection();
         return false;
       }
       if (action === "paste") {
         e.stopPropagation();
         e.preventDefault();
-        if (e.type === "keydown")
-          void navigator.clipboard
-            .readText()
-            .then((s) => t.paste(s))
-            .catch((e) => onError?.(e));
+        if (e.type === "keydown" && !e.repeat) void paste();
+        return false;
+      }
+      if (action === "scrollUp" || action === "scrollDown") {
+        e.stopPropagation(); e.preventDefault();
+        if (e.type === "keydown") t.scrollPages(action === "scrollUp" ? -1 : 1);
         return false;
       }
       if (action) return false; // Shared application shortcuts are handled once by App.
@@ -132,7 +170,12 @@ export default function TerminalPane({
     });
     return () => {
       observer.disconnect();
+      cancelAnimationFrame(selectionFrame);
+      surface.removeEventListener("pointerdown", beginSelection);
+      window.removeEventListener("pointerup", endSelection);
+      for (const event of ["mousedown", "mouseup", "contextmenu"]) surface.removeEventListener(event, interceptRight as EventListener, true);
       unsubscribe();
+      resized.dispose();
       data.dispose();
       t.dispose();
       term.current = null;
@@ -147,11 +190,18 @@ export default function TerminalPane({
     }
   }, [fontSize, themeId]);
   useEffect(() => {
-    if (focused && visible) term.current?.focus();
-  }, [focused, visible]);
+    if (!visible) return;
+    const frame = requestAnimationFrame(() => {
+      if (container.current?.clientWidth) fitRef.current?.fit();
+      if (focused && !search) term.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focused, visible, search]);
   return (
     <section
       className={"terminal-pane " + (focused ? "focused" : "")}
+      data-session-id={session.id}
+      aria-label={`Terminal ${session.label}`}
       style={{ background: terminalTheme(themeId).background }}
       onMouseDown={onFocus}
     >
@@ -172,25 +222,15 @@ export default function TerminalPane({
         <button
           className="icon-btn"
           title="Copy terminal selection"
-          onClick={() => {
-            const t = term.current;
-            if (t?.hasSelection())
-              void navigator.clipboard
-                .writeText(t.getSelection())
-                .catch((e) => onError?.(e));
-          }}
+          onClick={copySelection}
         >
           <Copy size={14} />
         </button>
         <button
           className="icon-btn"
           title={`Paste (${shortcutLabel("paste")})`}
-          onClick={() =>
-            void navigator.clipboard
-              .readText()
-              .then((s) => term.current?.paste(s))
-              .catch((e) => onError?.(e))
-          }
+          disabled={session.closed}
+          onClick={() => void paste()}
         >
           <ClipboardPaste size={14} />
         </button>
@@ -235,7 +275,7 @@ export default function TerminalPane({
             }}
             onKeyDown={(e) => {
               e.stopPropagation();
-              if (e.key === "Enter") finder.current?.findNext(query);
+              if (e.key === "Enter") e.shiftKey ? finder.current?.findPrevious(query) : finder.current?.findNext(query);
               if (e.key === "Escape") setSearch(false);
             }}
           />

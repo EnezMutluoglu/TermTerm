@@ -36,6 +36,7 @@ pub fn run() {
         .manage(std::sync::Arc::new(state::AppState::default()))
         .manage(updater::UpdateState::default())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             updater::update_info,

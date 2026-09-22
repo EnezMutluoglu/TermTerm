@@ -1,0 +1,44 @@
+/* Application chrome only. Terminal ANSI colors live in terminalThemes.ts.
+ * Blue: navigation, selection, actions and measurements.
+ * Green: connected/success; amber: warning; red: error/destructive action.
+ * Keep component styles on these roles instead of adding local color literals.
+ */
+:root {
+  color-scheme: dark;
+  --bg: #191f27;
+  --surface-recessed: #141a21;
+  --surface: #202730;
+  --surface-raised: #272f3a;
+  --surface-hover: #2e3946;
+  --surface-input: #1b222b;
+  --text: #dde4ec;
+  --text-secondary: #bdc7d3;
+  --muted: #9da9b8;
+  --border: #ffffff10;
+  --border-strong: #ffffff24;
+  --border-control: #68798c;
+  --accent: #9cbee2;
+  --accent-hover: #c4d9ee;
+  --accent-bg: #293949;
+  --accent-border: #617f9c;
+  --accent-ring: #9cbee21a;
+  --action-bg: #426485;
+  --action-hover: #4c7398;
+  --action-text: #f2f6fb;
+  --selection: #3a5571;
+  --success: #8ac7a4;
+  --success-bg: #26372f;
+  --success-border: #486654;
+  --warning: #dbc08b;
+  --warning-bg: #383227;
+  --warning-border: #746246;
+  --danger: #efa2ac;
+  --danger-bg: #3c2c32;
+  --danger-border: #81535d;
+  --metric-cpu: #91b7df;
+  --metric-memory: #bfd3e8;
+  --shadow-soft: #0002;
+  --shadow-raised: #0003;
+  --shadow-modal: #0006;
+  --scrim: #0b1017b8;
+}
