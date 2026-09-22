@@ -17,6 +17,7 @@ const names = new Map();
 const queue = [{ source: client, destination: path.join(runtime, 'bin/mosh-client'), inherited: [] }];
 for (let index = 0; index < queue.length; index++) {
   const { source, destination, inherited } = queue[index];
+  if (fs.existsSync(destination)) fs.chmodSync(destination, 0o755);
   fs.copyFileSync(source, destination);
   fs.chmodSync(destination, 0o755);
   const commands = run('otool', ['-l', source]);
