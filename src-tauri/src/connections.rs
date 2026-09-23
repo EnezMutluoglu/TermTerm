@@ -69,7 +69,9 @@ impl client::Handler for SshHandler {
         let fingerprint = public.fingerprint(HashAlg::Sha256).to_string();
         let public_key = public.to_openssh()?;
         let address = crate::ssh_compat::endpoint(&self.address, self.port);
-        let known: Vec<Record> = {
+        let known: Vec<Record> = if crate::team::active(&self.state) {
+            crate::ssh_compat::known_hosts(&crate::team::local_known(&self.state,&self.vault_id)?,&self.address,self.port)
+        } else {
             let guard = self.state.vault.lock().map_err(|_| anyhow!("Vault lock"))?;
             let v = guard.as_ref().ok_or_else(|| anyhow!("Vault is locked"))?;
             ensure!(v.id == self.vault_id, "Vault changed");
@@ -81,6 +83,10 @@ impl client::Handler for SshHandler {
         let answer=prompt(&self.app,&self.state,&self.session,"hostKey",json!({"address":address,"fingerprint":fingerprint,"algorithm":public.algorithm().to_string()})).await?;
         if answer.first().map(String::as_str) != Some("trust") {
             return Ok(false);
+        }
+        if crate::team::active(&self.state) {
+            crate::team::trust_known(&self.state,&self.vault_id,Record::new("knownHost",json!({"label":address,"address":address,"publicKey":public_key,"fingerprint":fingerprint})))?;
+            return Ok(true);
         }
         let mut guard = self.state.vault.lock().map_err(|_| anyhow!("Vault lock"))?;
         let vault = guard.as_mut().ok_or_else(|| anyhow!("Vault locked"))?;
@@ -117,6 +123,7 @@ impl client::Handler for SshHandler {
 pub struct SshConnection {
     pub handle: client::Handle<SshHandler>,
     pub _parents: Vec<client::Handle<SshHandler>>,
+    pub _audit: Option<crate::team::ConnectionAudit>,
 }
 pub struct SftpConnection {
     pub sftp: russh_sftp::client::SftpSession,
@@ -215,7 +222,9 @@ pub async fn connect_ssh(
     host_id: &str,
     remote_target: Option<(String, u16)>,
 ) -> Result<SshConnection> {
-    let (records, vault_id) = {
+    let (records, vault_id) = if crate::team::active(state) {
+        crate::team::connection_records(state,host_id).await?
+    } else {
         let g = state.vault.lock().map_err(|_| anyhow!("Vault lock"))?;
         let v = g.as_ref().ok_or_else(|| anyhow!("Unlock a vault first"))?;
         (v.records()?, v.id.clone())
@@ -426,6 +435,7 @@ pub async fn connect_ssh(
     Ok(SshConnection {
         handle,
         _parents: handles,
+        _audit: crate::team::connection_opened(state,&vault_id,host_id)?,
     })
 }
 fn output(app: &AppHandle, id: &str, data: &[u8], log: &mut Vec<u8>) {
@@ -469,7 +479,12 @@ async fn run_session(
     shell: Option<String>,
     mut rx: mpsc::Receiver<SessionInput>,
 ) -> Result<()> {
-    let (vault_id, host) = {
+    let (vault_id, host) = if crate::team::active(state) {
+        if let Some(host_id)=host_id.as_ref() {
+            let(records,vault)=crate::team::connection_records(state,host_id).await?;
+            (vault,Some(resolve_host(&records,host_id)?))
+        } else { (crate::team::info(state)?.id,None) }
+    } else {
         let g = state.vault.lock().map_err(|_| anyhow!("Vault lock"))?;
         let v = g.as_ref().ok_or_else(|| anyhow!("Unlock a vault first"))?;
         (

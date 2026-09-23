@@ -76,6 +76,7 @@ import {
   Pill,
 } from "./components";
 import Onboarding from "./Onboarding";
+import Team, { TeamLogin } from "./Team";
 import Editor from "./Editor";
 import TerminalPane from "./TerminalPane";
 import { InputQueue } from "./inputQueue";
@@ -105,6 +106,7 @@ import DataTools, { type DataMode } from "./DataTools";
 import { t } from "./i18n";
 import SharedTerminal from "./SharedTerminal";
 type Nav =
+  | "team"
   | "hosts"
   | "sftp"
   | "credential"
@@ -151,7 +153,15 @@ const iconFor = (kind: string) =>
               ? FileText
               : Server;
 export default function App() {
+  const [teamMode, setTeamMode] = useState(false);
+  const [teamLogin, setTeamLogin] = useState(false);
   const [vault, setVault] = useState<Vault | null>(null);
+  useEffect(() => {
+    if (!teamMode) return;
+    let alive = true;
+    const dispose = listen<Vault>("team-vault", event => { if(alive) setVault(event.payload); });
+    return () => { alive=false; void dispose.then(fn=>fn()); };
+  }, [teamMode]);
   const [info, setInfo] = useState<AppInfo>();
   const [starting, setStarting] = useState(desktop);
   const startup = useRef<Promise<{
@@ -307,6 +317,7 @@ export default function App() {
           if (!current) return;
           setInfo(result.info);
           if (result.vault) setVault(result.vault);
+          void call<{user:unknown}|null>("team_status").then(team=>{if(current&&team){setTeamMode(true);setNav("team");}}).catch(()=>{});
           if (result.error) setError(result.error);
         })
         .catch((e) => {
@@ -644,6 +655,8 @@ export default function App() {
       clearSessions();
       setSessions([]);
       setVault(null);
+      setTeamMode(false);
+      setTeamLogin(false);
       setEditor(null);
       setPrompts([]);
       setNav("hosts");
@@ -1244,6 +1257,10 @@ export default function App() {
         </div>
       ));
   }
+  if (!vault && teamMode)
+    return <Team vault={null} onVault={v=>{setVault(v);setNav("team");}} onLogout={()=>{setTeamMode(false);setTeamLogin(false);}}/>;
+  if (!vault && teamLogin)
+    return <TeamLogin onReady={()=>{setTeamMode(true);setTeamLogin(false);}} onBack={()=>setTeamLogin(false)}/>;
   if (!vault)
     return (
       <>
@@ -1252,6 +1269,7 @@ export default function App() {
           loading={starting}
           onOpen={setVault}
           onRestore={() => setDataMode("restore")}
+          onTeam={() => setTeamLogin(true)}
         />
         {dataMode && (
           <DataTools
@@ -1348,7 +1366,7 @@ export default function App() {
         <div className="top-actions">
           <span className="local-badge">
             <span className="status-dot live" />
-            {tr("Local vault")}
+            {teamMode ? "Team kasası" : tr("Local vault")}
           </span>
           <button
             className="icon-btn"
@@ -1413,6 +1431,7 @@ export default function App() {
           )}
           <div className="nav-label">{tr("WORKSPACE")}</div>
           <nav className="main-nav">
+            {teamMode && <button className={nav==="team"?"active":""} onClick={()=>navigate("team")}><ShieldCheck size={17}/><span>Team</span></button>}
             {navItems.map((n) => (
               <button
                 key={n.id}
@@ -1502,6 +1521,7 @@ export default function App() {
         <main
           className={"main-content " + (editor || details ? "with-editor" : "")}
         >
+          {nav === "team" && <Team vault={vault} onVault={setVault} onLogout={()=>{setVault(null);setTeamMode(false);clearSessions();setSessions([]);}}/>}
           <div
             hidden={nav !== "sftp"}
             style={{
@@ -1663,7 +1683,7 @@ export default function App() {
               </div>
             </div>
           </div>
-          {!["terminal", "sftp", "settings"].includes(nav) && (
+          {!["terminal", "sftp", "settings", "team"].includes(nav) && (
             <div
               className="records-page"
               onContextMenu={(e) => {

@@ -7,6 +7,7 @@ use tauri_plugin_updater::{Update, UpdaterExt};
 
 pub const REPOSITORY: &str = "https://github.com/EnezMutluoglu/TermTerm";
 pub fn channel() -> &'static str {
+    if env!("CARGO_PKG_VERSION").contains('-') { return "development"; }
     option_env!("TERMTERM_RELEASE_CHANNEL").unwrap_or("development")
 }
 

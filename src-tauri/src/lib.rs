@@ -18,6 +18,7 @@ pub mod remember;
 pub mod shared_terminal;
 pub mod ssh_compat;
 pub mod state;
+pub mod team;
 pub mod sync;
 pub mod transfers;
 pub mod tunnels;
@@ -39,6 +40,17 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            team::team_auth,
+            team::team_offline,
+            team::team_status,
+            team::team_request,
+            team::team_open_vault,
+            team::team_save,
+            team::team_history,
+            team::team_checkout,
+            team::team_decide,
+            team::team_move,
+            team::team_logout,
             updater::update_info,
             updater::update_check,
             updater::update_install,

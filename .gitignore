@@ -15,6 +15,7 @@ node_modules/
 /artifacts/
 *.ttvault*
 *.ttbackup
+*.ttteam*
 *.log
 *.pem
 *.key
