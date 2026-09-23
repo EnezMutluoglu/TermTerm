@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import {
   Users,
   Shield,
@@ -56,6 +57,7 @@ type Conflict = {
   reason: string;
   candidateRecord: Entity;
   receivedAt: string;
+  error?: string;
 };
 type Version = {
   revision: number;
@@ -64,6 +66,46 @@ type Version = {
   pinned: boolean;
   record: Entity;
   restoreFrom?: number;
+  returnPoint?: boolean;
+  temporary?: boolean;
+  warnings?: string[];
+  deleted?: boolean;
+};
+const secretFields = new Set([
+  "password",
+  "privateKey",
+  "passphrase",
+  "token",
+  "secret",
+  "keyPath",
+  "certificatePath",
+  "agent",
+  "agentKey",
+]);
+function visibleData(data: Record<string, any> = {}) {
+  const result = Object.fromEntries(
+    Object.entries(data).filter(
+      ([key]) => !key.startsWith("_team") && !secretFields.has(key),
+    ),
+  );
+  if (result.proxy) {
+    result.proxy = { ...result.proxy };
+    delete result.proxy.password;
+  }
+  return result;
+}
+const fieldLabels: Record<string, string> = {
+  label: "Ad",
+  address: "Adres",
+  port: "Port",
+  username: "Kullanıcı",
+  groupId: "Klasör",
+  chain: "Sıçrama zinciri",
+  credentialId: "Kimlik",
+  protocol: "Bağlantı türü",
+  tags: "Etiketler",
+  hostIds: "Hostlar",
+  environment: "Ortam değişkenleri",
 };
 const labels: Record<string, string> = {
   read: "Bilgiler ve geçmiş",
@@ -305,10 +347,12 @@ export default function Team({
   vault,
   onVault,
   onLogout,
+  focusRecord,
 }: {
   vault: Vault | null;
   onVault: (v: Vault) => void;
   onLogout: () => void;
+  focusRecord?: string;
 }) {
   const [tab, setTab] = useState("vaults"),
     [status, setStatus] = useState<Status>(),
@@ -345,8 +389,40 @@ export default function Team({
     [bytes, setBytes] = useState<number>();
   const [merging, setMerging] = useState<string>(),
     [mergeText, setMergeText] = useState("");
-  const [moveParent,setMoveParent]=useState("");
-  const [movePreview,setMovePreview]=useState<{aclRevision:number;recordRevision:number;before:{id:string;recipients:{userId:string}[]}[];after:{id:string;recipients:{userId:string}[]}[]} >();
+  const [moveParent, setMoveParent] = useState("");
+  const [historyRecords, setHistoryRecords] = useState<Entity[]>([]);
+  useEffect(() => {
+    let active = true;
+    if (vault)
+      void request<Entity[]>("history_records")
+        .then((rows) => {
+          if (active) setHistoryRecords(rows);
+        })
+        .catch((e) => {
+          if (active) setError(errorText(e));
+        });
+    else setHistoryRecords([]);
+    return () => {
+      active = false;
+    };
+  }, [vault]);
+  useEffect(() => {
+    if (focusRecord) {
+      setRecordId(focusRecord);
+      setTab("vaults");
+    }
+  }, [focusRecord]);
+  useEffect(() => {
+    setTemporary(
+      records.find((r) => r.id === recordId)?.data._teamTemporaryRevision,
+    );
+  }, [vault, recordId]);
+  const [movePreview, setMovePreview] = useState<{
+    aclRevision: number;
+    recordRevision: number;
+    before: { id: string; recipients: { userId: string }[] }[];
+    after: { id: string; recipients: { userId: string }[] }[];
+  }>();
   async function decide(c: Conflict, choice: string) {
     await call("team_decide", {
       conflictId: c.id,
@@ -393,7 +469,14 @@ export default function Team({
   useEffect(() => {
     void load().catch((e) => setError(errorText(e)));
     const timer = setInterval(() => void load().catch(() => {}), 15000);
-    return () => clearInterval(timer);
+    const unlisten = listen<Status>("team-status", ({ payload }) => {
+      setStatus(payload);
+      if (payload.overview) setOverview(payload.overview);
+    });
+    return () => {
+      clearInterval(timer);
+      void unlisten.then((fn) => fn());
+    };
   }, []);
   useEffect(() => {
     if (!teamId) return;
@@ -453,7 +536,11 @@ export default function Team({
           <span
             className={"team-status " + (status?.online ? "online" : "offline")}
           >
-            {status?.online ? "PostgreSQL bağlı" : "Çevrimdışı"}
+            {!status
+              ? "Bağlantı denetleniyor…"
+              : status.online
+                ? "PostgreSQL bağlı"
+                : "Çevrimdışı"}
           </span>
           <button
             disabled={busy}
@@ -497,7 +584,7 @@ export default function Team({
           </small>
         )}
       </div>
-      {!status?.online && (
+      {status && !status.online && (
         <div className="notice">
           <AlertTriangle size={16} />{" "}
           {status?.canEditOffline
@@ -618,19 +705,23 @@ export default function Team({
                   <History size={18} /> Kayıt sürümleri
                 </h2>
                 <select
+                  aria-label="Geçmiş kaydı"
                   value={recordId}
+                  disabled={busy}
                   onChange={(e) => {
                     setRecordId(e.target.value);
                     setVersions([]);
                     setTemporary(undefined);
+                    setMovePreview(undefined);
                   }}
                 >
                   <option value="">Kayıt seçin</option>
-                  {records
-                    .filter((r) => r.kind !== "group" || !r.data._teamPathOnly)
+                  {historyRecords
+                    .filter((r) => r.data._teamPermissions?.includes("read"))
                     .map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.data.label} · {r.kind}
+                        {r.data._teamDeleted ? " · Silinmiş" : ""}
                       </option>
                     ))}
                 </select>
@@ -644,7 +735,100 @@ export default function Team({
                 >
                   Geçmişi getir
                 </button>
-                {recordId&&records.find(r=>r.id===recordId)?.data._teamPermissions?.includes("manage")&&<div className="team-acl"><h3>Klasör taşıma önizlemesi</h3><select aria-label="Hedef klasör" value={moveParent} onChange={e=>{setMoveParent(e.target.value);setMovePreview(undefined);}}><option value="">Kasa kökü</option>{records.filter(r=>r.kind==="group"&&r.id!==recordId).map(r=><option key={r.id} value={r.id}>{r.data.label}</option>)}</select><button disabled={busy} onClick={()=>void run(async()=>setMovePreview(await request('move_preview',{vaultId:vault.id,recordId,parentId:moveParent||null})))}>Erişim değişikliğini önizle</button>{movePreview&&<div><p>{movePreview.after.length} kayıt yeni klasörün izinlerini devralacak.</p>{movePreview.after.map(item=>{const before=movePreview.before.find(b=>b.id===item.id)?.recipients??[];const gained=item.recipients.filter(u=>!before.some(b=>b.userId===u.userId));const lost=before.filter(u=>!item.recipients.some(b=>b.userId===u.userId));return <p key={item.id}>{records.find(r=>r.id===item.id)?.data.label??'Kayıt'}: {gained.length} yeni erişim, {lost.length} kaldırılan erişim</p>;})}<button disabled={busy} onClick={()=>void run(async()=>{onVault(await call<Vault>('team_move',{recordId,parentId:moveParent||null,aclRevision:movePreview.aclRevision,recordRevision:movePreview.recordRevision}));setMovePreview(undefined);setMessage('Kayıt ve kapsam izinleri birlikte taşındı.');})}>Önizlemeyi onayla ve taşı</button></div>}</div>}
+                {recordId &&
+                  records
+                    .find((r) => r.id === recordId)
+                    ?.data._teamPermissions?.includes("manage") && (
+                    <div className="team-acl">
+                      <h3>Klasör taşıma önizlemesi</h3>
+                      <select
+                        aria-label="Hedef klasör"
+                        value={moveParent}
+                        onChange={(e) => {
+                          setMoveParent(e.target.value);
+                          setMovePreview(undefined);
+                        }}
+                      >
+                        <option value="">Kasa kökü</option>
+                        {records
+                          .filter(
+                            (r) => r.kind === "group" && r.id !== recordId,
+                          )
+                          .map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.data.label}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        disabled={busy}
+                        onClick={() =>
+                          void run(async () =>
+                            setMovePreview(
+                              await request("move_preview", {
+                                vaultId: vault.id,
+                                recordId,
+                                parentId: moveParent || null,
+                              }),
+                            ),
+                          )
+                        }
+                      >
+                        Erişim değişikliğini önizle
+                      </button>
+                      {movePreview && (
+                        <div>
+                          <p>
+                            {movePreview.after.length} kayıt yeni klasörün
+                            izinlerini devralacak.
+                          </p>
+                          {movePreview.after.map((item) => {
+                            const before =
+                              movePreview.before.find((b) => b.id === item.id)
+                                ?.recipients ?? [];
+                            const gained = item.recipients.filter(
+                              (u) => !before.some((b) => b.userId === u.userId),
+                            );
+                            const lost = before.filter(
+                              (u) =>
+                                !item.recipients.some(
+                                  (b) => b.userId === u.userId,
+                                ),
+                            );
+                            return (
+                              <p key={item.id}>
+                                {records.find((r) => r.id === item.id)?.data
+                                  .label ?? "Kayıt"}
+                                : {gained.length} yeni erişim, {lost.length}{" "}
+                                kaldırılan erişim
+                              </p>
+                            );
+                          })}
+                          <button
+                            disabled={busy}
+                            onClick={() =>
+                              void run(async () => {
+                                onVault(
+                                  await call<Vault>("team_move", {
+                                    recordId,
+                                    parentId: moveParent || null,
+                                    aclRevision: movePreview.aclRevision,
+                                    recordRevision: movePreview.recordRevision,
+                                  }),
+                                );
+                                setMovePreview(undefined);
+                                setMessage(
+                                  "Kayıt ve kapsam izinleri birlikte taşındı.",
+                                );
+                              })
+                            }
+                          >
+                            Önizlemeyi onayla ve taşı
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 {temporary && (
                   <div className="notice">
                     Geçmiş sürüm kullanılıyor · r{temporary}
@@ -671,12 +855,23 @@ export default function Team({
                     <span>
                       {ver.record.data.label}
                       {ver.pinned ? " · Sabitlenmiş" : ""}
+                      {ver.returnPoint
+                        ? " · Geri yükleme öncesi dönüş noktası"
+                        : ""}
                       {ver.restoreFrom
                         ? ` · r${ver.restoreFrom} geri yüklendi`
                         : ""}
                     </span>
                     <button
-                      disabled={busy}
+                      disabled={
+                        busy ||
+                        ver.record.kind !== "host" ||
+                        ver.deleted ||
+                        !!ver.warnings?.length ||
+                        !historyRecords
+                          .find((r) => r.id === recordId)
+                          ?.data._teamPermissions?.includes("connect")
+                      }
                       onClick={() =>
                         void run(async () => {
                           await call("team_checkout", {
@@ -691,7 +886,14 @@ export default function Team({
                       Geçici kullan
                     </button>
                     <button
-                      disabled={busy || !status?.online}
+                      disabled={
+                        busy ||
+                        !status?.online ||
+                        !!ver.warnings?.length ||
+                        !historyRecords
+                          .find((r) => r.id === recordId)
+                          ?.data._teamPermissions?.includes("edit")
+                      }
                       onClick={() =>
                         void run(async () => {
                           await call("team_checkout", {
@@ -708,6 +910,11 @@ export default function Team({
                     >
                       Kalıcı geri yükle
                     </button>
+                    {!!ver.warnings?.length && (
+                      <small className="notice error">
+                        {ver.warnings.join(" · ")}
+                      </small>
+                    )}
                   </div>
                 ))}
                 <small>
@@ -960,40 +1167,134 @@ export default function Team({
                       : "Eşzamanlı düzenleme"}
                   </span>
                 </header>
+                {c.error && (
+                  <div className="notice error">
+                    {c.error} · Sağlam sunucu kaydı korunuyor.
+                  </div>
+                )}
                 <div className="team-compare">
-                  <div>
-                    <strong>Sunucudaki kayıt</strong>
-                    <pre>
-                      {JSON.stringify(
-                        records.find((r) => r.id === c.recordId)?.data ?? {},
-                        null,
-                        2,
-                      )}
-                    </pre>
-                  </div>
-                  <div>
-                    <strong>Gönderilen değişiklik</strong>
-                    <pre>{JSON.stringify(c.candidateRecord.data, null, 2)}</pre>
-                  </div>
+                  <table className="team-diff">
+                    <thead>
+                      <tr>
+                        <th>Alan</th>
+                        <th>Sunucudaki kayıt</th>
+                        <th>Gönderilen değişiklik</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from(
+                        new Set([
+                          ...Object.keys(
+                            visibleData(
+                              records.find((r) => r.id === c.recordId)?.data,
+                            ),
+                          ),
+                          ...Object.keys(visibleData(c.candidateRecord.data)),
+                        ]),
+                      ).map((field) => {
+                        const current = visibleData(
+                            records.find((r) => r.id === c.recordId)?.data,
+                          )[field],
+                          proposed = visibleData(c.candidateRecord.data)[field];
+                        const changed =
+                          JSON.stringify(current) !== JSON.stringify(proposed);
+                        const show = (value: unknown): string =>
+                          value === undefined
+                            ? "—"
+                            : Array.isArray(value)
+                              ? value
+                                  .map((item) =>
+                                    typeof item === "string"
+                                      ? (records.find((r) => r.id === item)
+                                          ?.data.label ?? item)
+                                      : JSON.stringify(item),
+                                  )
+                                  .join(" → ")
+                              : typeof value === "string"
+                                ? (records.find((r) => r.id === value)?.data
+                                    .label ?? value)
+                                : JSON.stringify(value);
+                        const choose = (value: unknown) => {
+                          const data = JSON.parse(mergeText);
+                          if (value === undefined) delete data[field];
+                          else data[field] = value;
+                          setMergeText(JSON.stringify(data, null, 2));
+                        };
+                        return (
+                          <tr key={field} className={changed ? "changed" : ""}>
+                            <th>{fieldLabels[field] ?? field}</th>
+                            <td>
+                              {show(current)}
+                              {merging === c.id && changed && (
+                                <button onClick={() => choose(current)}>
+                                  Sunucudakini kullan
+                                </button>
+                              )}
+                            </td>
+                            <td>
+                              {show(proposed)}
+                              {merging === c.id && changed && (
+                                <button onClick={() => choose(proposed)}>
+                                  Gönderileni kullan
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
                 <button
                   disabled={busy}
                   onClick={() =>
                     void run(async () => {
-                      await decide(c,"server");
+                      await decide(c, "server");
                     })
                   }
                 >
                   Sunucudaki kalsın
                 </button>
                 <button
-                  disabled={busy}
-                  onClick={() => void run(()=>decide(c,"candidate"))}
+                  disabled={busy || !!c.error}
+                  onClick={() => void run(() => decide(c, "candidate"))}
                 >
                   Gönderilen değişiklik kalsın
                 </button>
-                <button disabled={busy} onClick={()=>{setMerging(c.id);setMergeText(JSON.stringify(c.candidateRecord.data,null,2));}}>Alanları birleştir</button>
-                {merging===c.id&&<div><label>Korunacak alanları düzenleyin<textarea aria-label="Birleştirilmiş kayıt" rows={10} value={mergeText} onChange={e=>setMergeText(e.target.value)}/></label><button disabled={busy} onClick={()=>void run(()=>decide(c,"merge"))}>Birleştir ve kaydet</button></div>}
+                <button
+                  disabled={busy || !!c.error}
+                  onClick={() => {
+                    setMerging(c.id);
+                    setMergeText(
+                      JSON.stringify(
+                        visibleData(c.candidateRecord.data),
+                        null,
+                        2,
+                      ),
+                    );
+                  }}
+                >
+                  Alanları birleştir
+                </button>
+                {merging === c.id && (
+                  <div>
+                    <label>
+                      Korunacak alanları düzenleyin
+                      <textarea
+                        aria-label="Birleştirilmiş kayıt"
+                        rows={10}
+                        value={mergeText}
+                        onChange={(e) => setMergeText(e.target.value)}
+                      />
+                    </label>
+                    <button
+                      disabled={busy}
+                      onClick={() => void run(() => decide(c, "merge"))}
+                    >
+                      Birleştir ve kaydet
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </>

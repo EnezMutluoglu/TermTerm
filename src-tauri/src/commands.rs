@@ -407,10 +407,12 @@ pub async fn backup_bundle(
         return blocking(move||{
             let info=crate::team::info(&state)?;
             let records=crate::team::export_records(&state,&ids,true)?;
-            let count=records.len();
             ensure!(sources.is_empty(),"Team yedeği ayrı üretilir; kişisel kaynakları ayrı yedekleyin");
+            let (records,mut warnings)=crate::archive::portable_records(records,&[],false,include_files)?;
+            let count=records.len();
             vault::write_backup(&PathBuf::from(path),&password,&vault::Backup{version:1,vaults:vec![vault::BackupVault{name:info.name,records}]})?;
-            Ok(crate::archive::Report{warnings:vec!["Team üyelikleri ve hesap oturumları kişisel yedeğe aktarılmaz. İçe aktarma yeni kişisel kayıtlar oluşturur.".into()],records:count,vaults:1})
+            warnings.push("Team üyelikleri ve hesap oturumları yedeğe aktarılmaz. İçe aktarma yeni kayıtlar oluşturur.".into());
+            Ok(crate::archive::Report{warnings,records:count,vaults:1})
         }).await;
     }
     blocking(move || {
@@ -564,6 +566,10 @@ pub async fn session_input(
     rows: Option<u16>,
     close: Option<bool>,
 ) -> Api<()> {
+    if data.is_some() {
+        let sender=state.team_share_inputs.lock().map_err(|_|"Share lock")?.get(&id).cloned();
+        if let Some(sender)=sender {return sender.send(SessionInput::Data(data.unwrap().into_bytes())).await.map_err(|_|"Paylaşım sona erdi".into());}
+    }
     if data.is_some()
         && state
             .shared_writers
@@ -764,10 +770,12 @@ pub async fn sync_download(
 }
 #[tauri::command]
 pub async fn team_list(state: State<'_, Shared>, profile: SyncProfile) -> Api<Vec<Value>> {
+    if crate::team::active(&state){return crate::team::terminal::members(&state).await.map_err(err);}
     sync::members(&state, &profile).await.map_err(err)
 }
 #[tauri::command]
 pub async fn share_list(state: State<'_, Shared>, profile: SyncProfile) -> Api<Vec<Value>> {
+    if crate::team::active(&state){return crate::team::terminal::list(&state).await.map_err(err);}
     crate::shared_terminal::list(&state, &profile)
         .await
         .map_err(err)
@@ -780,17 +788,20 @@ pub async fn share_start(
     local_id: Option<String>,
     remote_id: Option<String>,
 ) -> Api<Value> {
+    if crate::team::active(&state){return crate::team::terminal::start(app,state.inner().clone(),local_id,remote_id).await.map_err(err);}
     crate::shared_terminal::start(app, state.inner().clone(), profile, local_id, remote_id)
         .await
         .map_err(err)
 }
 #[tauri::command]
 pub async fn share_control(
+    state: State<'_, Shared>,
     profile: SyncProfile,
     id: String,
     writer: String,
     finish: bool,
 ) -> Api<()> {
+    if crate::team::active(&state){return crate::team::terminal::control(&state,&id,&writer,finish).await.map_err(err);}
     crate::shared_terminal::control(&profile, &id, &writer, finish)
         .await
         .map_err(err)

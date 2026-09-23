@@ -456,6 +456,7 @@ pub fn start(
     let id = Uuid::new_v4().to_string();
     let (tx, rx) = mpsc::channel(256);
     sessions.insert(id.clone(), tx);
+    if let Some(host)=host_id.as_ref(){state.session_hosts.lock().map_err(|_|anyhow!("Session lock"))?.insert(id.clone(),host.clone());}
     drop(sessions);
     let session_id = id.clone();
     tauri::async_runtime::spawn(async move {
@@ -468,6 +469,7 @@ pub fn start(
         if let Ok(mut s) = state.sessions.lock() {
             s.remove(&session_id);
         }
+        if let Ok(mut hosts)=state.session_hosts.lock(){hosts.remove(&session_id);}
     });
     Ok(id)
 }

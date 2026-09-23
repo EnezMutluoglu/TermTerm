@@ -18,6 +18,8 @@ pub struct AppState {
     pub team_task: Mutex<Option<tokio::task::JoinHandle<()>>>,
     pub vault: Arc<Mutex<Option<Vault>>>,
     pub sessions: Mutex<HashMap<String, mpsc::Sender<SessionInput>>>,
+    pub session_hosts: Mutex<HashMap<String,String>>,
+    pub team_share_inputs: Mutex<HashMap<String,mpsc::Sender<SessionInput>>>,
     pub prompts: Mutex<HashMap<String, oneshot::Sender<Vec<String>>>>,
     pub sftp: tokio::sync::Mutex<HashMap<String, Arc<crate::connections::SftpConnection>>>,
     pub tunnels: Mutex<HashMap<String, tokio::task::JoinHandle<()>>>,

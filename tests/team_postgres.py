@@ -3,6 +3,7 @@ Run as root in WSL: python3 tests/team_postgres.py. Never uses user vaults.
 SQL is sent via stdin; tokens and passwords are never printed.
 """
 import json, subprocess, uuid, datetime, pathlib, os
+from concurrent.futures import ThreadPoolExecutor
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 DB='termterm_team_e2e'
 def sql(query, app=True):
@@ -87,6 +88,22 @@ def main():
     assert move_preview['recordRevision']==16
     stored=next(r for r in rpc(owner,'records',dict(vaultId=vault))['records'] if r['id']==host)
     assert stored['parentId']==child
+    # A host-scoped editor does not need edit rights on its containing folders.
+    isolated=str(uuid.uuid4())
+    rpc(owner,'apply',change(owner,isolated,kind='host',parent=child))
+    for p in ['read','edit']: acl(operator,isolated,p,'allow')
+    assert rpc(operator,'apply',change(operator,isolated,1,parent=child))['revision']==2
+    # Two separate TLS database clients hit the same CAS concurrently.
+    raced=str(uuid.uuid4());rpc(owner,'apply',change(owner,raced,parent=root))
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        proposals=[(owner,change(owner,raced,1,parent=root)),(editor,change(editor,raced,1,parent=root))]
+        results=list(pool.map(lambda pair:rpc(pair[0],'apply',pair[1]),proposals))
+    assert sorted(r['status'] for r in results)==['applied','conflict']
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        proposals=[(owner,change(owner,raced,2,parent=root,deleted=True)),(editor,change(editor,raced,2,parent=root))]
+        results=list(pool.map(lambda pair:rpc(pair[0],'apply',pair[1]),proposals))
+    assert sorted(r['status'] for r in results)==['applied','conflict']
+    assert rpc(owner,'history',dict(vaultId=vault,recordId=raced))[0]['revision']==3
     rpc(owner,'member_set',dict(teamId=team,userId=editor['userId'],role='editor',active=False))
     denied(lambda: rpc(editor,'records',{'vaultId':vault}))
     body=change(editor,host,16,parent=child)
@@ -94,5 +111,22 @@ def main():
     assert delivered['status']=='conflict' and delivered['reason']=='permission'
     assert rpc(owner,'history',dict(vaultId=vault,recordId=host))[0]['revision']==16
     assert rpc(owner,'audit',dict(teamId=team))
-    print('PASS: accounts, token spoofing, direct SQL denial, folder inheritance, host-only paths, explicit deny, CAS/idempotency, decisions, history pruning/pins, revoked-member delivery, audit')
+    event=dict(vaultId=vault,recordId=host,event='connection.closed',operationId=str(uuid.uuid4()),clientAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),bytes=0)
+    for _ in range(2):
+        assert json.loads(sql('SELECT termterm_team.deliver_pending(%s,%s::jsonb)'%(lit(editor['deliveryToken']),lit(json.dumps(event)))))['status']=='received'
+    audit=rpc(owner,'audit',dict(teamId=team))
+    delivered_audit=[e for e in audit if e['summary'].get('operationId')==event['operationId']]
+    assert len(delivered_audit)==1 and delivered_audit[0]['client_at']
+    # Re-adding a removed member must not revive stale grants or delegations.
+    rpc(owner,'member_set',dict(teamId=team,userId=editor['userId'],role='editor',active=True))
+    assert rpc(editor,'vaults',dict(teamId=team))==[]
+    assert rpc(editor,'records',dict(vaultId=vault))['records']==[]
+    acl(editor,host,'read','allow')
+    assert len(rpc(editor,'records',dict(vaultId=vault))['records'])==1
+    refreshed=json.loads(sql('SELECT termterm_team.refresh_session(%s)'%lit(outsider['refreshToken'])))
+    denied(lambda:rpc(outsider,'overview'))
+    denied(lambda:sql('SELECT termterm_team.refresh_session(%s)'%lit(outsider['refreshToken'])))
+    outsider.update(accessToken=refreshed['accessToken'],refreshToken=refreshed['refreshToken'])
+    rpc(outsider,'overview');rpc(outsider,'logout');denied(lambda:rpc(outsider,'overview'))
+    print('PASS: accounts/token rotation, SQL denial, ACL/delegation, host-only edits, concurrent edit/delete CAS, idempotency, decisions, history/pins, revoked candidate/audit delivery')
 if __name__=='__main__': main()

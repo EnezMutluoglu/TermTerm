@@ -22,9 +22,12 @@ if ! runuser -u postgres -- psql -X -p "$port" -d postgres -Atc "SELECT 1 FROM p
 fi
 ready=$(runuser -u postgres -- psql -X -p "$port" -d "$database" -Atc "SELECT to_regclass('termterm_team.schema_version') IS NOT NULL")
 if [ "$ready" = f ]; then
- for migration in "$root"/migrations/team/0*.sql; do
-  runuser -u postgres -- psql -X -p "$port" -d "$database" -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
- done
+ runuser -u postgres -- psql -X -p "$port" -d "$database" -v ON_ERROR_STOP=1 -f "$root/migrations/team/001_team.sql" >/dev/null
 fi
+# Development RPC/policy migrations are repeatable; never drop the lab's records.
+for migration in "$root"/migrations/team/0*.sql; do
+ [[ "$migration" == */001_team.sql ]] && continue
+ runuser -u postgres -- psql -X -p "$port" -d "$database" -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
+done
 runuser -u postgres -- psql -X -p "$port" -d "$database" -v ON_ERROR_STOP=1 -v app_role=termterm_team_app -f "$root/migrations/team/grant_app.sql" >/dev/null
 echo "Team lab ready: $database on localhost:$port (TLS; credentials in ignored .lab)."

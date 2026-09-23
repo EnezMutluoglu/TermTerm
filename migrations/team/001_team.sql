@@ -1,5 +1,5 @@
 -- TermTerm Team schema 1. Run as the separate migration administrator, never the app login.
--- The app login is granted only the four entry points listed in grant_app.sql.
+-- The app login is granted only the five entry points listed in grant_app.sql.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 DO $$ BEGIN

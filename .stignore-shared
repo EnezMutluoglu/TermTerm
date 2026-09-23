@@ -18,3 +18,5 @@ node_modules
 *.log
 /.git
 /.stversions
+__pycache__
+*.pyc

@@ -289,9 +289,36 @@
   color: #d6b57f;
 }
 .team-compare {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
+  min-width: 0;
+  max-height: 320px;
+  overflow: auto;
+  margin: 16px 0;
+}
+.team-diff {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.team-diff th,
+.team-diff td {
+  text-align: left;
+  padding: 10px;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+  border-bottom: 1px solid #30363d;
+}
+.team-diff th:first-child {
+  width: 20%;
+  color: #a6b5c7;
+}
+.team-diff tr.changed td {
+  background: #233348;
+}
+.team-diff td button {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
 }
 .team-compare pre {
   font-size: 12px;

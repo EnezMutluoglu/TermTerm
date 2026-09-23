@@ -164,6 +164,7 @@ pub async fn update_install(
     result?;
     #[cfg(not(windows))]
     app.restart();
+    #[cfg(windows)]
     Ok(())
 }
 

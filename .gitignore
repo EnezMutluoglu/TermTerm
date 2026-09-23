@@ -28,3 +28,5 @@ node_modules/
 /.stignore
 /.stfolder
 /.stversions/
+__pycache__/
+*.pyc
