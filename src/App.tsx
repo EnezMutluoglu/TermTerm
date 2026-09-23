@@ -189,6 +189,13 @@ export default function App() {
   } | null>(null);
   const [backupIds, setBackupIds] = useState<string[]>([]);
   const selectionAnchor = useRef<string | undefined>(undefined);
+  const detailsClick = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  function cancelDetailsClick() {
+    clearTimeout(detailsClick.current);
+    detailsClick.current = undefined;
+  }
   const [dataMode, setDataMode] = useState<DataMode | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -210,6 +217,21 @@ export default function App() {
   const [fontSize, setFontSize] = useState(15);
   const [themeId, setThemeId] = useState("graphite");
   const [collapsed, setCollapsed] = useState<string[]>([]);
+  useEffect(
+    () => cancelDetailsClick,
+    [
+      vault?.id,
+      nav,
+      group,
+      search,
+      page,
+      editor,
+      dataMode,
+      context,
+      deleting,
+      moving,
+    ],
+  );
   const searchRef = useRef<HTMLInputElement>(null);
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
@@ -434,6 +456,7 @@ export default function App() {
         setBroadcast((b) => !b);
       }
       if (e.key === "Escape" && !inTerminal && !editing) {
+        cancelDetailsClick();
         setEditor(null);
         setDetails(null);
         setMenu(false);
@@ -505,6 +528,7 @@ export default function App() {
     setInfo({ home: "C:\\Users", defaultVaultPath: "", version: "0.1.0" });
   }, []);
   function navigate(n: Nav) {
+    cancelDetailsClick();
     if (n === "sftp") setSftpVisited(true);
     setNav(n);
     setSearch("");
@@ -515,6 +539,7 @@ export default function App() {
     setMenu(false);
   }
   function create(kind: EntityKind) {
+    cancelDetailsClick();
     setDetails(null);
     const defaults: Record<string, any> = {
       host: {
@@ -553,6 +578,7 @@ export default function App() {
     notify(tr("{name} saved.", { name: r.data.label }));
   }
   async function connect(hostId?: string, shell?: string, statsEnabled = true) {
+    cancelDetailsClick();
     try {
       await prepareEvents();
       const id = await call<string>("session_start", {
@@ -679,10 +705,12 @@ export default function App() {
     }
   }
   function showDetails(record: Entity) {
+    cancelDetailsClick();
     setEditor(null);
     setDetails(record);
   }
   function editRecord(record: Entity) {
+    cancelDetailsClick();
     setDetails(null);
     setEditor(record);
   }
@@ -693,6 +721,7 @@ export default function App() {
   ) {
     e.preventDefault();
     e.stopPropagation();
+    cancelDetailsClick();
     setContext({
       position: menuPosition(e),
       title,
@@ -710,13 +739,18 @@ export default function App() {
     e: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>,
     r: Entity,
   ) {
+    cancelDetailsClick();
+    const modified = e.shiftKey || e.ctrlKey || e.metaKey;
+    if (r.kind === "group" && !modified) {
+      openGroup(r.id);
+      return;
+    }
     const visible = [...childGroups, ...filtered]
       .filter((item) => item.id !== UNGROUPED_FOLDER)
       .map((item) => item.id);
     if (r.id === UNGROUPED_FOLDER) {
       setSelected([r.id]);
       selectionAnchor.current = r.id;
-      showDetails(r);
       return;
     }
     if (
@@ -740,7 +774,13 @@ export default function App() {
       setSelected([r.id]);
       selectionAnchor.current = r.id;
     }
-    showDetails(r);
+    // Keep the grid still between clicks: opening the details sidebar reflows cards.
+    // Native dblclick decides whether to connect; the timer only defers details.
+    if (r.kind === "group" || modified) return;
+    if (r.kind === "host" && "button" in e && e.detail > 0) {
+      if (e.detail === 1)
+        detailsClick.current = setTimeout(() => showDetails(r), 500);
+    } else showDetails(r);
   }
   function recordKey(e: React.KeyboardEvent<HTMLElement>, r: Entity) {
     if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
@@ -1132,10 +1172,12 @@ export default function App() {
     groupTrail.unshift(current);
   }
   function openGroup(id: string) {
+    cancelDetailsClick();
     setNav("hosts");
     setGroup(id);
     setSelected([]);
     setEditor(null);
+    setDetails(null);
     setSearch("");
     setPage(0);
   }
@@ -1165,10 +1207,7 @@ export default function App() {
               if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey))
                 recordMenu(e, g);
             }}
-            onClick={() => {
-              setGroup(g.id);
-              navigate("hosts");
-            }}
+            onClick={() => openGroup(g.id)}
           >
             <span
               role="button"
@@ -1838,9 +1877,6 @@ export default function App() {
                       }
                       key={g.id}
                       onContextMenu={(e) => recordMenu(e, g)}
-                      onDoubleClick={() => {
-                        openGroup(g.id);
-                      }}
                     >
                       <button
                         className="group-main"
@@ -1932,8 +1968,20 @@ export default function App() {
                             : "")
                         }
                         onClick={(e) => chooseRecord(e, r)}
-                        onDoubleClick={() => {
-                          if (r.kind === "host") void connect(r.id);
+                        onMouseDown={(e) => {
+                          if (e.detail > 1) cancelDetailsClick();
+                        }}
+                        onDoubleClick={(e) => {
+                          if (
+                            r.kind === "host" &&
+                            !e.ctrlKey &&
+                            !e.metaKey &&
+                            !e.shiftKey
+                          ) {
+                            cancelDetailsClick();
+                            setDetails(null);
+                            void connect(r.id);
+                          }
                         }}
                       >
                         <div className="card-top">
@@ -2055,7 +2103,10 @@ export default function App() {
           <RecordDetails
             record={records.find((r) => r.id === details.id) ?? details}
             records={records}
-            onClose={() => setDetails(null)}
+            onClose={() => {
+              cancelDetailsClick();
+              setDetails(null);
+            }}
             onContextMenu={(e) => recordMenu(e, details)}
           />
         )}

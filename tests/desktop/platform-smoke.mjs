@@ -1,5 +1,4 @@
 import { browser, $, $$, expect } from "@wdio/globals";
-import { doubleClick } from './interaction.mjs';
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -92,10 +91,10 @@ describe("Native platform smoke", () => {
     await browser.executeAsync(done=>window.__TAURI__.event.emit('vault-changed').then(()=>done(true)));
     await $('.main-nav button:first-child').click();
     await $('.group-main*=Ungrouped').waitForDisplayed();expect(await $$('.record-card')).toHaveLength(0);
-    await doubleClick($('.group-main*=Ungrouped'));expect(await $('.record-card').getText()).toContain('Root host');
+    await $('.group-main*=Ungrouped').click();expect(await $('.record-card').getText()).toContain('Root host');
     await $('.breadcrumb').$('button=Hosts').click();
-    await doubleClick($('.group-main*=Outer folder'));expect(await $('.record-card').getText()).toContain('Outer host');expect(await $$('.record-card')).toHaveLength(1);
-    await doubleClick($('.group-main*=Inner folder'));expect(await $('.record-card').getText()).toContain('Inner host');expect(await $('.breadcrumb').getText()).toContain('Outer folder');
+    await $('.group-main*=Outer folder').click();expect(await $('.record-card').getText()).toContain('Outer host');expect(await $$('.record-card')).toHaveLength(1);
+    await $('.group-main*=Inner folder').click();expect(await $('.record-card').getText()).toContain('Inner host');expect(await $('.breadcrumb').getText()).toContain('Outer folder');
     await $('.breadcrumb').$('button=Hosts').click();expect(await $$('.record-card')).toHaveLength(0);await $('.group-main*=Ungrouped').waitForDisplayed();
     await $('button=Settings').click();await $('button=General').click();await browser.execute(()=>{const label=Array.from(document.querySelectorAll('label')).find(e=>e.textContent.includes('Terminal color theme'));const select=label.querySelector('select');select.value='forest';select.dispatchEvent(new Event('change',{bubbles:true}));});await $('button=Save preferences').click();
     expect((await invoke('vault_info')).records.find(r=>r.kind==='settings').data.terminalTheme).toBe('forest');

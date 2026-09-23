@@ -1,5 +1,4 @@
 import { browser, $, $$, expect } from "@wdio/globals";
-import { doubleClick } from './interaction.mjs';
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -82,7 +81,7 @@ describe("TermTerm Windows native acceptance", () => {
     );
     await $("input[type=password]").setValue(ssh.password);
     await $("button=Save").click();
-    if (await $('.group-main*=Ungrouped').isDisplayed()) await doubleClick($('.group-main*=Ungrouped'));
+    if (await $('.group-main*=Ungrouped').isDisplayed()) await $('.group-main*=Ungrouped').click();
     await $("h3=WSL Integration").waitForDisplayed();
     const v = await invoke("vault_info");
     host = v.records.find((r) => r.kind === "host");

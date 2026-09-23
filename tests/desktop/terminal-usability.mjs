@@ -49,7 +49,7 @@ describe('Native Windows terminal usability',()=>{
     await $('h1=Hosts').waitForDisplayed();
   });
   it('opens SSH in the shared top row and receives real CPU/memory/disk samples',async()=>{
-    await doubleClick($('.group-main*=Ungrouped'));await doubleClick($('.record-card'));
+    await $('.group-main*=Ungrouped').click();await doubleClick($('.record-card'));
     await $('.terminal-status=Connected').waitForDisplayed({timeout:45000});id=await focusedId();
     await expect($$('.top-session-tab')).toBeElementsArrayOfSize(1);
     await command("printf '\\033[2J\\033[H\\033[1;32mtermterm@linux-lab\\033[0m:~/projects $ status\\n\\033[32m✓ SSH connected\\033[0m  \\033[36m✓ Secure vault\\033[0m\\n\\033[33mCPU / memory / mounted disks are live\\033[0m\\nCOPY_THIS_TEXT Terminal clipboard\\nTürkçe: ğüşöçıİ  —  Unicode ready\\n'; for i in 31 32 33 34 35 36 91 92 93 94 95 96; do printf '\\033[%sm ANSI %s \\033[0m' \"$i\" \"$i\"; done; printf '\\n' ");

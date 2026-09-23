@@ -69,10 +69,125 @@ async function menu(page: Page, name: string, action?: string) {
     await page.getByRole("menuitem", { name: action, exact: true }).click();
 }
 async function folder(page: Page, name: string) {
-  await page.locator(".group-main").filter({ hasText: name }).dblclick();
+  await page.locator(".group-main").filter({ hasText: name }).click();
 }
 const saved = (page: Page) =>
   page.evaluate(() => (window as any).testVault.records);
+
+test("folders open on one click, details stay in the menu and pending host details are cancelled", async ({
+  page,
+}) => {
+  await start(page);
+  const production = page
+    .locator(".group-main")
+    .filter({ hasText: "Production" });
+  await production.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Details", exact: true }).click();
+  await expect(page.locator(".record-details")).toContainText("deploy");
+  await production.click();
+  await expect(card(page, "API")).toBeVisible();
+  await expect(page.locator(".record-details")).toHaveCount(0);
+  await card(page, "API").click();
+  await folder(page, "Nested");
+  await expect(card(page, "Nested host")).toBeVisible();
+  await page.waitForTimeout(650);
+  await expect(page.locator(".record-details")).toHaveCount(0);
+  await card(page, "Nested host").click();
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(650);
+  await expect(page.locator(".record-details")).toHaveCount(0);
+  await card(page, "Nested host").click();
+  await menu(page, "Nested host");
+  await page.waitForTimeout(650);
+  await expect(page.getByRole("menu")).toBeVisible();
+  await expect(page.locator(".record-details")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await card(page, "Nested host").click();
+  await page
+    .locator(".top-tabs")
+    .getByRole("button", { name: "SFTP", exact: true })
+    .click();
+  await page.waitForTimeout(650);
+  await expect(page.locator(".record-details")).toHaveCount(0);
+  expect(
+    await page.evaluate(() =>
+      (window as any).calls.filter((c: any) => c.command === "session_start"),
+    ),
+  ).toHaveLength(0);
+});
+
+for (const width of [1366, 1920])
+  for (const view of ["Card view", "List view"]) {
+    test(`host single click shows details; double click connects once at ${width} in ${view}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({
+        width,
+        height: width === 1366 ? 768 : 1080,
+      });
+      await start(page);
+      await folder(page, "Production");
+      await page.getByTitle(view, { exact: true }).click();
+      await card(page, "DB").click();
+      await expect(page.locator(".record-details")).toContainText(
+        "db.example.test",
+      );
+      expect(
+        await page.evaluate(() =>
+          (window as any).calls.filter(
+            (c: any) => c.command === "session_start",
+          ),
+        ),
+      ).toHaveLength(0);
+      await page
+        .getByRole("button", { name: "Close details", exact: true })
+        .click();
+      const box = (await card(page, "DB").boundingBox())!;
+      const x = box.x + box.width / 2,
+        y = box.y + box.height / 2;
+      await page.mouse.click(x, y);
+      // Use the original pointer position, not a locator that follows a reflowed card.
+      await page.waitForTimeout(300);
+      await expect(page.locator(".record-details")).toHaveCount(0);
+      await page.mouse.click(x, y, { clickCount: 2 });
+      await expect(page.locator(".top-session-tab")).toHaveCount(1);
+      await page.waitForTimeout(650);
+      await expect(page.locator(".record-details")).toHaveCount(0);
+      expect(
+        await page.evaluate(() =>
+          (window as any).calls
+            .filter((c: any) => c.command === "session_start")
+            .map((c: any) => c.args.hostId),
+        ),
+      ).toEqual(["b"]);
+    });
+  }
+
+test("modified folder clicks select without opening; keyboard opens folders and host details", async ({
+  page,
+}) => {
+  await start(page);
+  const production = page
+    .locator(".group-main")
+    .filter({ hasText: "Production" });
+  await production.click({
+    modifiers: [process.platform === "darwin" ? "Meta" : "Control"],
+  });
+  await expect(production).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".record-details")).toHaveCount(0);
+  await production.focus();
+  await page.keyboard.press("Enter");
+  await card(page, "API").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".record-details")).toContainText(
+    "api.example.test",
+  );
+  expect(
+    await page.evaluate(() =>
+      (window as any).calls.filter((c: any) => c.command === "session_start"),
+    ),
+  ).toHaveLength(0);
+});
 
 test("single click is read-only, actions live in the context menu and editing really saves", async ({
   page,
@@ -118,7 +233,9 @@ test("multi-select moves exact hosts; a nested group duplicate retains relations
   await start(page);
   await folder(page, "Production");
   await card(page, "API").click();
-  await card(page, "DB").click({ modifiers: [process.platform === 'darwin' ? 'Meta' : 'Control'] });
+  await card(page, "DB").click({
+    modifiers: [process.platform === "darwin" ? "Meta" : "Control"],
+  });
   await menu(page, "DB", "Move to group…");
   await page.getByLabel("Destination group").selectOption("dest");
   await page.getByRole("button", { name: "Move records", exact: true }).click();
@@ -343,7 +460,9 @@ test("SFTP multi-delete reports partial failure and retries only the remaining f
     first = pane.getByRole("button", { name: "First.txt", exact: true }),
     second = pane.getByRole("button", { name: "Second.txt", exact: true });
   await first.click();
-  await second.click({ modifiers: [process.platform === 'darwin' ? 'Meta' : 'Control'] });
+  await second.click({
+    modifiers: [process.platform === "darwin" ? "Meta" : "Control"],
+  });
   await second.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Delete…", exact: true }).click();
   await expect(page.locator(".modal")).toContainText("2 selected items");

@@ -1,5 +1,4 @@
 import { browser, $, $$, expect } from "@wdio/globals";
-import { doubleClick } from './interaction.mjs';
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -80,7 +79,7 @@ describe("Terminal resource counters and input isolation", () => {
     );
   });
   it("reads Linux through a separate SSH channel and pauses hidden/disabled panels", async () => {
-    await doubleClick($('.group-main*=Ungrouped'));
+    await $('.group-main*=Ungrouped').click();
     await $("h3=Metrics fixture").waitForDisplayed();
     await $("button=Connect").click();
     await $("button=Trust and connect").waitForDisplayed({ timeout: 30000 });

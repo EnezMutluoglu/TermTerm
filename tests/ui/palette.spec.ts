@@ -37,7 +37,7 @@ test("host, navigation and SFTP selections share a readable visual state", async
   await page.goto("/");
   await page.screenshot({ path: "artifacts/palette-review/onboarding.png" });
   await page.goto("/?preview");
-  await page.locator(".group-main").filter({ hasText: "Production" }).dblclick();
+  await page.locator(".group-main").filter({ hasText: "Production" }).click();
   await page
     .locator(".record-card")
     .first()

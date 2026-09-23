@@ -62,7 +62,7 @@ test("translated menus and settings preserve user labels, addresses and command 
   }, fixture);
   await page.goto("/tests/ui/terminal-harness.html");
   const folder = page.locator(".group-main").filter({ hasText: "Production" });
-  await folder.dblclick();
+  await folder.click();
   const host = page.locator('.record-card[aria-label="Connect"]');
   await host.click({ button: "right" });
   await expect(

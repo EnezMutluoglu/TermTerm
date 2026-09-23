@@ -2,7 +2,7 @@ import { browser, $, $$, expect } from "@wdio/globals";
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
-import { doubleClick, selectValue } from "./interaction.mjs";
+import { selectValue } from "./interaction.mjs";
 
 const root = process.cwd(),
   work = path.join(root, ".lab", `context-menu-${Date.now()}`);
@@ -158,7 +158,7 @@ describe("Native context actions persist to the vault and filesystem", () => {
     const copiedDb = saved.find((r) => r.data.groupId === copiedChild.id);
     expect(copiedApi.data.credentialId).toBe(key.id);
     expect(copiedDb.data.chain).toEqual([copiedApi.id]);
-    await doubleClick(folder("Production"));
+    await (await folder("Production")).click();
     await card("API").click();
     await expect($(".record-details")).toHaveText(
       expect.stringContaining("deploy"),
@@ -181,7 +181,7 @@ describe("Native context actions persist to the vault and filesystem", () => {
           .groupId === destination.id,
     );
     await rootFolder();
-    await doubleClick(folder("Archive"));
+    await (await folder("Archive")).click();
     await menu(await card("API copy"), "Delete…");
     await $("button=Delete").click();
     await browser.waitUntil(
@@ -208,7 +208,7 @@ describe("Native context actions persist to the vault and filesystem", () => {
   it("previews selected export scope and round-trips the scoped encrypted backup through the real backend", async () => {
     await $(".main-nav button:first-child").click();
     await rootFolder();
-    await doubleClick(folder("Production"));
+    await (await folder("Production")).click();
     const backupPath = path.join(work, "selected.ttbackup");
     await menu(await card("API"), "Export encrypted backup…");
     await expect($(".modal")).toHaveText(

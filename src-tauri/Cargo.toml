@@ -1,6 +1,6 @@
 [package]
 name = "termterm"
-version = "0.3.4"
+version = "0.3.5"
 description = "Local-first encrypted SSH workspace"
 edition = "2021"
 rust-version = "1.98"
