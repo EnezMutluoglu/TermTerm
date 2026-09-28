@@ -1,4 +1,7 @@
 //! Read-only, bounded probes on a separate SSH channel. No terminal input or logs.
+#[path = "metrics_io.rs"]
+mod io;
+
 use crate::{connections::SshConnection, state::Shared};
 use anyhow::{anyhow, ensure, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -52,6 +55,9 @@ pub struct Snapshot {
     pub error: Option<String>,
     pub disk_error: Option<String>,
     pub supported: bool,
+    pub activity: Option<io::Activity>,
+    pub activity_at: Option<i64>,
+    pub activity_error: Option<String>,
 }
 #[derive(Clone)]
 pub enum Target {
@@ -273,9 +279,16 @@ pub fn register(app: &AppHandle, state: &Shared, id: &str, target: Target) {
                 runner.clone(),
                 snapshot.clone(),
                 rx.clone(),
-                false
+                Probe::Fast
             ),
-            sample_loop(app, runner, snapshot, rx, true)
+            sample_loop(
+                app.clone(),
+                runner.clone(),
+                snapshot.clone(),
+                rx.clone(),
+                Probe::Disks
+            ),
+            sample_loop(app, runner, snapshot, rx, Probe::Activity)
         );
     });
     if let Ok(mut m) = state.metrics.lock() {
@@ -310,21 +323,35 @@ pub fn stop_all(state: &Shared) {
     }
 }
 
+#[derive(Clone, Copy)]
+enum Probe {
+    Fast,
+    Disks,
+    Activity,
+}
+
 async fn sample_loop(
     app: AppHandle,
     runner: Arc<Runner>,
     snapshot: Arc<Mutex<Snapshot>>,
     mut enabled: watch::Receiver<bool>,
-    disks: bool,
+    probe: Probe,
 ) {
-    let mut tick = tokio::time::interval(Duration::from_secs(if disks { 10 } else { 2 }));
+    let mut tick = tokio::time::interval(Duration::from_secs(if matches!(probe, Probe::Disks) {
+        10
+    } else {
+        2
+    }));
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut previous = None;
+    let mut activity = io::Sampler::default();
+    let clock = std::time::Instant::now();
     let mut system = sysinfo::System::new();
     let mut native_primed = false;
     loop {
         if !*enabled.borrow() {
             previous = None;
+            activity = io::Sampler::default();
             native_primed = false;
             if enabled.changed().await.is_err() {
                 break;
@@ -332,13 +359,18 @@ async fn sample_loop(
             tick.reset_immediately();
             continue;
         }
-        tokio::select! {_ = tick.tick()=>{},changed=enabled.changed()=>{if changed.is_err(){break;}tick.reset_immediately();continue;}}
+        tokio::select! {_ = tick.tick()=>{},changed=enabled.changed()=>{if changed.is_err(){break;}activity=io::Sampler::default();tick.reset_immediately();continue;}}
         if !*enabled.borrow() {
             continue;
         }
-        let result = tokio::select! {changed=enabled.changed()=>{if changed.is_err(){break;}continue;},result=async {
+        let result = tokio::select! {changed=enabled.changed()=>{if changed.is_err(){break;}activity=io::Sampler::default();continue;},result=async {
             let os=runner.os().await?.to_owned();
-            if disks {
+            if matches!(probe, Probe::Activity) {
+                let command=match os.as_str(){"linux"=>io::LINUX,"macos"=>io::MAC,"windows"=>io::WINDOWS,_=>anyhow::bail!("I/O counters unsupported")};
+                let text=runner.command(command,os=="windows").await?;
+                let counters=io::parse(&text,&os,clock.elapsed().as_secs_f64())?;
+                let mut s=snapshot.lock().unwrap();s.activity=Some(activity.sample(counters));s.activity_at=Some(now());s.activity_error=None;s.os=os;
+            } else if matches!(probe, Probe::Disks) {
                 let command=match os.as_str(){"windows"=>WINDOWS_DISKS,"linux"=>"LC_ALL=C; export LC_ALL; if command -v timeout >/dev/null 2>&1; then timeout 4 df -P -k -T; else df -P -k -T; fi",_=>"LC_ALL=C; export LC_ALL; df -P -k; echo TTMOUNTS; mount"};
                 let text=runner.command(command,os=="windows").await?;
                 let mut values=if os=="windows"{serde_json::from_str::<Vec<Disk>>(&text)?}else{parse_disks(&text,&os)?};
@@ -359,7 +391,10 @@ async fn sample_loop(
         if let Ok(mut s) = snapshot.lock() {
             if let Err(e) = result {
                 let message = Some(format!("{e:#}"));
-                if disks {
+                if matches!(probe, Probe::Activity) {
+                    activity = io::Sampler::default();
+                    s.activity_error = message;
+                } else if matches!(probe, Probe::Disks) {
                     s.disk_error = message;
                 } else {
                     s.error = message;
@@ -572,6 +607,39 @@ mod tests {
         let (_, memory) = parse_fast(&text, os, &mut None).unwrap();
         assert!(memory.total > 0);
         assert!(memory.used <= memory.total);
+    }
+    #[tokio::test]
+    async fn native_io_probes_return_real_devices() {
+        let runner = Runner {
+            target: Target::Local,
+            os: OnceCell::new(),
+            windows_ready: std::sync::atomic::AtomicBool::new(false),
+        };
+        let os = std::env::consts::OS;
+        let cmd = match os {
+            "windows" => io::WINDOWS,
+            "macos" => io::MAC,
+            _ => io::LINUX,
+        };
+        let mut sampler = io::Sampler::default();
+        for _ in 0..2 {
+            let text = runner.command(cmd, os == "windows").await.unwrap();
+            let c = io::parse(
+                &text,
+                os,
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs_f64(),
+            )
+            .unwrap();
+            let a = sampler.sample(c);
+            assert!(!a.network.is_empty());
+            assert!(!a.disks.is_empty());
+            assert!(a.network_error.is_none());
+            assert!(a.disk_error.is_none());
+            tokio::time::sleep(Duration::from_millis(300)).await;
+        }
     }
     #[test]
     fn linux_deltas_and_reclaimable_memory() {

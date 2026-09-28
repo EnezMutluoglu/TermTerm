@@ -1,8 +1,17 @@
+import ResourceActivity from "./ResourceActivity";
+import { diskSeverity, type ResourceActivityData } from "./resourceMetrics";
 import { tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { call, desktop, errorText } from "./api";
-import { Cpu, MemoryStick, HardDrive, ChevronDown, X } from "lucide-react";
+import {
+  Cpu,
+  MemoryStick,
+  HardDrive,
+  ChevronDown,
+  X,
+  AlertTriangle,
+} from "lucide-react";
 export interface ResourceSnapshot {
   sessionId: string;
   source: string;
@@ -25,6 +34,9 @@ export interface ResourceSnapshot {
   error: string | null;
   diskError: string | null;
   supported: boolean;
+  activity?: ResourceActivityData | null;
+  activityAt?: number | null;
+  activityError?: string | null;
 }
 type Point = { time: number; cpu: number | null; memory: number | null };
 const percent = (used: number, total: number) =>
@@ -78,7 +90,7 @@ export default function ResourceMonitor({
 }) {
   const [sample, setSample] = useState<ResourceSnapshot | null>(null),
     [points, setPoints] = useState<Point[]>([]),
-    [details, setDetails] = useState(false),
+    [details, setDetails] = useState<"disks" | "activity" | null>(null),
     [virtual, setVirtual] = useState(false),
     [error, setError] = useState("");
   const [foreground, setForeground] = useState(!document.hidden),
@@ -145,15 +157,29 @@ export default function ResourceMonitor({
     };
   }, [sessionId, enabled, visible, foreground, connected]);
   useEffect(() => {
-    if (!enabled || !visible) setDetails(false);
+    if (!enabled || !visible) setDetails(null);
   }, [enabled, visible]);
   if (!enabled) return null;
-  const disks = (sample?.disks ?? []).filter(
-      (d) => virtual || !d.virtual || d.root,
-    ),
+  const disks = (sample?.disks ?? [])
+      .filter((d) => virtual || !d.virtual || d.root)
+      .sort(
+        (a, b) =>
+          diskSeverity(b) - diskSeverity(a) ||
+          Number(b.root) - Number(a.root) ||
+          a.mountPoint.localeCompare(b.mountPoint),
+      ),
     root = disks.find((d) => d.root) ?? disks[0];
   const stale = !!sample?.sampledAt && now - sample.sampledAt > 6500;
   const diskStale = !!sample?.disksAt && now - sample.disksAt > 25000;
+  const fullDisks = disks.filter((d) => diskSeverity(d) === 2).length;
+  const criticalDisks = disks.filter((d) => diskSeverity(d) === 1).length;
+  const alerts = [
+    fullDisks ? tr("{count} full", { count: fullDisks }) : "",
+    criticalDisks ? tr("{count} critical", { count: criticalDisks }) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const activityStale = !!sample?.activityAt && now - sample.activityAt > 10000;
   return (
     <aside
       className={"resource-monitor" + (stale ? " stale" : "")}
@@ -232,8 +258,8 @@ export default function ResourceMonitor({
           </div>
           <button
             className="resource-disk"
-            onClick={() => setDetails(!details)}
-            aria-expanded={details}
+            onClick={() => setDetails(details === "disks" ? null : "disks")}
+            aria-expanded={details === "disks"}
             title={sample?.diskError ?? tr("Mounted filesystems")}
           >
             <HardDrive size={12} />
@@ -246,9 +272,7 @@ export default function ResourceMonitor({
             <span className="capacity-track">
               <i
                 className={
-                  root && percent(root.used, root.total) > 90
-                    ? "critical"
-                    : undefined
+                  root && diskSeverity(root) > 0 ? "critical" : undefined
                 }
                 style={{
                   width: `${root ? percent(root.used, root.total) : 0}%`,
@@ -256,18 +280,39 @@ export default function ResourceMonitor({
               />
             </span>
             <small>{disks.length > 1 ? `+${disks.length - 1}` : ""}</small>
+            {alerts && (
+              <span className="resource-disk-alert" role="status">
+                <AlertTriangle size={12} />
+                {alerts}
+              </span>
+            )}
             <ChevronDown size={12} />
           </button>
         </div>
       )}
-      {details && (
+      {sample?.supported !== false && (
+        <ResourceActivity
+          activity={sample?.activity}
+          unavailable={
+            !connected
+              ? tr("Disconnected")
+              : sample?.activityError ||
+                (activityStale ? tr("Stale throughput") : null)
+          }
+          open={details === "activity"}
+          onToggle={() =>
+            setDetails(details === "activity" ? null : "activity")
+          }
+        />
+      )}
+      {details === "disks" && (
         <div
           className="resource-details"
           role="dialog"
           aria-label={tr("Mounted filesystems")}
           onKeyDown={(e) => {
             e.stopPropagation();
-            if (e.key === "Escape") setDetails(false);
+            if (e.key === "Escape") setDetails(null);
           }}
         >
           <header>
@@ -275,7 +320,7 @@ export default function ResourceMonitor({
             <button
               className="icon-btn"
               aria-label={tr("Close filesystem details")}
-              onClick={() => setDetails(false)}
+              onClick={() => setDetails(null)}
             >
               <X size={14} />
             </button>
@@ -296,21 +341,28 @@ export default function ResourceMonitor({
           <div className="resource-mount-list">
             {disks.map((d) => (
               <div
-                className="resource-mount"
+                className={
+                  "resource-mount" +
+                  (diskSeverity(d) ? " resource-mount-critical" : "")
+                }
                 key={`${d.device}:${d.mountPoint}`}
               >
                 <div>
                   <strong title={d.mountPoint}>{d.mountPoint}</strong>
                   <b>{percent(d.used, d.total).toFixed(0)}%</b>
+                  {diskSeverity(d) > 0 && (
+                    <span className="resource-disk-alert">
+                      <AlertTriangle size={12} />
+                      {tr(diskSeverity(d) === 2 ? "Full" : "Critical")}
+                    </span>
+                  )}
                 </div>
                 <span title={d.device}>
                   {d.filesystem || tr("Filesystem")} · {d.device}
                 </span>
                 <span className="capacity-track">
                   <i
-                    className={
-                      percent(d.used, d.total) > 90 ? "critical" : undefined
-                    }
+                    className={diskSeverity(d) > 0 ? "critical" : undefined}
                     style={{
                       width: `${percent(d.used, d.total)}%`,
                     }}
