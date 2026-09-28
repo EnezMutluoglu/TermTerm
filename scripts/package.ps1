@@ -48,7 +48,7 @@ $zip=[System.IO.Compression.ZipArchive]::new($sourceStream,[System.IO.Compressio
 try {
   $folders=@('src','src-tauri/src','src-tauri/capabilities','src-tauri/icons','migrations','scripts','templates','docs','tests','.github')
   $files=@('README.md','.gitignore','package.json','pnpm-lock.yaml','pnpm-workspace.yaml','index.html','app-icon.svg','tsconfig.json','vite.config.ts','playwright.config.ts','wdio.conf.mjs','vitest.config.ts','src-tauri/Cargo.toml','src-tauri/Cargo.lock','src-tauri/build.rs','src-tauri/tauri.conf.json','src-tauri/tauri.e2e.conf.json','src-tauri/tauri.windows.conf.json','src-tauri/tauri.macos.conf.json','src-tauri/tauri.linux.conf.json')
-  $files+=@('rust-toolchain.toml','.stignore-shared','AGENTS.md','src-tauri/tauri.release.conf.json')
+  $files+=@('rust-toolchain.toml','.stignore-shared','AGENTS.md','src-tauri/tauri.release.conf.json','src-tauri/tauri.stats-dev.conf.json')
   foreach($folder in $folders){$files+=Get-ChildItem -LiteralPath (Join-Path $project $folder) -File -Recurse | ForEach-Object {$_.FullName.Substring($project.Length+1)}}
   foreach($file in $files){$path=Join-Path $project $file;$entry=$zip.CreateEntry(($file -replace '\\','/'));$input=[System.IO.File]::OpenRead($path);$output=$entry.Open();try{$input.CopyTo($output)}finally{$input.Dispose();$output.Dispose()}}
 } finally { $zip.Dispose();$sourceStream.Dispose() }

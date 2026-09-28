@@ -1,6 +1,6 @@
-# Ağ hızı, disk etkinliği ve doluluk uyarıları — 0.3.7-dev.1
+# Ağ hızı, disk etkinliği ve doluluk uyarıları — 0.3.7
 
-Geliştirme dalı: `codex/feature-network-disk-stats` (0.3.6/develop tabanlı). Team geliştirmesi ayrı kalır. Kararlı sürüm/güncelleme kaynağı değiştirilmez.
+Geliştirme dalı: `codex/feature-network-disk-stats` (0.3.6/develop tabanlı). Özellikler önce 0.3.7-dev.1 ile doğrulandı; kullanıcı 0.3.7 kararlı güncellemesini onayladı. Team geliştirmesi ayrı kalır. Paket/yayın kontrolleri [0.3.7 raporundadır](VALIDATION_0.3.7.md).
 
 ## Kullanım
 
@@ -28,7 +28,7 @@ Ağ/disk etkinliği 2 saniyelik ayrı, sıralı ölçüm döngüsünde toplanır
 - Native Windows E2E 2/2: Linux SSH chain üzerinde gerçek hızlar, kontrollü 8 MiB dosya yazma/fsync/doğrudan okuma, ölçümün terminal çıktısını değiştirmemesi, kapat/aç döngüsü; Windows yerel terminalde gerçek ağ/fiziksel disk hızları. Koşu 27 saniye sürdü; uzun yük testi yapılmadı. Geçici dosya silindi.
 - Kritik/dolu disk uyarıları sentetik mount örnekleriyle sınandı; kullanıcının diski doldurulmadı. Türkçe örnek ekran bu nedenle “Örnek ölçümler” olarak işaretlidir.
 - E2E sürücüsü olmayan ayrı kimlikli Windows Stats Dev uygulaması derlendi; gerçek pencere açılışı/kapanışı ve 4445 test portunun bulunmadığı doğrulandı.
-- Yeni macOS/donanım/üretim sunucusu testi ve kararlı yayın yapılmadı.
+- Yeni macOS/donanım/üretim sunucusu testi yapılmadı.
 
 ## Deneme derlemesi
 
