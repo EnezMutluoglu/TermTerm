@@ -1,4 +1,5 @@
 import { tr } from "./i18n";
+import { terminalResizeQueue } from "./terminalResize";
 import { useEffect, useRef, useState } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -49,7 +50,7 @@ export default function TerminalPane({
   const container = useRef<HTMLDivElement>(null);
   const term = useRef<XTerm | null>(null);
   const finder = useRef<SearchAddon | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
+  const fitRef = useRef<(force?: boolean) => void>(() => {});
   const input = useRef(onInput);
   input.current = onInput;
   const latest = useRef({
@@ -101,7 +102,7 @@ export default function TerminalPane({
       theme: terminalTheme(themeId),
     });
     const fit = new FitAddon();
-    fitRef.current = fit;
+
     const searchAddon = new SearchAddon();
     t.loadAddon(fit);
     t.loadAddon(searchAddon);
@@ -117,19 +118,46 @@ export default function TerminalPane({
     finder.current = searchAddon;
     for (const bytes of terminalHistory.get(session.id) ?? []) t.write(bytes);
     const data = t.onData((data) => input.current(session.id, data));
-    const resized = t.onResize(({ cols, rows }) => {
-      if (!latest.current.closed)
-        void call("session_input", { id: session.id, cols, rows }).catch(
-          () => {},
-        );
+    let disposed = false,
+      measuring = false,
+      resizeFrame = 0,
+      forceNext = false;
+    const sizeQueue = terminalResizeQueue(
+      (size) =>
+        latest.current.closed
+          ? Promise.resolve()
+          : call("session_input", { id: session.id, ...size }),
+      (error) => {
+        if (!latest.current.closed) latest.current.onError?.(error);
+      },
+    );
+    const resized = t.onResize((size) => {
+      if (!measuring) sizeQueue.request(size);
     });
-    const resize = () => {
-      if (container.current && container.current.clientWidth > 0) {
-        fit.fit();
-      }
+    const resize = (force = false) => {
+      if (disposed) return;
+      forceNext ||= force;
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => {
+        const surface = container.current;
+        // Hidden tabs must retain their last useful PTY dimensions.
+        if (disposed || !surface?.clientWidth || !surface.clientHeight) return;
+        measuring = true;
+        try {
+          fit.fit();
+        } finally {
+          measuring = false;
+        }
+        sizeQueue.request({ cols: t.cols, rows: t.rows }, forceNext);
+        forceNext = false;
+      });
     };
-    const observer = new ResizeObserver(resize);
+    fitRef.current = resize;
+    const observer = new ResizeObserver(() => resize());
     observer.observe(container.current);
+    const windowResize = () => resize(true);
+    window.addEventListener("resize", windowResize);
+    void document.fonts.ready.then(() => resize(true));
     resize();
     const surface = container.current;
     let selecting = false;
@@ -165,6 +193,7 @@ export default function TerminalPane({
       surface.addEventListener(event, interceptRight as EventListener, true);
     const unsubscribe = onSession((e) => {
       if (e.id !== session.id) return;
+      if (e.kind === "connected") resize(true);
       if (e.kind === "data")
         t.write(Uint8Array.from(atob(e.detail), (c) => c.charCodeAt(0)));
       if (e.kind === "error")
@@ -204,7 +233,11 @@ export default function TerminalPane({
       return true;
     });
     return () => {
+      disposed = true;
       observer.disconnect();
+      window.removeEventListener("resize", windowResize);
+      cancelAnimationFrame(resizeFrame);
+      sizeQueue.dispose();
       cancelAnimationFrame(selectionFrame);
       surface.removeEventListener("pointerdown", beginSelection);
       window.removeEventListener("pointerup", endSelection);
@@ -219,24 +252,27 @@ export default function TerminalPane({
       data.dispose();
       t.dispose();
       term.current = null;
-      fitRef.current = null;
+      fitRef.current = () => {};
     };
   }, [session.id]);
   useEffect(() => {
     if (term.current) {
       term.current.options.fontSize = fontSize;
       term.current.options.theme = terminalTheme(themeId);
-      if (container.current?.clientWidth) fitRef.current?.fit();
+      fitRef.current();
     }
   }, [fontSize, themeId]);
   useEffect(() => {
     if (!visible) return;
     const frame = requestAnimationFrame(() => {
-      if (container.current?.clientWidth) fitRef.current?.fit();
+      fitRef.current();
       if (focused && !search) term.current?.focus();
     });
     return () => cancelAnimationFrame(frame);
   }, [focused, visible, search]);
+  useEffect(() => {
+    if (session.connected && visible) fitRef.current(true);
+  }, [session.connected, visible]);
   return (
     <section
       className={"terminal-pane " + (focused ? "focused" : "")}

@@ -534,7 +534,7 @@ pub async fn session_input(
     let msg = if close == Some(true) {
         SessionInput::Close
     } else if let (Some(cols), Some(rows)) = (cols, rows) {
-        SessionInput::Resize(cols.clamp(1, 500), rows.clamp(1, 300))
+        SessionInput::Resize(cols.clamp(1, 4096), rows.clamp(1, 4096))
     } else {
         SessionInput::Data(data.unwrap_or_default().into_bytes())
     };

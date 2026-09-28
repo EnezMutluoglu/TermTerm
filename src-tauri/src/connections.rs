@@ -498,8 +498,9 @@ async fn run_session(
     let host_id = host_id.unwrap();
     match host.protocol.as_str() {
         "ssh" => {
+            let mut initial_size = (100, 30);
             let connection = Arc::new(
-                tokio::select! {r=connect_ssh(app,state,id,&host_id,None)=>r?,_ = wait_close(&mut rx)=>return Ok(())},
+                tokio::select! {r=connect_ssh(app,state,id,&host_id,None)=>r?,_ = wait_close(&mut rx, &mut initial_size)=>return Ok(())},
             );
             crate::metrics::register(
                 app,
@@ -509,7 +510,15 @@ async fn run_session(
             );
             let mut channel = connection.handle.channel_open_session().await?;
             channel
-                .request_pty(true, "xterm-256color", 100, 30, 0, 0, &[])
+                .request_pty(
+                    true,
+                    "xterm-256color",
+                    initial_size.0 as u32,
+                    initial_size.1 as u32,
+                    0,
+                    0,
+                    &[],
+                )
                 .await?;
             for (key, value) in &host.environment {
                 channel.set_env(false, key, value).await?;
@@ -567,10 +576,12 @@ async fn run_session(
     save_log(state, &vault_id, id, &host.label, &host_id, &log);
     Ok(())
 }
-async fn wait_close(rx: &mut mpsc::Receiver<SessionInput>) {
+async fn wait_close(rx: &mut mpsc::Receiver<SessionInput>, size: &mut (u16, u16)) {
     while let Some(msg) = rx.recv().await {
-        if matches!(msg, SessionInput::Close) {
-            break;
+        match msg {
+            SessionInput::Close => break,
+            SessionInput::Resize(cols, rows) => *size = (cols, rows),
+            SessionInput::Data(_) => {} // Do not type into a session still authenticating.
         }
     }
 }
@@ -749,8 +760,9 @@ async fn run_mosh(
     host: Host,
     mut rx: mpsc::Receiver<SessionInput>,
 ) -> Result<()> {
+    let mut initial_size = (100, 30);
     let ssh = Arc::new(
-        tokio::select! {r=connect_ssh(&app,&state,&id,&host_id,None)=>r?,_=wait_close(&mut rx)=>return Ok(())},
+        tokio::select! {r=connect_ssh(&app,&state,&id,&host_id,None)=>r?,_=wait_close(&mut rx, &mut initial_size)=>return Ok(())},
     );
     let mut channel = ssh.handle.channel_open_session().await?;
     // Fixed bootstrap command. The one-use MOSH_KEY never enters the renderer or a log.
@@ -829,8 +841,8 @@ async fn run_mosh(
         use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
         use std::io::{Read, Write};
         let pair = NativePtySystem::default().openpty(PtySize {
-            rows: 30,
-            cols: 100,
+            rows: initial_size.1,
+            cols: initial_size.0,
             pixel_width: 0,
             pixel_height: 0,
         })?;
@@ -942,5 +954,25 @@ impl Telnet {
             }
         }
         (data, reply)
+    }
+}
+
+#[cfg(test)]
+mod resize_tests {
+    use super::*;
+    #[tokio::test]
+    async fn authentication_wait_keeps_latest_size_and_remains_cancellable() {
+        let (tx, mut rx) = mpsc::channel(8);
+        tx.send(SessionInput::Resize(140, 40)).await.unwrap();
+        tx.send(SessionInput::Data(b"not a shell yet".to_vec()))
+            .await
+            .unwrap();
+        tx.send(SessionInput::Resize(260, 65)).await.unwrap();
+        tx.send(SessionInput::Close).await.unwrap();
+        let mut size = (100, 30);
+        tokio::time::timeout(Duration::from_secs(1), wait_close(&mut rx, &mut size))
+            .await
+            .unwrap();
+        assert_eq!(size, (260, 65));
     }
 }
