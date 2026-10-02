@@ -13,6 +13,7 @@ pub mod keys;
 pub mod metrics;
 pub mod model;
 pub mod operations;
+pub mod passwords;
 pub mod platform;
 pub mod remember;
 pub mod shared_terminal;
@@ -40,6 +41,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            passwords::password_board,
             team::team_auth,
             team::team_offline,
             team::team_status,

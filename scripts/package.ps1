@@ -20,6 +20,7 @@ Get-ChildItem -LiteralPath $runtime -Force | ForEach-Object { Copy-Item -Literal
 Copy-Item -LiteralPath (Join-Path $project 'docs/USER_GUIDE_TR.md') -Destination $portable -Force
 Copy-Item -LiteralPath (Join-Path $project 'docs/STATUS.md') -Destination $portable -Force
 Copy-Item -LiteralPath (Join-Path $project 'docs/THIRD_PARTY.md') -Destination $portable -Force
+foreach($guide in @('TEAM_GUIDE_TR.md','PASSWORD_BOARD_TR.md')) { Copy-Item -LiteralPath (Join-Path $project ('docs/'+$guide)) -Destination $portable -Force }
 $licenseDestination=Join-Path $portable 'licenses'
 New-Item -ItemType Directory -Force -Path $licenseDestination | Out-Null
 Get-ChildItem -LiteralPath (Join-Path $project 'docs/licenses') -File | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $licenseDestination -Force }
@@ -48,8 +49,8 @@ $zip=[System.IO.Compression.ZipArchive]::new($sourceStream,[System.IO.Compressio
 try {
   $folders=@('src','src-tauri/src','src-tauri/capabilities','src-tauri/icons','migrations','scripts','templates','docs','tests','.github')
   $files=@('README.md','.gitignore','package.json','pnpm-lock.yaml','pnpm-workspace.yaml','index.html','app-icon.svg','tsconfig.json','vite.config.ts','playwright.config.ts','wdio.conf.mjs','vitest.config.ts','src-tauri/Cargo.toml','src-tauri/Cargo.lock','src-tauri/build.rs','src-tauri/tauri.conf.json','src-tauri/tauri.e2e.conf.json','src-tauri/tauri.windows.conf.json','src-tauri/tauri.macos.conf.json','src-tauri/tauri.linux.conf.json')
-  $files+=@('rust-toolchain.toml','.stignore-shared','AGENTS.md','src-tauri/tauri.release.conf.json','src-tauri/tauri.stats-dev.conf.json')
-  foreach($folder in $folders){$files+=Get-ChildItem -LiteralPath (Join-Path $project $folder) -File -Recurse | ForEach-Object {$_.FullName.Substring($project.Length+1)}}
+  $files+=@('rust-toolchain.toml','.stignore-shared','AGENTS.md','src-tauri/tauri.release.conf.json','src-tauri/tauri.stats-dev.conf.json','src-tauri/tauri.team-dev.conf.json','src-tauri/tauri.team-e2e.conf.json')
+  foreach($folder in $folders){$files+=Get-ChildItem -LiteralPath (Join-Path $project $folder) -File -Recurse | Where-Object { $_.FullName -notmatch '[\\/]__pycache__[\\/]' -and $_.Extension -notin @('.pyc','.pyo') } | ForEach-Object {$_.FullName.Substring($project.Length+1)}}
   foreach($file in $files){$path=Join-Path $project $file;$entry=$zip.CreateEntry(($file -replace '\\','/'));$input=[System.IO.File]::OpenRead($path);$output=$entry.Open();try{$input.CopyTo($output)}finally{$input.Dispose();$output.Dispose()}}
 } finally { $zip.Dispose();$sourceStream.Dispose() }
 Get-ChildItem -LiteralPath $release -File | Where-Object {$_.Name -ne 'SHA256SUMS.txt'} | Get-FileHash -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $([System.IO.Path]::GetFileName($_.Path))" } | Set-Content -LiteralPath (Join-Path $release 'SHA256SUMS.txt')

@@ -109,3 +109,10 @@ Settings → PostgreSQL sync altında bağlantı testi şema/sürüm durumunu da
 Giriş, gezinme, düzenleme, SFTP ve güncelleme ekranları varsayılan olarak Türkçedir. Sunucu adları ve terminal çıktıları çevrilmez. Eski sürümde kayıt silindiyse parolanızı bir kez girip **Parolayı … ile hatırla** kutusunu işaretleyin. Sonraki uygulama açılışı kayıtlı parolayı kullanır. **Kasayı kilitle** kasayı kilitli tutar; boş parola alanıyla **Kasanın kilidini aç** düğmesine basarak kayıtlı parolayı kullanabilirsiniz. Kutuyu bilerek kaldırıp açarsanız bu cihazdaki parola kaydı silinir. Depo hatasında uyarı görünür; parola ile devam edebilirsiniz.
 
 Yeni sürüm kontrolü: **Güncellemeler → Güncellemeleri denetle**. Kurulum kullanıcı tarafından başlatılır.
+
+
+## Team ve parola üretici (0.4.0)
+
+Girişte **Team hesabı**, şirket PostgreSQL sunucusuna kayıt/giriş içindir. Sahip ortak kasa ve kaynak erişimini yönetir. Ayrıntılar [Team kılavuzunda](TEAM_GUIDE_TR.md). Kişisel kasa sunucusuz çalışır.
+
+Kasa açıkken sol alttaki **Parola üretici** ile uzunluk ve karakter türlerini seçin. Son 50 parola yerel şifreli panoda tarih-saatle tutulur; Team üyelerine paylaşılmaz. [Parola panosu ayrıntıları](PASSWORD_BOARD_TR.md).

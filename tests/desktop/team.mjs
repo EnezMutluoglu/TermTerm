@@ -115,7 +115,7 @@ describe("TermTerm Team native acceptance", () => {
     if (!info.defaultVaultPath.includes("teamdev.e2e"))
       throw Error("Refusing non-isolated application identity");
     profile = JSON.parse(
-      await fs.readFile(path.join(root, ".lab/team-windows.json"), "utf8"),
+      await fs.readFile((process.env.TERMTERM_TEAM_PROFILE ?? path.join(root, ".lab/team-windows.json")), "utf8"),
     );
     profile.database = "termterm_team_e2e";
     ssh = JSON.parse(

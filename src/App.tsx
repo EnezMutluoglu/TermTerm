@@ -105,6 +105,7 @@ import Settings from "./Settings";
 import DataTools, { type DataMode } from "./DataTools";
 import { t } from "./i18n";
 import SharedTerminal from "./SharedTerminal";
+import PasswordBoard from "./PasswordBoard";
 type Nav =
   | "team"
   | "hosts"
@@ -153,6 +154,7 @@ const iconFor = (kind: string) =>
               ? FileText
               : Server;
 export default function App() {
+  const [passwordBoardOpen, setPasswordBoardOpen] = useState(false);
   const [teamMode, setTeamMode] = useState(false);
   const [teamRecordId, setTeamRecordId] = useState<string>();
   const [teamLogin, setTeamLogin] = useState(false);
@@ -670,6 +672,7 @@ export default function App() {
     for (const target of targets) inputQueue.current.send(target, data, report);
   }
   async function lock() {
+    setPasswordBoardOpen(false);
     inputQueue.current.cancel();
     try {
       await call("vault_lock");
@@ -1568,6 +1571,9 @@ export default function App() {
             )}
           </div>
           <div className="sidebar-bottom">
+            <button onClick={() => setPasswordBoardOpen(true)}>
+              <KeyRound size={17} /> Parola üretici
+            </button>
             <button onClick={() => void connect()}>
               <Terminal size={17} />
               {tr("Local terminal")}
@@ -2470,6 +2476,7 @@ export default function App() {
           </footer>
         </Modal>
       )}
+      {passwordBoardOpen && <PasswordBoard key={vault.id} team={teamMode} onClose={() => setPasswordBoardOpen(false)} />}
       {(error || notice) && (
         <div
           className={"toast " + (error ? "error" : "")}

@@ -76,6 +76,17 @@ fn with<T>(s: &Shared, f: impl FnOnce(&mut Account) -> Result<T>) -> Result<T> {
 pub fn active(s: &Shared) -> bool {
     s.team.lock().map(|s| s.is_some()).unwrap_or(true)
 }
+/// Account-local board, deliberately excluded from shared records, RPC and audit.
+pub(crate) fn password_board(s: &Shared, context: Option<&str>, action: &crate::passwords::Action) -> Result<crate::passwords::Snapshot> {
+    use crate::passwords::{Action, Board, Snapshot, STORAGE_KEY};
+    with(s, |a| {
+        let scope = format!("team:{}:{}", a.auth.user_id, hex::encode(Sha256::digest(a.cache.path.to_string_lossy().as_bytes())));
+        ensure!(matches!(action, Action::List) || context == Some(scope.as_str()), "Hesap değişti; parola panosunu yeniden açın.");
+        let mut board: Board = a.cache.get(STORAGE_KEY)?.unwrap_or_default();
+        if crate::passwords::update(&mut board, action)? { a.cache.set(STORAGE_KEY, &board)?; }
+        Ok(Snapshot { context: scope, options: board.options, entries: board.entries })
+    })
+}
 fn identity(a: &Auth) -> Result<Zeroizing<[u8; 32]>> {
     let mut key = Zeroizing::new([0; 32]);
     ensure!(a.identity.len() == 32, "Invalid local identity");

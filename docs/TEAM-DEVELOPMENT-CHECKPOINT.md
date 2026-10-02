@@ -60,3 +60,8 @@ pwsh -File scripts/package-team-dev.ps1
 ```
 
 Test executable'ını teslim uygulaması olarak kullanma; normal deneme derlemesi `e2e` özelliği olmadan hazırlanır. Laboratuvarın gerçek çalışması, üretim güvenlik onayı anlamına gelmez.
+
+
+## 2 Ekim 2026 — 0.4.0 yayın hazırlığı
+
+Sahibin koşullu yayın isteğiyle bu dal, 0.3.7/develop üzerine `codex/team-passwords-040` dalında birleştirildi. Parola üretici/panosu eklendi; güncel kanıt ve sınırlar [0.4.0 raporunda](VALIDATION_0.4.0.md). Yukarıdaki 23 Eylül notları tarihsel geliştirme kaydıdır.

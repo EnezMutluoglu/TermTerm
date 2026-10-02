@@ -1,4 +1,4 @@
-# Platform derlemeleri — 0.3.3
+# Platform derlemeleri — 0.4.0
 
 Hedefler Windows x64, Linux x64, macOS Intel/Apple Silicon. Node 22.12+ (CI 24), pnpm 11.19+ ve Rust 1.98.1 kullanılır. Normal derleme geliştirme kanalındadır; stable yayın için sahibinin ayrıca onayı ve [yayın akışı](RELEASE_PROCESS.md) gerekir. Workflow yalnızca elle çalışır, release yayımlamaz.
 
@@ -13,7 +13,7 @@ powershell -ExecutionPolicy Bypass -File scripts/package.ps1
 powershell -ExecutionPolicy Bypass -File scripts/verify-package.ps1
 ```
 
-`artifacts/release-0.3.3` altında NSIS, portable ZIP ve kaynak ZIP oluşur. NSIS ve portable paket WebView2 x64 çevrimdışı kurucusunu içerir. Portable ZIP'in tamamını çıkarın; Mosh/DLL/lisans dosyalarını yanında tutun. Authenticode yayıncı imzası yoktur. Kararlı Windows paketleri imzalı uygulama içi güncelleme alır; geliştirme kanalı bunu kullanmaz.
+`artifacts/release-0.4.0` altında NSIS, portable ZIP ve kaynak ZIP oluşur. NSIS ve portable paket WebView2 x64 çevrimdışı kurucusunu içerir. Portable ZIP'in tamamını çıkarın; Mosh/DLL/lisans dosyalarını yanında tutun. Authenticode yayıncı imzası yoktur. Kararlı Windows paketleri imzalı uygulama içi güncelleme alır; geliştirme kanalı bunu kullanmaz.
 
 ## Linux x64
 

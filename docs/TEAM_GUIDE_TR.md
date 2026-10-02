@@ -1,11 +1,11 @@
-# TermTerm Team 0.4.0-dev.1
+# TermTerm Team 0.4.0
 
-Bu, ayrı uygulama kimliğiyle çalışan yerel geliştirme sürümüdür. Kararlı uygulamanın kasasını otomatik açmaz; güncelleme yayımlamaz. Team hesabı için PostgreSQL gerekir. Kişisel kasalar sunucusuz çalışmaya devam eder.
+0.4.0 ile Team kararlı uygulamaya dahildir. Team hesabı için şirket PostgreSQL kurulumu gerekir. Kişisel kasalar sunucusuz çalışmaya devam eder; mevcut kişisel kasalar otomatik Team kasasına dönüştürülmez. Geliştirme/test yapılandırmaları ayrı uygulama kimliğini kullanır.
 
 ## İlk kullanım
 
 1. Girişte **Team hesabı** seçin. Şirket PostgreSQL adresini, portunu, veritabanını, sınırlı uygulama kullanıcısını ve TLS CA dosyasını girin.
-2. **Kayıt ol** ile kullanıcı adı, e-posta ve hesap parolası belirleyin. En az 12 karakter, en fazla 72 UTF-8 baytı kabul edilir. Bu denemede e-posta doğrulaması veya e-postayla parola sıfırlama yoktur.
+2. **Kayıt ol** ile kullanıcı adı, e-posta ve hesap parolası belirleyin. En az 12 karakter, en fazla 72 UTF-8 baytı kabul edilir. Bu sürümde e-posta doğrulaması veya e-postayla parola sıfırlama yoktur.
 3. **Takım oluştur** işlemi sahibini belirler. Sahip ortak kasa oluşturabilir, kayıtlı kullanıcı arayabilir ve üye ekleyebilir. Kayıt olmak veya takıma eklenmek kendiliğinden host erişimi vermez.
 4. **Üyeler ve yetkiler** altında üyeyi ve kapsamı seçin. Kasanın tamamı, bir klasör ve altı veya tek kayıt için izin/engel tanımlayın. Hazır roller izin şablonlarıdır; sahip dışındaki üyelerde kaynak izinlerini ayrıca uygulayın.
 5. Hosts üzerindeki sağ tık menüsünden **Team · Geçmiş ve erişim** açılır. Team klasör taşıması aynı ekrandaki çevrimiçi erişim önizlemesinden onaylanır.

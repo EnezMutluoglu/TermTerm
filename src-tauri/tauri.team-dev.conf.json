@@ -1,7 +1,7 @@
 {
   "productName": "TermTerm Team Dev",
   "identifier": "local.termterm.desktop.teamdev",
-  "app": { "windows": [{ "title": "TermTerm Team · 0.4.0-dev.1", "width": 1440, "height": 920, "minWidth": 1000, "minHeight": 680, "backgroundColor": "#161b22" }] },
+  "app": { "windows": [{ "title": "TermTerm Team · Development", "width": 1440, "height": 920, "minWidth": 1000, "minHeight": 680, "backgroundColor": "#161b22" }] },
   "bundle": { "active": false, "createUpdaterArtifacts": false },
   "plugins": { "updater": { "endpoints": [] } }
 }
