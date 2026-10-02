@@ -15,6 +15,7 @@ node_modules/
 /artifacts/
 *.ttvault*
 *.ttbackup
+*.ttteam*
 *.log
 *.pem
 *.key
@@ -27,3 +28,5 @@ node_modules/
 /.stignore
 /.stfolder
 /.stversions/
+__pycache__/
+*.pyc

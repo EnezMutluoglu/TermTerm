@@ -84,6 +84,7 @@ pub async fn vault_create(
     name: String,
     password: String,
 ) -> Api<VaultInfo> {
+    if crate::team::active(&state) {return Err("Kişisel kasaya geçmeden önce Team hesabını kilitleyin veya çıkış yapın.".into());}
     let vault = blocking(move || Vault::create(&PathBuf::from(path), &name, &password)).await?;
     let result = vault.info().map_err(err)?;
     close_connections(&state).await?;
@@ -98,6 +99,7 @@ pub async fn vault_open(
     path: String,
     password: String,
 ) -> Api<VaultInfo> {
+    if crate::team::active(&state) {return Err("Kişisel kasaya geçmeden önce Team hesabını kilitleyin veya çıkış yapın.".into());}
     let vault = blocking(move || Vault::open(&PathBuf::from(path), &password)).await?;
     let result = vault.info().map_err(err)?;
     close_connections(&state).await?;
@@ -107,6 +109,7 @@ pub async fn vault_open(
 }
 #[tauri::command]
 pub async fn vault_info(state: State<'_, Shared>) -> Api<VaultInfo> {
+    if crate::team::active(&state) { return crate::team::info(&state).map_err(err); }
     with_vault_async(state.inner().clone(), move |v| v.info()).await
 }
 #[tauri::command]
@@ -149,6 +152,7 @@ pub async fn vault_try_open_remembered(
     state: State<'_, Shared>,
     path: String,
 ) -> Api<Option<VaultInfo>> {
+    if crate::team::active(&state) {return Ok(None);}
     let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let candidate = blocking(move || {
         let path = PathBuf::from(path);
@@ -165,7 +169,9 @@ pub async fn vault_try_open_remembered(
 }
 #[tauri::command]
 pub async fn vault_lock(state: State<'_, Shared>) -> Api<()> {
+    if let Some(task)=state.team_task.lock().map_err(|_|"Team lock")?.take(){task.abort();}
     close_connections(&state).await?;
+    *state.team.lock().map_err(|_|"Team lock")?=None;
     *state.vault.lock().map_err(|_| "Vault lock")? = None;
     Ok(())
 }
@@ -236,6 +242,7 @@ pub async fn records_save(state: State<'_, Shared>, mut records: Vec<Record>) ->
     for r in &mut records {
         r.updated_at = chrono::Utc::now().timestamp_millis();
     }
+    if crate::team::active(&state) { return crate::team::save(&state,records,false).map_err(err); }
     with_vault_async(state.inner().clone(), move |v| {
         v.put(&records)?;
         v.info()
@@ -244,6 +251,10 @@ pub async fn records_save(state: State<'_, Shared>, mut records: Vec<Record>) ->
 }
 #[tauri::command]
 pub async fn records_delete(state: State<'_, Shared>, ids: Vec<String>) -> Api<VaultInfo> {
+    if crate::team::active(&state) {
+        let records=crate::team::info(&state).map_err(err)?.records.into_iter().filter(|r|ids.contains(&r.id)).collect();
+        return crate::team::save(&state,records,true).map_err(err);
+    }
     with_vault_async(state.inner().clone(), move |v| {
         let records = v.records()?;
         for r in &records {
@@ -277,6 +288,7 @@ pub async fn records_delete(state: State<'_, Shared>, ids: Vec<String>) -> Api<V
 }
 #[tauri::command]
 pub async fn vault_copy(state: State<'_, Shared>, path: String) -> Api<()> {
+    if crate::team::active(&state) {return Err("Team önbelleği oturum kimliği içerir ve kişisel kasa olarak kopyalanamaz. İzinli kayıtlar için şifreli yedek dışa aktarımını kullanın.".into());}
     let s = state.inner().clone();
     blocking(move || {
         let g = s.vault.lock().map_err(|_| anyhow!("Vault lock"))?;
@@ -295,6 +307,13 @@ pub async fn backup_create(
     ids: Vec<String>,
 ) -> Api<()> {
     let s = state.inner().clone();
+    if crate::team::active(&s) {
+        return blocking(move || {
+            let info=crate::team::info(&s)?;
+            let records=crate::team::export_records(&s,&ids,true)?;
+            vault::write_backup(&PathBuf::from(path),&password,&vault::Backup{version:1,vaults:vec![vault::BackupVault{name:info.name,records}]})
+        }).await;
+    }
     blocking(move || {
         let g = s.vault.lock().map_err(|_| anyhow!("Vault lock"))?;
         g.as_ref().ok_or_else(|| anyhow!("Vault locked"))?.backup(
@@ -320,6 +339,7 @@ pub async fn backup_restore(
     new_password: String,
     index: usize,
 ) -> Api<VaultInfo> {
+    if crate::team::active(&state) {return Err("Team'e aktarmak için Import kullanın. Yeni kişisel kasa oluşturmadan önce Team hesabından çıkın.".into());}
     let v = blocking(move || {
         let backup = vault::read_backup(&PathBuf::from(source), &password)?;
         let data = backup
@@ -383,6 +403,18 @@ pub async fn backup_bundle(
     include_files: bool,
 ) -> Api<crate::archive::Report> {
     let state = state.inner().clone();
+    if crate::team::active(&state) {
+        return blocking(move||{
+            let info=crate::team::info(&state)?;
+            let records=crate::team::export_records(&state,&ids,true)?;
+            ensure!(sources.is_empty(),"Team yedeği ayrı üretilir; kişisel kaynakları ayrı yedekleyin");
+            let (records,mut warnings)=crate::archive::portable_records(records,&[],false,include_files)?;
+            let count=records.len();
+            vault::write_backup(&PathBuf::from(path),&password,&vault::Backup{version:1,vaults:vec![vault::BackupVault{name:info.name,records}]})?;
+            warnings.push("Team üyelikleri ve hesap oturumları yedeğe aktarılmaz. İçe aktarma yeni kayıtlar oluşturur.".into());
+            Ok(crate::archive::Report{warnings,records:count,vaults:1})
+        }).await;
+    }
     blocking(move || {
         let g = state.vault.lock().map_err(|_| anyhow!("Vault lock"))?;
         crate::archive::bundle(
@@ -428,6 +460,17 @@ pub async fn import_apply(
     vault_id: String,
     operation_id: Option<String>,
 ) -> Api<ImportApplyResult> {
+    if crate::team::active(&state) {
+        let shared=state.inner().clone();
+        return blocking(move||{
+            let current=crate::team::info(&shared)?;
+            ensure!(current.id==vault_id,"Hedef Team kasası değişti; önizlemeyi yenileyin");
+            let merged=imports::merge_report(&current.records,&records,&policy)?;
+            imports::validate(&current.records,&merged.records)?;
+            let vault=crate::team::save(&shared,merged.records,false)?;
+            Ok(ImportApplyResult{vault,added:merged.added,updated:merged.updated,skipped:merged.skipped,failed:0,items:merged.items})
+        }).await;
+    }
     let op = crate::operations::Operation::start(&app, &state, operation_id, "import-apply")
         .map_err(err)?;
     let worker = op.clone();
@@ -462,6 +505,11 @@ pub async fn import_apply(
 }
 #[tauri::command]
 pub async fn export_preview(state: State<'_, Shared>, format: String, secrets: bool) -> Api<Value> {
+    if crate::team::active(&state) {
+        let records=crate::team::export_records(&state,&[],secrets).map_err(err)?;
+        let(text,warnings)=imports::export(&records,&format,secrets).map_err(err)?;
+        return Ok(json!({"text":text,"warnings":warnings}));
+    }
     with_vault_async(state.inner().clone(), move |v| {
         let (text, warnings) = imports::export(&v.records()?, &format, secrets)?;
         Ok(json!({"text":text,"warnings":warnings}))
@@ -475,6 +523,10 @@ pub async fn export_write(
     format: String,
     secrets: bool,
 ) -> Api<()> {
+    if crate::team::active(&state) {
+        let records=crate::team::export_records(&state,&[],secrets).map_err(err)?;
+        return blocking(move||{use std::io::Write;let(text,_)=imports::export(&records,&format,secrets)?;let mut f=std::fs::OpenOptions::new().create_new(true).write(true).open(path)?;f.write_all(text.as_bytes())?;f.sync_all()?;Ok(())}).await;
+    }
     with_vault_async(state.inner().clone(), move |v| {
         use std::io::Write;
         let (text, _) = imports::export(&v.records()?, &format, secrets)?;
@@ -514,6 +566,10 @@ pub async fn session_input(
     rows: Option<u16>,
     close: Option<bool>,
 ) -> Api<()> {
+    if data.is_some() {
+        let sender=state.team_share_inputs.lock().map_err(|_|"Share lock")?.get(&id).cloned();
+        if let Some(sender)=sender {return sender.send(SessionInput::Data(data.unwrap().into_bytes())).await.map_err(|_|"Paylaşım sona erdi".into());}
+    }
     if data.is_some()
         && state
             .shared_writers
@@ -702,6 +758,7 @@ pub async fn sync_download(
     password: String,
     path: String,
 ) -> Api<VaultInfo> {
+    if crate::team::active(&state) {return Err("Team hesabında ortak kasaları Team ekranından açın.".into());}
     let v = sync::download(&profile, &id, &password, &PathBuf::from(path))
         .await
         .map_err(err)?;
@@ -713,10 +770,12 @@ pub async fn sync_download(
 }
 #[tauri::command]
 pub async fn team_list(state: State<'_, Shared>, profile: SyncProfile) -> Api<Vec<Value>> {
+    if crate::team::active(&state){return crate::team::terminal::members(&state).await.map_err(err);}
     sync::members(&state, &profile).await.map_err(err)
 }
 #[tauri::command]
 pub async fn share_list(state: State<'_, Shared>, profile: SyncProfile) -> Api<Vec<Value>> {
+    if crate::team::active(&state){return crate::team::terminal::list(&state).await.map_err(err);}
     crate::shared_terminal::list(&state, &profile)
         .await
         .map_err(err)
@@ -729,17 +788,20 @@ pub async fn share_start(
     local_id: Option<String>,
     remote_id: Option<String>,
 ) -> Api<Value> {
+    if crate::team::active(&state){return crate::team::terminal::start(app,state.inner().clone(),local_id,remote_id).await.map_err(err);}
     crate::shared_terminal::start(app, state.inner().clone(), profile, local_id, remote_id)
         .await
         .map_err(err)
 }
 #[tauri::command]
 pub async fn share_control(
+    state: State<'_, Shared>,
     profile: SyncProfile,
     id: String,
     writer: String,
     finish: bool,
 ) -> Api<()> {
+    if crate::team::active(&state){return crate::team::terminal::control(&state,&id,&writer,finish).await.map_err(err);}
     crate::shared_terminal::control(&profile, &id, &writer, finish)
         .await
         .map_err(err)

@@ -1,14 +1,16 @@
 {
   "name": "termterm",
   "private": true,
-  "version": "0.3.7",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "tauri": "tauri",
-    "desktop": "tauri dev",
+    "desktop": "tauri dev --config src-tauri/tauri.team-dev.conf.json",
+    "team:dev": "tauri dev --config src-tauri/tauri.team-dev.conf.json",
+    "team:build": "tauri build --debug --no-bundle --config src-tauri/tauri.team-dev.conf.json",
     "package": "tauri build",
     "test": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
     "test:native": "wdio run wdio.conf.mjs",

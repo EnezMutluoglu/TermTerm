@@ -14,6 +14,9 @@ node_modules
 /artifacts
 (?i)*.ttvault*
 (?i)*.ttbackup
+(?i)*.ttteam*
 *.log
 /.git
 /.stversions
+__pycache__
+*.pyc

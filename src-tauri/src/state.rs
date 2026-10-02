@@ -12,8 +12,14 @@ pub enum SessionInput {
 }
 #[derive(Default)]
 pub struct AppState {
+    pub team: Mutex<Option<crate::team::Account>>,
+    pub team_gate: tokio::sync::Mutex<()>,
+    pub team_rpc_gate: tokio::sync::Mutex<()>,
+    pub team_task: Mutex<Option<tokio::task::JoinHandle<()>>>,
     pub vault: Arc<Mutex<Option<Vault>>>,
     pub sessions: Mutex<HashMap<String, mpsc::Sender<SessionInput>>>,
+    pub session_hosts: Mutex<HashMap<String,String>>,
+    pub team_share_inputs: Mutex<HashMap<String,mpsc::Sender<SessionInput>>>,
     pub prompts: Mutex<HashMap<String, oneshot::Sender<Vec<String>>>>,
     pub sftp: tokio::sync::Mutex<HashMap<String, Arc<crate::connections::SftpConnection>>>,
     pub tunnels: Mutex<HashMap<String, tokio::task::JoinHandle<()>>>,

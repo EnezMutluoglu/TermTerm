@@ -294,7 +294,13 @@ pub async fn copy(
     overwrite: bool,
 ) -> Result<u64> {
     let control = crate::transfers::start(app, state, id)?;
+    let endpoints=[source.connection.clone(),dest.connection.clone()];
     let result = copy_inner(app, state, id, source, dest, overwrite, &control).await;
+    for endpoint in endpoints {
+        if endpoint!="local" {if let Ok(connection)=connection(state,&endpoint).await {
+            if let Some(audit)=&connection._ssh._audit {audit.record(if result.is_ok(){"sftp.completed"}else{"sftp.failed"},result.as_ref().copied().unwrap_or(0));}
+        }}
+    }
     crate::transfers::finish(app, state, id, &result);
     result
 }

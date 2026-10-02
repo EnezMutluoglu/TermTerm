@@ -5,18 +5,21 @@ import { Users, RefreshCw } from "lucide-react";
 import { Modal, Select, Busy } from "./components";
 import { call, errorText, desktop } from "./api";
 import type { Entity, Session, SyncProfile } from "./types";
+import { defaultProfile } from "./types";
 export default function SharedTerminal({
   records,
   sessions,
   active,
   onJoin,
   onClose,
+  teamMode = false,
 }: {
   records: Entity[];
   sessions: Session[];
   active: string;
   onJoin: (s: Session) => void;
   onClose: () => void;
+  teamMode?: boolean;
 }) {
   const profiles = records.filter((r) => r.kind === "syncProfile");
   const [profileId, setProfileId] = useState(profiles[0]?.id ?? "");
@@ -25,8 +28,18 @@ export default function SharedTerminal({
   const [members, setMembers] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const profile = profiles.find((r) => r.id === profileId)?.data as
-    SyncProfile | undefined;
+  const [teamUser, setTeamUser] = useState("");
+  useEffect(() => {
+    if (teamMode)
+      void call<{ user: { username: string } }>("team_status").then((s) =>
+        setTeamUser(s.user.username),
+      );
+  }, [teamMode]);
+  const profile = (
+    teamMode
+      ? { ...defaultProfile, username: teamUser }
+      : profiles.find((r) => r.id === profileId)?.data
+  ) as SyncProfile | undefined;
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -67,13 +80,25 @@ export default function SharedTerminal({
             "Share a live terminal with members of this PostgreSQL vault. The owner grants one editor control at a time. Sessions end when the owner disconnects.",
           )}
         </p>
-        <Select
-          label={tr("PostgreSQL profile")}
-          value={profileId}
-          onChange={setProfileId}
-          options={profiles.map((p) => ({ value: p.id, label: p.data.label }))}
-        />
-        {!profiles.length && (
+        {!teamMode && (
+          <Select
+            label={tr("PostgreSQL profile")}
+            value={profileId}
+            onChange={setProfileId}
+            options={profiles.map((p) => ({
+              value: p.id,
+              label: p.data.label,
+            }))}
+          />
+        )}
+        {teamMode && (
+          <p className="notice">
+            Team bağlantısı kullanılıyor. Yalnız bu hosta bağlantı izni olan
+            üyeler katılabilir. Yetki değişiminde paylaşım kapanır; eski tuşlar
+            yeniden gönderilmez.
+          </p>
+        )}
+        {!teamMode && !profiles.length && (
           <div className="notice">
             {tr(
               "Save a PostgreSQL profile and upload or open this vault before sharing.",
@@ -92,7 +117,12 @@ export default function SharedTerminal({
             options={[
               { value: "", label: tr("Select a connected terminal") },
               ...sessions
-                .filter((s) => s.connected && !s.label.startsWith("Shared ·"))
+                .filter(
+                  (s) =>
+                    s.connected &&
+                    !s.label.startsWith("Shared ·") &&
+                    (!teamMode || s.hostId),
+                )
                 .map((s) => ({ value: s.id, label: s.label })),
             ]}
           />
@@ -144,9 +174,12 @@ export default function SharedTerminal({
                       await refresh();
                     })
                   }
-                  options={members
-                    .filter((m) => m.role !== "viewer")
-                    .map((m) => ({ value: m.username, label: m.username }))}
+                  options={(teamMode ? (s.members ?? []) : members)
+                    .filter((m: { role?: string }) => m.role !== "viewer")
+                    .map((m: { username: string }) => ({
+                      value: m.username,
+                      label: m.username,
+                    }))}
                 />
                 <button
                   className="danger-button"

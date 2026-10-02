@@ -54,6 +54,7 @@ export default function Settings({
   onTheme,
   initialTab = "sync",
   navigationKey = 0,
+  teamMode = false,
 }: {
   vault: Vault;
 
@@ -70,6 +71,7 @@ export default function Settings({
   onTheme: (id: string) => void;
   initialTab?: string;
   navigationKey?: number;
+  teamMode?: boolean;
 }) {
   const preferences = vault.records.find((r) => r.kind === "settings");
 
@@ -99,8 +101,10 @@ export default function Settings({
 
   const existing = profiles.find((r) => r.id === profileId);
 
-  const [tab, setTab] = useState(initialTab);
-  useEffect(() => setTab(initialTab), [initialTab, navigationKey]);
+  const permittedTab =
+    teamMode && ["sync", "team"].includes(initialTab) ? "general" : initialTab;
+  const [tab, setTab] = useState(permittedTab);
+  useEffect(() => setTab(permittedTab), [permittedTab, navigationKey]);
 
   const [profile, setProfile] = useState<SyncProfile>({
     ...defaultProfile,
@@ -279,7 +283,7 @@ export default function Settings({
 
         <span className="local-badge">
           <ShieldCheck size={15} />
-          {tr("Local vault active")}
+          {teamMode ? "Team önbelleği açık" : tr("Local vault active")}
         </span>
       </div>
 
@@ -300,23 +304,25 @@ export default function Settings({
               label: tr("Keyboard shortcuts"),
             },
             { id: "updates", icon: Download, label: tr("Updates") },
-          ].map((t) => (
-            <button
-              key={t.id}
+          ]
+            .filter((t) => !teamMode || !["sync", "team"].includes(t.id))
+            .map((t) => (
+              <button
+                key={t.id}
 
-              className={tab === t.id ? "active" : ""}
+                className={tab === t.id ? "active" : ""}
 
-              onClick={() => {
-                setTab(t.id);
+                onClick={() => {
+                  setTab(t.id);
 
-                setError("");
-              }}
-            >
-              <t.icon size={16} />
+                  setError("");
+                }}
+              >
+                <t.icon size={16} />
 
-              {t.label}
-            </button>
-          ))}
+                {t.label}
+              </button>
+            ))}
         </nav>
 
         <div className="settings-content">

@@ -76,6 +76,7 @@ import {
   Pill,
 } from "./components";
 import Onboarding from "./Onboarding";
+import Team, { TeamLogin } from "./Team";
 import Editor from "./Editor";
 import TerminalPane from "./TerminalPane";
 import { InputQueue } from "./inputQueue";
@@ -105,6 +106,7 @@ import DataTools, { type DataMode } from "./DataTools";
 import { t } from "./i18n";
 import SharedTerminal from "./SharedTerminal";
 type Nav =
+  | "team"
   | "hosts"
   | "sftp"
   | "credential"
@@ -151,7 +153,21 @@ const iconFor = (kind: string) =>
               ? FileText
               : Server;
 export default function App() {
+  const [teamMode, setTeamMode] = useState(false);
+  const [teamRecordId, setTeamRecordId] = useState<string>();
+  const [teamLogin, setTeamLogin] = useState(false);
   const [vault, setVault] = useState<Vault | null>(null);
+  useEffect(() => {
+    if (!teamMode) return;
+    let alive = true;
+    const dispose = listen<Vault>("team-vault", (event) => {
+      if (alive) setVault(event.payload);
+    });
+    return () => {
+      alive = false;
+      void dispose.then((fn) => fn());
+    };
+  }, [teamMode]);
   const [info, setInfo] = useState<AppInfo>();
   const [starting, setStarting] = useState(desktop);
   const startup = useRef<Promise<{
@@ -307,6 +323,14 @@ export default function App() {
           if (!current) return;
           setInfo(result.info);
           if (result.vault) setVault(result.vault);
+          void call<{ user: unknown } | null>("team_status")
+            .then((team) => {
+              if (current && team) {
+                setTeamMode(true);
+                setNav("team");
+              }
+            })
+            .catch(() => {});
           if (result.error) setError(result.error);
         })
         .catch((e) => {
@@ -580,6 +604,12 @@ export default function App() {
   async function connect(hostId?: string, shell?: string, statsEnabled = true) {
     cancelDetailsClick();
     try {
+      if (
+        teamMode &&
+        hostId &&
+        !recordsById.get(hostId)?.data._teamPermissions?.includes("connect")
+      )
+        throw Error("Bu host için bağlantı yetkiniz yok.");
       await prepareEvents();
       const id = await call<string>("session_start", {
         hostId: hostId ?? null,
@@ -590,7 +620,9 @@ export default function App() {
           null,
       });
       const label =
-        records.find((r) => r.id === hostId)?.data.label ??
+        (recordsById.get(hostId ?? "")?.data._teamTemporaryRevision
+          ? `${recordsById.get(hostId ?? "")?.data.label} · Geçmiş r${recordsById.get(hostId ?? "")?.data._teamTemporaryRevision}`
+          : records.find((r) => r.id === hostId)?.data.label) ??
         shell ??
         tr("Local terminal");
       setSessions((s) => [
@@ -644,6 +676,8 @@ export default function App() {
       clearSessions();
       setSessions([]);
       setVault(null);
+      setTeamMode(false);
+      setTeamLogin(false);
       setEditor(null);
       setPrompts([]);
       setNav("hosts");
@@ -981,6 +1015,11 @@ export default function App() {
         label: tr("Move to group…"),
         icon: <Folder size={15} />,
         run: () => {
+          if (teamMode) {
+            setTeamRecordId(record.id);
+            navigate("team");
+            return;
+          }
           setMoveTo("");
           setMoving({ ids, copy: false });
         },
@@ -1088,6 +1127,37 @@ export default function App() {
         separator: true,
         run: () => setDeleting(targets.map((r) => r.id)),
       });
+    }
+    if (teamMode) {
+      const permitted = (rows: Entity[], permission: string) =>
+        rows.every((r) => r.data._teamPermissions?.includes(permission));
+      for (const action of actions) {
+        if (["edit", "delete"].includes(action.id))
+          action.disabled ||= !permitted(targets, "edit");
+        if (["connect", "sftp"].includes(action.id))
+          action.disabled ||= !permitted(hosts, "connect");
+        if (["duplicate", "copy-to", "copy"].includes(action.id))
+          action.disabled ||=
+            !permitted(targets, "edit") ||
+            !permitted(targets, "export") ||
+            !permitted(targets, "reveal");
+        if (action.id === "backup")
+          action.disabled ||=
+            !permitted(targets, "export") || !permitted(targets, "reveal");
+        if (action.id === "move")
+          action.disabled ||= !single || !permitted(chosen, "manage");
+        if (["cut", "paste"].includes(action.id)) action.disabled = true;
+      }
+      if (single && permitted(chosen, "read"))
+        actions.push({
+          id: "team-history",
+          label: "Team · Geçmiş ve erişim",
+          icon: <ShieldCheck size={15} />,
+          run: () => {
+            setTeamRecordId(record.id);
+            navigate("team");
+          },
+        });
     }
     showMenu(
       e,
@@ -1244,6 +1314,30 @@ export default function App() {
         </div>
       ));
   }
+  if (!vault && teamMode)
+    return (
+      <Team
+        vault={null}
+        onVault={(v) => {
+          setVault(v);
+          setNav("team");
+        }}
+        onLogout={() => {
+          setTeamMode(false);
+          setTeamLogin(false);
+        }}
+      />
+    );
+  if (!vault && teamLogin)
+    return (
+      <TeamLogin
+        onReady={() => {
+          setTeamMode(true);
+          setTeamLogin(false);
+        }}
+        onBack={() => setTeamLogin(false)}
+      />
+    );
   if (!vault)
     return (
       <>
@@ -1252,6 +1346,7 @@ export default function App() {
           loading={starting}
           onOpen={setVault}
           onRestore={() => setDataMode("restore")}
+          onTeam={() => setTeamLogin(true)}
         />
         {dataMode && (
           <DataTools
@@ -1348,7 +1443,7 @@ export default function App() {
         <div className="top-actions">
           <span className="local-badge">
             <span className="status-dot live" />
-            {tr("Local vault")}
+            {teamMode ? "Team kasası" : tr("Local vault")}
           </span>
           <button
             className="icon-btn"
@@ -1380,22 +1475,28 @@ export default function App() {
                 ["backup", "Create backup", FileArchive],
                 ["portable", "Save portable copy", Copy],
                 ["restore", "Restore backup", FolderOpen],
-              ].map(([id, label, Icon]) => {
-                const I = Icon as typeof Upload;
-                return (
-                  <button
-                    key={id as string}
-                    onClick={() => {
-                      setBackupIds([]);
-                      setDataMode(id as DataMode);
-                      setMenu(false);
-                    }}
-                  >
-                    <I size={15} />
-                    {label as string}
-                  </button>
-                );
-              })}
+              ]
+                .filter(
+                  ([id]) =>
+                    !teamMode ||
+                    !["portable", "restore"].includes(id as string),
+                )
+                .map(([id, label, Icon]) => {
+                  const I = Icon as typeof Upload;
+                  return (
+                    <button
+                      key={id as string}
+                      onClick={() => {
+                        setBackupIds([]);
+                        setDataMode(id as DataMode);
+                        setMenu(false);
+                      }}
+                    >
+                      <I size={15} />
+                      {label as string}
+                    </button>
+                  );
+                })}
               <button
                 onClick={() => {
                   setShareOpen(true);
@@ -1413,6 +1514,15 @@ export default function App() {
           )}
           <div className="nav-label">{tr("WORKSPACE")}</div>
           <nav className="main-nav">
+            {teamMode && (
+              <button
+                className={nav === "team" ? "active" : ""}
+                onClick={() => navigate("team")}
+              >
+                <ShieldCheck size={17} />
+                <span>Team</span>
+              </button>
+            )}
             {navItems.map((n) => (
               <button
                 key={n.id}
@@ -1502,6 +1612,19 @@ export default function App() {
         <main
           className={"main-content " + (editor || details ? "with-editor" : "")}
         >
+          {nav === "team" && (
+            <Team
+              focusRecord={teamRecordId}
+              vault={vault}
+              onVault={setVault}
+              onLogout={() => {
+                setVault(null);
+                setTeamMode(false);
+                clearSessions();
+                setSessions([]);
+              }}
+            />
+          )}
           <div
             hidden={nav !== "sftp"}
             style={{
@@ -1531,6 +1654,7 @@ export default function App() {
               onTheme={setThemeId}
               initialTab={settingsTarget.tab}
               navigationKey={settingsTarget.key}
+              teamMode={teamMode}
             />
           )}
           <div
@@ -1663,7 +1787,7 @@ export default function App() {
               </div>
             </div>
           </div>
-          {!["terminal", "sftp", "settings"].includes(nav) && (
+          {!["terminal", "sftp", "settings", "team"].includes(nav) && (
             <div
               className="records-page"
               onContextMenu={(e) => {
@@ -1992,6 +2116,12 @@ export default function App() {
                             <h3 title={r.data.label}>
                               {r.data.label || r.data.address}
                             </h3>
+                            {r.data._teamTemporaryRevision && (
+                              <small className="notice">
+                                Geçmiş sürüm r{r.data._teamTemporaryRevision}{" "}
+                                kullanılıyor
+                              </small>
+                            )}
                             <span>
                               {r.kind === "host"
                                 ? `${r.data.username ? r.data.username + "@" : ""}${r.data.address}`
@@ -2136,6 +2266,7 @@ export default function App() {
       )}
       {shareOpen && (
         <SharedTerminal
+          teamMode={teamMode}
           records={records}
           sessions={sessions}
           active={active}

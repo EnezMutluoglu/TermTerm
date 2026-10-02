@@ -1,6 +1,6 @@
 [package]
 name = "termterm"
-version = "0.3.7"
+version = "0.4.0"
 description = "Local-first encrypted SSH workspace"
 edition = "2021"
 rust-version = "1.98"
@@ -32,6 +32,7 @@ chrono = { version = "0.4", features = ["serde"] }
 rusqlite = { version = "0.37", features = ["bundled", "backup"] }
 argon2 = "0.5"
 chacha20poly1305 = "0.10"
+crypto_box = { version = "0.9.1", features = ["seal"] }
 rand = "0.8"
 zeroize = { version = "1", features = ["derive"] }
 fs2 = "0.4"

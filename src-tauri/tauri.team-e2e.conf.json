@@ -1,0 +1,12 @@
+{
+  "productName": "TermTerm Team Test",
+  "identifier": "local.termterm.desktop.teamdev.e2e",
+  "build": { "beforeBuildCommand": "node scripts/build-e2e.mjs" },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [{ "title": "TermTerm Team · Development test", "width": 1440, "height": 920, "minWidth": 1000, "minHeight": 680 }],
+    "security": { "capabilities": ["main", { "identifier": "test-driver", "windows": ["main"], "permissions": ["wdio:default", "wdio-webdriver:default"] }] }
+  },
+  "bundle": { "active": false, "createUpdaterArtifacts": false },
+  "plugins": { "updater": { "endpoints": [] } }
+}

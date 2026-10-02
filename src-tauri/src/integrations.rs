@@ -196,11 +196,11 @@ async fn request(
     ensure!(length <= 512 * 1024, "Body too large");
     match (fields[0], fields[1]) {
         ("GET", "/v1/hosts") => {
-            let g = state.vault.lock().map_err(|_| anyhow!("Vault lock"))?;
-            let records = g
-                .as_ref()
-                .ok_or_else(|| anyhow!("Vault locked"))?
-                .records()?;
+            let records = if crate::team::active(state) {
+                crate::team::export_records(state,&[],false)?
+            } else {
+                state.vault.lock().map_err(|_|anyhow!("Vault lock"))?.as_ref().ok_or_else(||anyhow!("Vault locked"))?.records()?
+            };
             Ok(
                 json!({"hosts":records.into_iter().filter(|r|r.kind=="host").map(|r|json!({"id":r.id,"label":r.data["label"],"address":r.data["address"],"port":r.data["port"],"username":r.data["username"],"tags":r.data["tags"]})).collect::<Vec<_>>()}),
             )
@@ -217,12 +217,11 @@ async fn request(
                     && host.tags.len() < 64,
                 "Invalid host"
             );
-            let mut g = state.vault.lock().map_err(|_| anyhow!("Vault lock"))?;
-            let v = g.as_mut().ok_or_else(|| anyhow!("Vault locked"))?;
+            let team=crate::team::active(state);
+            let records=if team {crate::team::info(state)?.records} else {state.vault.lock().map_err(|_|anyhow!("Vault lock"))?.as_ref().ok_or_else(||anyhow!("Vault locked"))?.records()?};
             let mut record = if let Some(id) = host.id {
                 ensure!(uuid::Uuid::parse_str(&id).is_ok(), "Invalid ID");
-                v.records()?
-                    .into_iter()
+                records.into_iter()
                     .find(|r| r.id == id && r.kind == "host")
                     .ok_or_else(|| anyhow!("Host not found"))?
             } else {
@@ -237,8 +236,15 @@ async fn request(
             ] {
                 record.data[k] = value;
             }
-            v.put(&[record.clone()])?;
-            let _ = app.emit("vault-changed", json!({"id":v.id}));
+            if team {
+                let updated=crate::team::save(state,vec![record.clone()],false)?;
+                let _=app.emit("team-vault",updated);
+            } else {
+                let mut guard=state.vault.lock().map_err(|_|anyhow!("Vault lock"))?;
+                let v=guard.as_mut().ok_or_else(||anyhow!("Vault locked"))?;
+                v.put(&[record.clone()])?;
+                let _ = app.emit("vault-changed", json!({"id":v.id}));
+            }
             Ok(json!({"id":record.id}))
         }
         _ => anyhow::bail!("Supported endpoints: GET /v1/hosts, POST /v1/hosts"),
@@ -257,7 +263,7 @@ pub async fn bridge(app: AppHandle, state: Shared, enabled: bool) -> Result<Valu
         return Ok(json!({"enabled":false}));
     }
     ensure!(
-        state
+        crate::team::active(&state) || state
             .vault
             .lock()
             .map_err(|_| anyhow!("Vault lock"))?

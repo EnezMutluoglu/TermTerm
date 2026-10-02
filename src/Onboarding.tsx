@@ -19,11 +19,13 @@ export default function Onboarding({
   loading = false,
   onOpen,
   onRestore,
+  onTeam,
 }: {
   info?: AppInfo;
   loading?: boolean;
   onOpen: (v: Vault) => void;
   onRestore: () => void;
+  onTeam?: () => void;
 }) {
   const [mode, setMode] = useState<"welcome" | "create" | "open">("welcome");
   const [path, setPath] = useState("");
@@ -195,6 +197,7 @@ export default function Onboarding({
         </small>
       </section>
       <section className="onboard-form">
+        {onTeam && <button type="button" className="welcome-option" onClick={onTeam}><ShieldCheck size={22}/><div><strong>Team hesabı</strong><small>Şirket hesabı · Ortak kasalar ve kaynak izinleri</small></div><ArrowRight size={18}/></button>}
         {loading ? (
           <Busy label={tr("Opening your saved workspace…")} />
         ) : mode === "welcome" ? (
