@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "distributionReady": false,
+  "openvpnCore": {
+    "url": "https://github.com/OpenVPN/openvpn3.git",
+    "commit": "2f74c607f56294e39c9fab253f6dd87a2ed6e9ab",
+    "gitArchiveSha256": "6d5bec4f55adb8485bcb623de2f7db9e439d8100dc04ed64c3cf72c4e3bfa1ab",
+    "license": "MPL-2.0",
+    "licenseFile": "LICENSE.md",
+    "licenseSha256": "47cde1d952474a972d869ee871d5befbe4638385a6a481755d01bf1a3d394c8f",
+    "upstreamModified": false
+  },
+  "openconnectReferenceSource": {
+    "url": "https://github.com/openconnect/openconnect.git",
+    "commit": "ca7bc36520e53561eda2c44186dd2a2e20f69d20",
+    "gitArchiveSha256": "c1fb40bbe8c9120b88bdb441828a9219af6a9351a6d8f3c067e77173027da59e",
+    "license": "LGPL-2.1-or-later",
+    "licenseFile": "COPYING.LGPL",
+    "licenseSha256": "36b6d3fa47916943fd5fec313c584784946047ec1337a78b440e5992cb595f89",
+    "note": "Reference only. Lab dynamically links Ubuntu's 9.12 library, not this newer source. Distribution requires matching source for the shipped binary."
+  },
+  "ubuntu2404Lab": {
+    "openconnectPackage": "9.12-1ubuntu1.24.04.1",
+    "openvpnServerPackage": "2.6.19-0ubuntu0.24.04.4",
+    "ocservPackage": "1.2.4-1build2",
+    "ocservDebSha256": "71eb645659f4ad8788972014b617ad54e2356b5daf0f84973546097e833fac8a",
+    "ocservLicense": "GPL-2.0-or-later",
+    "ocservInstalledAsService": false
+  }
+}

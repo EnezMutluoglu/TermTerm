@@ -4,6 +4,8 @@ node_modules/
 /src-tauri/target/
 /team-service/target/
 /team-client/target/
+/vpn-core/target/
+/vpn-engine/build/
 /src-tauri/gen/
 /src-tauri/resources/mosh/
 /src-tauri/resources/mosh-native/

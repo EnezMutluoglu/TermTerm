@@ -8,6 +8,12 @@
 - Never commit user vaults, backups, exported hosts, private credentials, signing keys, local lab files or build caches. Public disposable fixtures under `tests/ssh-keys` are the only SSH private-key test material permitted in source.
 - Do not mark macOS, hardware keys, production-server authentication or other unavailable environments as tested.
 
+## VPN development isolation
+
+- The owner explicitly requires the installed stable TermTerm to remain untouched. Do not run a stable installer, uninstaller, upgrade, shortcut replacement or stable-vault test as part of VPN development.
+- Use `tauri.vpn-dev.conf.json` with the distinct `local.termterm.desktop.vpndev` identity and disposable data. Do not use the generic packaging command for VPN development.
+- Current VPN engine helpers are isolated Linux lab builds, not production privileged services. Keep their namespace guard until an authenticated, narrowly scoped network broker and cleanup policy have been implemented and tested.
+
 ## Team upgrade compatibility
 
 - Treat applied Team migrations as immutable. Add a new numbered migration; never rewrite an applied SQL file or silently adopt a changed checksum.
