@@ -27,7 +27,7 @@ mkdir -p "$stage/bin" "$stage/docs"
 cp "$root/work/src-tauri/target/release/termterm-team-service" "$stage/bin/"
 cp -a "$source_dir/team-service/deploy" "$source_dir/team-service/migrations" "$stage/"
 find "$stage/deploy" -type d -name __pycache__ -prune -exec rm -r '{}' +
-cp "$source_dir/docs/"{TEAM_041_GUIDE_TR.md,TEAM_041_STATUS.md,TEAM_041_RELEASE_CHECKLIST.md,TEAM_SERVICE_INSTALL_TR.md,TEAM_UPGRADES_TR.md,THIRD_PARTY.md} "$stage/docs/"
+cp "$source_dir/docs/"{TEAM_041_GUIDE_TR.md,TEAM_041_STATUS.md,TEAM_041_RELEASE_CHECKLIST.md,TEAM_SERVICE_INSTALL_TR.md,TEAM_TLS_POSTGRES_ADIM_ADIM_TR.md,TEAM_UPGRADES_TR.md,THIRD_PARTY.md} "$stage/docs/"
 if [ -f "$source_dir/docs/VALIDATION_$version.md" ]; then cp "$source_dir/docs/VALIDATION_$version.md" "$stage/docs/"; fi
 cp -a "$source_dir/docs/licenses" "$stage/docs/"
 cp "$source_dir/team-service/README.md" "$source_dir/team-service/compatibility.json" "$stage/"

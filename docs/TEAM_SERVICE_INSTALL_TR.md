@@ -4,6 +4,8 @@ Bu paket **0.4.1** sürümü içindir. Doğrulama ve ertelenen ortamlar `VALIDAT
 
 ## Gereksinimler ve ayrım
 
+PostgreSQL sertifikası, `postgresql.conf` / `postgresql.auto.conf`, HBA ve TermTerm'deki **Şirket CA sertifikası** alanı için [ayrıntılı TLS/CA kurulum rehberini](TEAM_TLS_POSTGRES_ADIM_ADIM_TR.md) izleyin. Aynı sunucu ve ayrı DB sunucusu örnekleri, değiştirilecek değerler ve bağlantı kontrolleri bulunur.
+
 Linux x64, Docker Engine + Compose eklentisi veya systemd; yönetim bilgisayarında Python 3, OpenSSL ve PostgreSQL `psql` gerekir. Masaüstü doğrudan PostgreSQL'e bağlanmaz. SSH/SFTP masaüstünden hedefe gider. Servis, TLS doğrulamalı PostgreSQL'e sınırlı bir rolle bağlanır. Servis parolası yalnız sunucuda kalır.
 
 - İstemciler → HTTPS 443 (şirketin DNS adına bağlı sertifika).

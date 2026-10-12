@@ -12,6 +12,8 @@ Sol alttaki **Parola üretici**, karakter sayısı ve harf/rakam/noktalama/sembo
 
 ## Team kurulumu
 
+**İlk kez PostgreSQL TLS/şirket CA'sı kuruyorsanız:** [komutlar, örnek conf/HBA içerikleri ve TermTerm CA alanıyla ayrıntılı rehber](docs/TEAM_TLS_POSTGRES_ADIM_ADIM_TR.md). Hangi değeri nereye yazacağınız, `postgresql.auto.conf` davranışı ve başarılı/başarısız bağlantı testleri adım adım gösterilir.
+
 **Linux x64 sunucu için hazır Debian 13 Docker paketi:** [paketi indir](https://github.com/EnezMutluoglu/TermTerm/releases/download/v0.4.1/TermTerm-Team-Docker-0.4.1-debian13-linux-x64.tar.gz) · [SHA256 dosyası](https://github.com/EnezMutluoglu/TermTerm/releases/download/v0.4.1/TermTerm-Team-Docker-0.4.1-debian13-linux-x64.tar.gz.sha256) · [ayrıntılı kurulum kılavuzu](docs/TEAM_SERVICE_INSTALL_TR.md).
 
 Team, normal Windows/Linux masaüstü uygulamasından kullanılır. Sunucudaki HTTPS servisi hesapları, izinleri ve şifreli eşitlemeyi yönetir; web arayüzü değildir. SSH/SFTP bağlantıları kullanıcı bilgisayarından hedefe gider. Sunucuda Rust/Node derlemesi gerekmez.
