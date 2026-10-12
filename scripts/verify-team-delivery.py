@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 import re
 import tarfile
 import zipfile
+from verify_team_setup import verify_setup
 
 root = Path(__file__).resolve().parents[1]
 version = json.loads((root/'package.json').read_text())['version']
@@ -61,6 +62,7 @@ for path in required:
             for item in archive.infolist():
                 inspect(item.filename,archive.read(item) if not item.is_dir() and PurePosixPath(item.filename).suffix in text_extensions else None)
     elif path.name.endswith('.tar.gz'):
+        verify_setup(path)
         with tarfile.open(path) as archive:
             contract = json.load(archive.extractfile('team-service-linux-x64/compatibility.json'))
             assert contract == json.loads((root/'team-service/compatibility.json').read_text()), 'Packaged service schema/API contract is stale'

@@ -4,6 +4,20 @@ Windows/Linux masaüstü TermTerm uygulamasının hesap, yetki ve şifreli eşit
 
 ## Kurulum
 
+Her sürümün **Team Service arşivi** aşağıdaki kurulum dosyalarını içerir. Docker imajını bu arşivle aynı sürümden indirin; DB hazırlığı için imajın içine girmeniz gerekmez. Gerçek sunucu adresleri/parolaları pakette bulunmaz; örnekleri kendi ortamınıza göre düzenleyin.
+
+| Adım | Paket içindeki dosya | Yapılacak işlem |
+|---|---|---|
+| 1. DB ve roller | `deploy/prepare-database-owner-template.sql` | Yeni kurulumda DB, owner, app/developer/readonly grupları ve appuser oluşturulur. |
+| 2. PostgreSQL ayarları | `docs/TEAM_SOCKET_KURULUM_TR.md`, bölümler 2–4 | Locale, soket dizini, port ve `pg_hba.conf` kuralları komutlarla gösterilir. |
+| 3. İlk şema kurulumu | `deploy/manage.py` ve `migrations/` | Kılavuzdaki owner ortamıyla `migrate` çalıştırılır; tablolar/indeksler elle yazılmaz. |
+| 4. Servis DB bağlantısı | `deploy/service.socket.example.json` | Aynı sunucuda soket, DB adı, port ve uygulama kullanıcı adı ayarlanır. |
+| 5. Diğer bağlantı seçenekleri | `deploy/service.local.example.json`, `deploy/service.example.json` | Gerekiyorsa loopback parola veya uzak PostgreSQL TLS bağlantısı seçilir. Ayrıntı: `docs/TEAM_DB_OWNER_TEMPLATE_TR.md` ve `docs/TEAM_TLS_POSTGRES_ADIM_ADIM_TR.md`. |
+| 6. Servisi başlatma | `deploy/deployment.env.example`, `deploy/compose.yaml`, `deploy/compose.socket.yaml` | Kaynak sınırları, imaj sürümü, soket mount ve HTTPS ayarlanır; kılavuzdaki ilk lider adımı tamamlanır. |
+| 7. Sonraki sürüme yükseltme | `docs/TEAM_UPGRADES_TR.md`, `deploy/upgrade.py` | DB oluşturma SQL'i tekrar çalıştırılmaz; yedekli plan/apply/confirm izlenir. |
+
+Paketleme ve yayın hazırlığı, DB oluşturma SQL'i, bağlantı örnekleri veya kurulum kılavuzlarından biri eksik/boşsa durur. Kaynak ağacında kontrol: `python3 scripts/verify_team_setup.py <servis-arşivi.tar.gz>`.
+
 Aynı sunucu/alan adı olmayan kurulum için `docs/TEAM_SOCKET_KURULUM_TR.md`: owner/appuser şablonu, Unix soketi, IP ile yerel HTTPS ve çalışanlara public CA dağıtımı.
 
 Hazır Linux x64 Docker image'ı Debian 13 Trixie slim tabanlıdır. `TermTerm-Team-Image-<sürüm>-linux-x64.tar.gz` dosyası `docker load` ile yüklenir; servis paketiyle birlikte kullanılır. Sunucuda Rust derlemesi gerekmez. `deploy/prepare-database.sql` DBA'nın elle kurduğu PostgreSQL için ilk rol/DB hazırlığını sağlar; ardından açık `manage.py migrate` adımı gerekir. Kaynak sınırları `deploy/deployment.env.example` içindedir. Image üretimi `scripts/package-team-image.py` ile yerelde yapılır; script GitHub'a yayın yapmaz.
