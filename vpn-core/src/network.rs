@@ -128,4 +128,23 @@ mod tests {
         b.dns_domains = vec!["SUB.OFFICE.EXAMPLE.".into()];
         assert!(check_conflicts(&b, &[a], true).is_err());
     }
+
+    #[test]
+    fn third_vpn_checks_every_active_network_without_changing_them() {
+        let active = vec![
+            plan(&["10.10.0.0/16"]),
+            plan(&["10.20.0.0/16", "fd20::/48"]),
+        ];
+        let before = serde_json::to_value(&active).unwrap();
+        assert!(check_conflicts(&plan(&["10.30.0.0/16", "fd30::/48"]), &active, false).is_ok());
+        for conflict in [
+            "10.20.5.0/24",
+            "10.10.0.0/16",
+            "fd20:0:0:1::/64",
+            "0.0.0.0/0",
+        ] {
+            assert!(check_conflicts(&plan(&[conflict]), &active, false).is_err());
+        }
+        assert_eq!(serde_json::to_value(&active).unwrap(), before);
+    }
 }

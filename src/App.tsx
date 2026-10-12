@@ -99,7 +99,9 @@ import DataTools, { type DataMode } from "./DataTools";
 import { t } from "./i18n";
 import SharedTerminal from "./SharedTerminal";
 import PasswordBoard from "./PasswordBoard";
+import VpnPreview from "./VpnPreview";
 type Nav =
+  | "vpn"
   | "team"
   | "hosts"
   | "sftp"
@@ -549,6 +551,10 @@ export default function App() {
       records: [...previewGroups, ...hosts],
     });
     setInfo({ home: "C:\\Users", defaultVaultPath: "", version: "0.1.0" });
+    if (new URLSearchParams(location.search).has("previewVpn")) {
+      setNav("vpn");
+      setInfo({ home: "", defaultVaultPath: "", version: "0.4.3-dev.1" });
+    }
   }, []);
   function navigate(n: Nav) {
     cancelDetailsClick();
@@ -1515,6 +1521,7 @@ export default function App() {
           )}
           <div className="nav-label">{tr("WORKSPACE")}</div>
           <nav className="main-nav">
+            {import.meta.env.DEV && !teamMode && <button className={nav === "vpn" ? "active" : ""} onClick={() => navigate("vpn")}><ShieldCheck size={17} /><span>VPN · Önizleme</span></button>}
             {teamMode && (
               <button
                 className={nav === "team" ? "active" : ""}
@@ -1629,6 +1636,7 @@ export default function App() {
               }}
             />
           )}
+          {import.meta.env.DEV && !teamMode && <div hidden={nav !== "vpn"} style={{ height: "100%" }}><VpnPreview key={vault.id} /></div>}
           <div
             hidden={nav !== "sftp"}
             style={{
@@ -1791,7 +1799,7 @@ export default function App() {
               </div>
             </div>
           </div>
-          {!["terminal", "sftp", "settings", "team"].includes(nav) && (
+          {!["terminal", "sftp", "settings", "team", "vpn"].includes(nav) && (
             <div
               className="records-page"
               onContextMenu={(e) => {

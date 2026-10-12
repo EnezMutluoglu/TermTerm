@@ -11,6 +11,23 @@ VPN kaynakları ayrı worktree'de; Desktop/termterm altındaki 0.5 SQL geliştir
 VPN geliştirme kimliği `local.termterm.desktop.vpndev`; kurucu üretimi ve güncelleme uçları kapalı.
 Bu kimlik yalnız yapılandırma düzeyinde doğrulandı; Windows VPN uygulaması henüz derlenmedi.
 
+## Son ekleme: öncelikli üç VPN için arayüz
+
+OpenVPN, Fortinet ve GlobalProtect önceliklendirildi. `src/VpnPreview.tsx` uygulamanın geliştirme
+gezinmesine bağlanan etkileşimli **önizlemedir**. Profil türü, dosya adı seçimi/sürükleme, HTTPS
+adres kontrolü, klasör/arama, taslak ekleme/düzenleme/silme ve birden fazla profili hazırlama vardır.
+Dosya içeriği okunmaz; parola/OTP alınmaz; taslaklar yalnız bellekte yaşar. Bağlantı kontrolü
+motorun hazır olmadığını gösterir; hiçbir profil bağlıymış gibi sunulmaz. Üretim menüsüne eklenmedi.
+
+Windows Edge üzerinde 4 Playwright arayüz testi geçti; 1600×1000 ve 1366×768 kontrol edildi.
+Görüntüler `artifacts/vpn-ui/` altında: genel ekran, OpenVPN dosya seçimi, Fortinet formu,
+GlobalProtect formu ve üç profilli bağlantı hazırlığı. Bunlar native VPN bağlantı kanıtı değildir.
+Rust çekirdeğinde üçüncü VPN'in iki mevcut VPN'in rotalarını değiştirmeden tümüyle karşılaştırılması
+eklendi: 7 test geçti. Bu birim testi gerçek eşzamanlı 2–3 tünel testi sayılmaz.
+
+Önizleme: `pnpm dev --port 1427`, ardından `http://127.0.0.1:1427/?preview&previewVpn`.
+Tekrar kontrol: `pnpm exec playwright test --config tests/ui/vpn.config.ts`.
+
 ## Tamamlanan bölüm
 
 - Ubuntu 24.04 WSL üzerinde iki ayrı ağ namespace'i: VPN sunucusu ve istemci.
@@ -35,7 +52,7 @@ kapandığında bu rotalar da kalkıyor. **Bu, üretim için yetkili ağ servisi
 
 | Kontrol | Sonuç | Kanıt / sınır |
 |---|---|---|
-| VPN Rust çekirdeği | 6 test geçti | `cargo test --locked --manifest-path vpn-core/Cargo.toml` |
+| VPN Rust çekirdeği | 7 test geçti | `cargo test --locked --manifest-path vpn-core/Cargo.toml` |
 | Geliştirme kimliği ve kaynak sabitleme | 2 test geçti | `node --test scripts/test-vpn-isolation.mjs` |
 | Gerçek laboratuvar | 11 kontrol geçti | `artifacts/vpn-lab-report.json`; 9 bağlantı/hata/temizlik, 2 ana ağda çalışmayı reddetme |
 | PostgreSQL kurulum kiti kontrolü | 1 test geçti | `python tests/team_setup_package.py` |
@@ -56,8 +73,8 @@ gerçek DNS değişimi/geri yükleme laboratuvarda henüz uygulanmadı.
    yeniden giriş ve sunucuya özel formlar. Ocserv testi Fortinet/GlobalProtect/F5 testi sayılmaz.
 3. Windows OpenConnect/OpenVPN motorları ve imzalı sürücü gereksinimleri; WireGuard gerçek
    adaptörü; IKEv2, SonicWall ve Check Point için destek matrisi. Mevcut on aile yalnız veri modelidir.
-4. Gerçek VPN paneli, klasör/arama/son kullanılanlar, şifreli profil/ek saklama, dosya seçimi,
-   hatırlanan kimlikler ve OTP ekranı; Tauri komutları/olayları. Henüz uygulamaya bağlı değildir.
+4. VPN arayüz önizlemesini gerçek Tauri komutları/olaylarına bağlama; son kullanılanlar, şifreli
+   profil/ek saklama ve import, hatırlanan kimlikler ve OTP ekranı. Önizleme kalıcı kayıt değildir.
 5. Kişisel kasa/backup sürüm geçişi ve eski istemcinin yeni VPN verisini değiştirmeden reddi.
 6. Team 065+ migration, ortak/kişisel kimlik ayrımı, yetkiler, geçmiş, çevrimdışı günlük,
    host/klasör VPN ilişkileri ve yetki iptali. Mevcut Team şeması değiştirilmedi.
@@ -96,4 +113,4 @@ python tests/team_setup_package.py
 ```
 
 Masaüstü geliştirme için yalnız `pnpm vpn:dev` / `pnpm vpn:build` kullanılacak; bu aşamada
-VPN paneli olmadığından bu komutlar çalışan VPN ürününün teslimi olarak sunulmayacak.
+bağlantı servisi olmadığından bu komutlar çalışan VPN ürününün teslimi olarak sunulmayacak.
