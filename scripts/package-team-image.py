@@ -17,6 +17,8 @@ p.add_argument('--revision', required=True, help='Source commit, with -dirty whe
 a = p.parse_args()
 if not re.fullmatch(r'\d+\.\d+\.\d+(?:-dev\.\d+)?', a.version):
     p.error('Invalid service version')
+if not re.fullmatch(r'[0-9a-f]{40}(?:-dirty)?', a.revision):
+    p.error('A full source commit SHA is required')
 binary = a.stage/'bin/termterm-team-service'
 if not binary.is_file() or binary.read_bytes()[:4] != b'\x7fELF':
     p.error('Stage must contain the verified Linux executable')
