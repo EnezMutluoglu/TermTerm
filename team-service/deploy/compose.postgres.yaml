@@ -23,5 +23,13 @@ services:
       timeout: 3s
       retries: 20
     restart: unless-stopped
+    cpus: ${TERMTERM_PG_CPUS:-2.0}
+    mem_limit: ${TERMTERM_PG_MEMORY:-1g}
+    memswap_limit: ${TERMTERM_PG_MEMORY:-1g}
+    pids_limit: 256
+    shm_size: 128m
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
 volumes:
   postgres_data:

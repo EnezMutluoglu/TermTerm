@@ -72,6 +72,8 @@ Yedek hash'i değişmişse devam reddedilir. Paket veya DB kimliği değişmişs
 
 Yeni executable'ı/image'ı kurup kendi Team servisinizi başlatın. Kullanıcılara açmadan önce:
 
+Hazır Docker dağıtımında yeni sürümün image ve servis arşivlerini indirip SHA256 doğrulayın. `docker load -i TermTerm-Team-Image-<sürüm>-linux-x64.tar.gz` yalnız image'ı yükler; çalışan servis/veritabanı değişmez. Bakım adımında kurulumdaki aynı proje/env/Compose seçenekleriyle `docker compose ... stop team` uygulayın. Yeni paketin Compose dosyasını kullanın; özel `deployment.env` içindeki `TERMTERM_SERVICE_IMAGE` yeni sürümü göstermelidir. Yedekli apply tamamlanınca `docker compose ... up -d --no-build team https` ile başlatın ve aşağıdaki confirm komutunu çalıştırın. Buradaki `...`, kurulumda kullandığınız `--project-name`, `--env-file` ve `-f` seçenekleridir. Önceki image/arşivi ve yedeği saklayın. Image değiştirmek migration yerine geçmez; `compose down -v` kullanmayın.
+
 ```bash
 python3 deploy/upgrade.py confirm --state-directory /var/lib/termterm-upgrades/run-61 \
   --url https://team.example.com --ca-file /etc/termterm-private/https-ca.crt

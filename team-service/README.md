@@ -4,6 +4,8 @@ Windows/Linux masaüstü TermTerm uygulamasının hesap, yetki ve şifreli eşit
 
 ## Kurulum
 
+Hazır Linux x64 Docker image'ı Debian 13 Trixie slim tabanlıdır. `TermTerm-Team-Image-<sürüm>-linux-x64.tar.gz` dosyası `docker load` ile yüklenir; servis paketiyle birlikte kullanılır. Sunucuda Rust derlemesi gerekmez. `deploy/prepare-database.sql` DBA'nın elle kurduğu PostgreSQL için ilk rol/DB hazırlığını sağlar; ardından açık `manage.py migrate` adımı gerekir. Kaynak sınırları `deploy/deployment.env.example` içindedir. Image üretimi `scripts/package-team-image.py` ile yerelde yapılır; script GitHub'a yayın yapmaz.
+
 Paket içindeki `docs/TEAM_SERVICE_INSTALL_TR.md` (kaynak ağacında `../docs/TEAM_SERVICE_INSTALL_TR.md`) mevcut TLS PostgreSQL, ayrı PostgreSQL kuran Compose ve systemd seçeneklerini anlatır. Migration ve ilk lider oluşturma ayrı, açık operatör adımlarıdır. Servis DB şeması değiştirmez veya kendiliğinden yönetici hesabı oluşturmaz.
 
 Mevcut veritabanının yükseltilmesi `docs/TEAM_UPGRADES_TR.md` içindeki **plan → doğrulanmış yedek → apply → HTTPS confirm** akışıyla yapılır. İlk kurulum komutu, mevcut veritabanını yeni şemaya yedeksiz yükseltmeyi reddeder. Uygulanmış migration dosyaları değiştirilmez; `compatibility.json` servis/API/şema uyumunu tanımlar. Bakım süresince servis durdurulur; otomatik downgrade veya Release yayını yapılmaz.

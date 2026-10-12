@@ -1,6 +1,8 @@
 # Existing TLS PostgreSQL. Linux host networking keeps upstream HTTP loopback-only.
 services:
   team:
+    image: ${TERMTERM_SERVICE_IMAGE:-termterm/team-service:0.4.1}
+    pull_policy: never
     build:
       context: ..
       dockerfile: deploy/Dockerfile
@@ -9,6 +11,20 @@ services:
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     restart: unless-stopped
+    cpus: ${TERMTERM_TEAM_CPUS:-1.0}
+    mem_limit: ${TERMTERM_TEAM_MEMORY:-512m}
+    memswap_limit: ${TERMTERM_TEAM_MEMORY:-512m}
+    pids_limit: 128
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, --max-time, "3", "${TERMTERM_HEALTH_URL:-http://127.0.0.1:41841/health}"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     volumes:
       - ${TERMTERM_CONFIG_DIR:?Set private config directory}:/etc/termterm-team:ro
     tmpfs:
@@ -23,6 +39,13 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     restart: unless-stopped
+    cpus: ${TERMTERM_HTTPS_CPUS:-0.5}
+    mem_limit: ${TERMTERM_HTTPS_MEMORY:-128m}
+    memswap_limit: ${TERMTERM_HTTPS_MEMORY:-128m}
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
 volumes:
   caddy_data:
   caddy_config:

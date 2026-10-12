@@ -13,6 +13,15 @@ it('requires signed updater assets for all four targets and download packages fo
   expect(new Set(plan.required).size).toBe(plan.required.length);
   expect(()=>releaseAssets('0.3.3-dev.1')).toThrow();
 });
+
+it('requires a versioned Linux Team image in future releases without rewriting 0.4.1',()=>{
+  expect(releaseAssets('0.4.1').required.some((name:string)=>name.includes('Team-Image'))).toBe(false);
+  for(const version of ['0.4.2','0.5.0','1.0.0']) {
+    const {required}=releaseAssets(version);
+    expect(required).toContain(`TermTerm-Team-Image-${version}-linux-x64.tar.gz`);
+    expect(required).toContain(`TermTerm-Team-Image-${version}-linux-x64.json`);
+  }
+});
 it('does not advertise unbuilt Mac packages when macOS is deferred',()=>{
   const plan=releaseAssets('0.3.3');
   expect(Object.keys(plan.platforms)).toEqual(['windows-x86_64','linux-x86_64']);

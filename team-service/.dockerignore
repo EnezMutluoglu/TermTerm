@@ -1,0 +1,5 @@
+**
+!bin/
+!bin/termterm-team-service
+!deploy/
+!deploy/Dockerfile

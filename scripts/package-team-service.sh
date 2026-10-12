@@ -31,8 +31,14 @@ cp "$source_dir/docs/"{TEAM_041_GUIDE_TR.md,TEAM_041_STATUS.md,TEAM_041_RELEASE_
 if [ -f "$source_dir/docs/VALIDATION_$version.md" ]; then cp "$source_dir/docs/VALIDATION_$version.md" "$stage/docs/"; fi
 cp -a "$source_dir/docs/licenses" "$stage/docs/"
 cp "$source_dir/team-service/README.md" "$source_dir/team-service/compatibility.json" "$stage/"
+cp "$source_dir/team-service/.dockerignore" "$stage/"
+# Pin the local image default to this package, never a floating latest tag.
+sed -i "s|termterm/team-service:0.4.1|termterm/team-service:$version|g" "$stage/deploy/compose.yaml" "$stage/deploy/deployment.env.example"
 find "$stage" -type f \( -name '*.sh' -o -name '*.py' \) -exec sed -i 's/\r$//' {} +
 chmod 755 "$stage/bin/termterm-team-service"
 find "$stage/deploy" -type f \( -name '*.sh' -o -name '*.py' \) -exec chmod 755 '{}' +
+revision=$(git -C "$source_dir" rev-parse HEAD)
+if ! git -C "$source_dir" diff --quiet HEAD; then revision="$revision-dirty"; fi
+python3 "$source_dir/scripts/package-team-image.py" --stage "$stage" --output "$out" --version "$version" --revision "$revision"
 tar -C "$out" -czf "$out/TermTerm-Team-Service-$version-linux-x64.tar.gz" team-service-linux-x64
 echo 'Local Team Service package created (no credentials included).'

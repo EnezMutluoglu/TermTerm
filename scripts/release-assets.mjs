@@ -24,5 +24,9 @@ export function releaseAssets(version, {includeMacos = false} = {}) {
     required.push(`TermTerm-Team-Service-${version}-linux-x64.tar.gz`,
       'TEAM_SERVICE_INSTALL_TR.md', 'TEAM_041_GUIDE_TR.md', 'TEAM_UPGRADES_TR.md', 'SOURCE_FINGERPRINT.json');
   }
+  // The already-published 0.4.1 assets remain immutable; future releases include the image.
+  if (major > 0 || minor > 4 || (minor === 4 && patch >= 2)) {
+    required.push(`TermTerm-Team-Image-${version}-linux-x64.tar.gz`, `TermTerm-Team-Image-${version}-linux-x64.json`);
+  }
   return {platforms, required};
 }

@@ -1,5 +1,5 @@
 [Unit]
-Description=TermTerm Team API (development qualification pending)
+Description=TermTerm Team API
 After=network-online.target
 Wants=network-online.target
 
@@ -24,6 +24,10 @@ RestrictSUIDSGID=true
 LockPersonality=true
 UMask=0077
 LimitNOFILE=4096
+CPUQuota=100%
+MemoryMax=512M
+MemorySwapMax=0
+TasksMax=128
 
 [Install]
 WantedBy=multi-user.target
