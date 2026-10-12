@@ -46,6 +46,7 @@ sed -i -E "s|termterm/team-service:[0-9][0-9A-Za-z.-]*|termterm/team-service:$ve
 find "$stage" -type f \( -name '*.sh' -o -name '*.py' \) -exec sed -i 's/\r$//' {} +
 chmod 755 "$stage/bin/termterm-team-service"
 find "$stage/deploy" -type f \( -name '*.sh' -o -name '*.py' \) -exec chmod 755 '{}' +
+python3 "$source_dir/scripts/verify_team_setup.py" "$stage"
 python3 "$source_dir/scripts/package-team-image.py" --stage "$stage" --output "$out" --version "$version" --revision "$revision"
 tar -C "$out" -czf "$out/TermTerm-Team-Service-$version-linux-x64.tar.gz" team-service-linux-x64
 echo 'Local Team Service package created (no credentials included).'

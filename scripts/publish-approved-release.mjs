@@ -18,6 +18,9 @@ const repo='EnezMutluoglu/TermTerm';
 const dir=path.join(root,'artifacts',`release-${version}`);
 const {platforms,required}=releaseAssets(version,{includeMacos:args.includes('--include-macos')});
 for(const name of required) if(!fs.existsSync(path.join(dir,name))) throw Error(`Missing release asset: ${name}`);
+const serviceArchive=required.find(name=>name.startsWith('TermTerm-Team-Service-')&&name.endsWith('.tar.gz'));
+if(serviceArchive) execFileSync(process.platform==='win32'?'python':'python3',
+  [path.join(root,'scripts','verify_team_setup.py'),path.join(dir,serviceArchive)],{cwd:root,stdio:'inherit'});
 const feed={version,approved:true,notes:fs.readFileSync(path.join(dir,'RELEASE-OKU.md'),'utf8'),pub_date:git('show','-s','--format=%cI',sha),platforms:Object.fromEntries(Object.entries(platforms).map(([target,name])=>[target,{signature:fs.readFileSync(path.join(dir,`${name}.sig`),'utf8').trim(),url:`https://github.com/${repo}/releases/download/v${version}/${name}`}]))};
 fs.writeFileSync(path.join(dir,'latest.json'),JSON.stringify(feed,null,2)+'\n');
 const files=[...required,'latest.json'];
