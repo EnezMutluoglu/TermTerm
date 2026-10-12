@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source_dir=$(cd "$(dirname "$0")/.." && pwd)
+# Windows-managed worktrees contain a Windows gitdir path; use their native Git.
+git_source=(git -C "$source_dir")
+if ! "${git_source[@]}" rev-parse --git-dir >/dev/null 2>&1; then
+ command -v git.exe >/dev/null
+ git_source=(git.exe -C "$(wslpath -w "$source_dir")")
+fi
+revision=$("${git_source[@]}" rev-parse HEAD)
+revision=${revision//$'\r'/}
+if ! "${git_source[@]}" diff --quiet HEAD; then revision="$revision-dirty"; fi
 root=/root/termterm-team-desktop/jammy
 test -f "$root/.team-build-root"
 mountpoint -q "$root" || mount --rbind "$root" "$root"
@@ -37,8 +46,6 @@ sed -i -E "s|termterm/team-service:[0-9][0-9A-Za-z.-]*|termterm/team-service:$ve
 find "$stage" -type f \( -name '*.sh' -o -name '*.py' \) -exec sed -i 's/\r$//' {} +
 chmod 755 "$stage/bin/termterm-team-service"
 find "$stage/deploy" -type f \( -name '*.sh' -o -name '*.py' \) -exec chmod 755 '{}' +
-revision=$(git -C "$source_dir" rev-parse HEAD)
-if ! git -C "$source_dir" diff --quiet HEAD; then revision="$revision-dirty"; fi
 python3 "$source_dir/scripts/package-team-image.py" --stage "$stage" --output "$out" --version "$version" --revision "$revision"
 tar -C "$out" -czf "$out/TermTerm-Team-Service-$version-linux-x64.tar.gz" team-service-linux-x64
 echo 'Local Team Service package created (no credentials included).'
