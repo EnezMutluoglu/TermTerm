@@ -21,7 +21,7 @@ PostgreSQL hesapları yalnız sunucudadır: **migrator** kurulumu/yükseltmeyi y
 
 ## Hazır Docker image — sunucuda derleme yok
 
-Sürümün servis arşivini, `TermTerm-Team-Image-<sürüm>-linux-x64.tar.gz`, aynı adlı `.json` kimlik dosyasını ve SHA256 özetini birlikte indirin. Image arşivi `docker save` biçimindedir; `docker import` kullanılmaz. Mevcut 0.4.1 sürüm sayfasındaki eski servis arşivinde hazır image bulunmaz; yeni yerel Docker teslimi ayrı klasördedir. Sonraki onaylı yayınlarda image ve kimlik dosyası zorunlu Release dosyalarıdır.
+0.4.1 için [Debian 13 Docker ek paketini](https://github.com/EnezMutluoglu/TermTerm/releases/download/v0.4.1/TermTerm-Team-Docker-0.4.1-debian13-linux-x64.tar.gz) ve yanındaki `.sha256` dosyasını indirin. Dış arşivin SHA256 değerini doğrulayıp açın ve `termterm-team-docker-0.4.1` dizinine girin. Bu dizinde servis arşivi, `TermTerm-Team-Image-0.4.1-linux-x64.tar.gz`, image kimlik JSON'u, kılavuzlar ve iç SHA256 listesi birlikte bulunur. Image arşivi `docker save` biçimindedir; `docker import` kullanılmaz. Eski bağımsız servis arşivinde hazır image bulunmaz. Sonraki onaylı yayınlarda image ve kimlik dosyası zorunlu Release dosyalarıdır.
 
 ```bash
 # İndirilen dosyaların olduğu dizin; örnek sürüm 0.4.1.

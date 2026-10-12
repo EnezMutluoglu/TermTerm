@@ -10,6 +10,88 @@ Team hesapları, kaynak bazında yetkiler, şifreli çevrimdışı kuyruk, karar
 
 Sol alttaki **Parola üretici**, karakter sayısı ve harf/rakam/noktalama/sembol/parantez seçimleriyle güvenli rastgele parolalar üretir. Son 50 parola tarih-saatle yerelde şifrelenir. Team panosu yalnız hesaba aittir ve paylaşılmaz. [Parola panosu kılavuzu](docs/PASSWORD_BOARD_TR.md).
 
+## Team kurulumu
+
+**Linux x64 sunucu için hazır Debian 13 Docker paketi:** [paketi indir](https://github.com/EnezMutluoglu/TermTerm/releases/download/v0.4.1/TermTerm-Team-Docker-0.4.1-debian13-linux-x64.tar.gz) · [SHA256 dosyası](https://github.com/EnezMutluoglu/TermTerm/releases/download/v0.4.1/TermTerm-Team-Docker-0.4.1-debian13-linux-x64.tar.gz.sha256) · [ayrıntılı kurulum kılavuzu](docs/TEAM_SERVICE_INSTALL_TR.md).
+
+Team, normal Windows/Linux masaüstü uygulamasından kullanılır. Sunucudaki HTTPS servisi hesapları, izinleri ve şifreli eşitlemeyi yönetir; web arayüzü değildir. SSH/SFTP bağlantıları kullanıcı bilgisayarından hedefe gider. Sunucuda Rust/Node derlemesi gerekmez.
+
+### 1. Paketi indir ve hazır image'ı yükle
+
+Sunucuda Docker Engine/Compose; kurulum yönetimi için Python 3, OpenSSL ve PostgreSQL `psql` bulunmalıdır. İki indirme bağlantısındaki dosyaları aynı klasöre koyup:
+
+```bash
+sha256sum --check TermTerm-Team-Docker-0.4.1-debian13-linux-x64.tar.gz.sha256
+tar -xzf TermTerm-Team-Docker-0.4.1-debian13-linux-x64.tar.gz
+cd termterm-team-docker-0.4.1
+sha256sum --check SHA256SUMS.txt
+sudo docker load --input TermTerm-Team-Image-0.4.1-linux-x64.tar.gz
+tar -xzf TermTerm-Team-Service-0.4.1-linux-x64.tar.gz
+cd team-service-linux-x64
+```
+
+Bu paket image, servis/Compose dosyaları, SQL ve Türkçe kılavuzları birlikte içerir. Image etiketi `termterm/team-service:0.4.1` olur. Ayrı eski servis arşivini ayrıca indirmeniz gerekmez.
+
+### 2. PostgreSQL'i ve iki sunucu hesabını hazırla
+
+**PostgreSQL'i Debian/Linux'a kendiniz kurabilirsiniz.** DBA, yeni boş kurulum için paketteki `deploy/prepare-database.sql` dosyasını `psql` ile çalıştırır. SQL; `termterm_team` veritabanını, sahibi olan `termterm_team_migrator` hesabını, sınırlı `termterm_team_service` hesabını ve `pgcrypto` eklentisini hazırlar. Parolalar gizli istemle sorulur. Mevcut DB/hesap varsa scripti tekrar uygulamak yerine [kılavuzun B bölümündeki](docs/TEAM_SERVICE_INSTALL_TR.md#b--mevcut-tls-postgresql-ile-compose) mevcut DB adımlarını izleyin.
+
+DB bağlantısında doğrulanan TLS sertifikası ve SCRAM gerekir. PostgreSQL kullanıcılarını Team üyeleriyle karıştırmayın: **üyelere DB hesabı/parolası verilmez**; lider daha sonra uygulama hesabı oluşturur. PostgreSQL'i de Compose kursun istiyorsanız [A bölümünü](docs/TEAM_SERVICE_INSTALL_TR.md#a--ayrı-postgresql-ile-compose) kullanın.
+
+### 3. Bağlantı, HTTPS ve özel dosyaları ayarla
+
+[Kılavuzdaki izinlerle](docs/TEAM_SERVICE_INSTALL_TR.md#2-özel-dosyaları-hazırlayın) `/etc/termterm-team-private` altında şunları hazırlayın:
+
+| Dosya | Girilecek bilgi |
+|---|---|
+| `config/service.json` | DB adresi/portu, DB adı, **service** kullanıcı/parolası, DB public CA yolu; API `127.0.0.1:41841` üzerinde kalır. |
+| `config/postgres-ca.crt` | PostgreSQL sunucu sertifikasını doğrulayan public CA. |
+| `migration.pgpass` | Yalnız kurulum/yükseltme için **migrator** parolası; dosya izni 0600. |
+| `deployment.env` | HTTPS DNS adı, config dizini, sabit image sürümü ve CPU/RAM sınırları; parola içermez. |
+
+Örnekler `deploy/service.example.json` ve `deploy/deployment.env.example` içindedir. Caddy için şirket DNS adını ayarlayın; public sertifika yönteminde 80/443 erişimi gerekir. Şirket CA'sı kullanılıyorsa masaüstüne HTTPS **public** CA verilir. DB CA ile HTTPS CA farklı olabilir; TLS doğrulaması kapatılmaz.
+
+### 4. Şema ve tabloları açık migration adımıyla oluştur
+
+Paket kökünde, özel dosyaları okuyabilen yönetim hesabıyla; DB adresini kendi sunucunuza göre değiştirin:
+
+```bash
+export PGHOST=postgres.company.example PGPORT=5432 PGDATABASE=termterm_team PGUSER=termterm_team_migrator
+export PGSSLROOTCERT=/etc/termterm-team-private/config/postgres-ca.crt
+export PGPASSFILE=/etc/termterm-team-private/migration.pgpass
+python3 deploy/manage.py migrate --service-role termterm_team_service
+```
+
+**Tabloları tek tek oluşturmayın.** Araç şemayı, tabloları, indeksleri ve sınırlı fonksiyon izinlerini kurar; 0.4.1 için 64 migration doğrulanır. Normal servis/masaüstü otomatik migration yapmaz. Mevcut Team DB'sini yeni sürüme geçirmek için bu ilk kurulum komutu yerine [yedekli yükseltme akışı](docs/TEAM_UPGRADES_TR.md) kullanılır.
+
+### 5. Servisi başlat ve bağlantıyı doğrula
+
+Elle kurduğunuz mevcut PostgreSQL için:
+
+```bash
+sudo systemctl enable --now docker
+sudo docker compose --project-name termterm-team --env-file /etc/termterm-team-private/deployment.env \
+  -f deploy/compose.yaml up -d --no-build team https
+sudo docker compose --project-name termterm-team --env-file /etc/termterm-team-private/deployment.env \
+  -f deploy/compose.yaml ps
+curl --fail https://team.company.example/ready
+```
+
+URL'yi kendi DNS adınızla değiştirin; şirket CA'sında curl'e `--cacert /yol/https-ca.crt` ekleyin. `/ready` DB/TLS/şema uyumunu doğrular. Mevcut PostgreSQL kullanımında `compose.postgres.yaml` eklenmez.
+
+### 6. İlk lideri ve üyeleri oluştur
+
+4. adımdaki migration ortamı hâlâ seçiliyken, paket kökünden:
+
+```bash
+python3 deploy/manage.py bootstrap --team "Şirket takımı" --username leader \
+  --display-name "Takım lideri" --output /etc/termterm-team-private/ilk-lider.json
+```
+
+Yeni özel dosyada takım kimliği ve 24 saatlik geçici parola bulunur. Lider masaüstündeki **Team hesabı** girişinde HTTPS adresi, takım kimliği ve bu hesabı kullanır; ilk girişte parolasını değiştirir. Şirket kurtarma dosyasını oluşturup güvenli sakladıktan sonra **Team → Üyeler** üzerinden kullanıcı ekler ve klasör/host izinlerini verir. Hesap açılması otomatik host erişimi sağlamaz. Günlük Hosts/SFTP/Kimliklerim kullanımı normal TermTerm düzenindedir. [Üye, yetki ve kurtarma kılavuzu](docs/TEAM_041_GUIDE_TR.md).
+
+**İşletim:** Team varsayılan sınırı 1 CPU / 512 MiB RAM, Caddy 0,5 CPU / 128 MiB; loglar container başına 10 MiB × 3 döner. Süreç çökerse `unless-stopped` yeniden başlatır; yalnız `unhealthy` olması restart tetiklemez. PostgreSQL disk kotası/boş alanı ayrıca yönetilir. [Kaynak ve disk ayrıntıları](docs/TEAM_SERVICE_INSTALL_TR.md#kaynak-ağ-disk-ve-yeniden-başlatma) · [Debian 13 Docker test raporu](docs/TEAM_DOCKER_VALIDATION_TR.md).
+
 ## Önceki düzeltmeler ve güncellemeler
 
 **0.3.7**, Stats paneline gelen/giden ağ hızını (Mbit/s), seçili disk okuma/yazma hızını (MiB/s) ve tüm bağlı diskler için kritik/dolu uyarılarını ekler. %90 ve üzeri kritik, kullanılabilir alan sıfırsa dolu gösterilir; uyarılı diskler listede öne çıkar. [Ölçüm ayrıntıları](docs/RESOURCE_ACTIVITY.md). Önceki terminal düzeltmesi korunur: bağlantı kurulurken kaybolan ilk terminal boyutunu ve pencere büyütme/küçültme sırasında Vim/pg_activity alanının eksik kullanılmasını düzeltir. Terminal boyutu bağlantı, pencere, font, Stats ve panel değişimlerinde yenilenir. 0.3.5 davranışı korunur: klasörler tek tıkla açılır; hostlarda tek tık bilgi, hızlı çift tık bağlantı davranışını düzeltir. 0.3.4 sürümündeki parola hatırlama düzeltmesi ve Türkçe arayüz korunur. Kayıtlı parola açılışta otomatik kullanılır; elle kilitleme korunur. Önceki sürümdeki yumuşak antrasit–mavi kontroller, üst sırada bağlantı sekmeleri, altta terminal araçları, seçimle kopyalama, sağ tık/Shift+Insert yapıştırma ve doğrudan Updates bağlantısını içerir. Hostlar tek tıkla bilgileri gösterir; klasör bilgileri sağ tık → Bilgiler üzerinden açılır; düzenleme, taşıma, çoğaltma ve silme sağ tık menüsündedir. Tek tık klasörü açar; hosta hızlı çift tık bağlantıyı başlatır. SFTP dosya işlemleri de sağ tık menüsündedir. Windows x64 ve Linux x64 (DEB, RPM, AppImage) paketleri [sürüm sayfasında](https://github.com/EnezMutluoglu/TermTerm/releases/tag/v0.4.1) bulunur. macOS Intel/Apple Silicon derleme yapılandırması hazırdır; sahibinin isteğiyle Mac CI işleri durdurulmuştur ve bu sürümde Mac paketi yayımlanmaz. [Derleme komutları](docs/BUILD_PLATFORMS.md).
