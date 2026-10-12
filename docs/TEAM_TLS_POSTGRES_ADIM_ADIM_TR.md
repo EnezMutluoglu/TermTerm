@@ -164,6 +164,8 @@ sudo -u postgres psql -X -p 5432 -d postgres -c "SELECT name,setting,source,pend
 
 ## 7. DB ve iki hesabı oluşturun
 
+Şirketinizin `owner/app/developer/readonly/appuser` düzenini kullanmak için [alternatif DB şablonunu](TEAM_DB_OWNER_TEMPLATE_TR.md) izleyin. O yolda SQL dosyası, HBA hesap adları, migration kullanıcısı ve service.json birlikte değişir; aşağıdaki migrator/service kurulumunu ayrıca çalıştırmayın.
+
 **Yalnız yeni boş kurulumda** (mevcut DB/rol varsa tekrar çalıştırmayın):
 
 ```bash

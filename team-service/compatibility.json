@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
-  "serviceVersion": "0.4.1",
+  "serviceVersion": "0.4.2",
   "apiVersion": 1,
   "minimumClientVersion": "0.4.1",
   "clientVersions": [
-    "0.4.1"
+    "0.4.1",
+    "0.4.2"
   ],
   "schemaVersion": 64,
   "minimumUpgradeSchema": 1,

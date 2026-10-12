@@ -44,8 +44,33 @@ pub struct DatabaseConfig {
     pub port: u16,
     pub database: String,
     pub username: String,
+    #[serde(default)]
     pub password: String,
+    #[serde(default)]
     pub ca_path: String,
+    #[serde(default)]
+    pub ssl_mode: DatabaseSslMode,
+}
+#[derive(Default, Deserialize, PartialEq)]
+pub enum DatabaseSslMode {
+    #[default]
+    #[serde(rename = "verify-full")]
+    VerifyFull,
+    #[serde(rename = "disable")]
+    Disable,
+}
+impl DatabaseConfig {
+    fn validate_transport(&self) -> Result<()> {
+        let socket = self.host.starts_with('/');
+        ensure!(socket || !self.password.is_empty(), "Database password required for TCP");
+        if self.ssl_mode == DatabaseSslMode::Disable {
+            ensure!(socket || self.host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback()),
+                "Database TLS can only be disabled for a Unix socket or literal loopback IP");
+        } else {
+            ensure!(!self.ca_path.is_empty(), "Database CA required for verify-full");
+        }
+        Ok(())
+    }
 }
 impl Drop for DatabaseConfig {
     fn drop(&mut self) {
@@ -60,10 +85,7 @@ impl Config {
             config.listen.ip().is_loopback(),
             "Service must bind to loopback behind the HTTPS reverse proxy"
         );
-        ensure!(
-            !config.database.password.is_empty(),
-            "Database password required"
-        );
+        config.database.validate_transport()?;
         Ok(config)
     }
 }
@@ -105,27 +127,27 @@ impl App {
     }
     async fn connect(&self) -> Result<Connection> {
         let d = &self.config.database;
-        let ca = std::fs::read(&d.ca_path).context("Database CA unavailable")?;
-        let tls = native_tls::TlsConnector::builder()
-            .add_root_certificate(native_tls::Certificate::from_pem(&ca)?)
-            .build()?;
+        d.validate_transport()?;
         let mut pg = tokio_postgres::Config::new();
         pg.host(&d.host)
             .port(d.port)
             .user(&d.username)
             .password(&d.password)
             .dbname(&d.database)
-            .ssl_mode(tokio_postgres::config::SslMode::Require)
             .options("-c statement_timeout=15000 -c lock_timeout=5000")
             .connect_timeout(Duration::from_secs(5));
-        let (client, connection) = pg
-            .connect(postgres_native_tls::MakeTlsConnector::new(tls))
-            .await?;
-        let conn = Connection {
-            client,
-            task: tokio::spawn(async move {
-                let _ = connection.await;
-            }),
+        let conn = if d.ssl_mode == DatabaseSslMode::Disable {
+            pg.ssl_mode(tokio_postgres::config::SslMode::Disable);
+            let (client, connection) = pg.connect(tokio_postgres::NoTls).await?;
+            Connection { client, task: tokio::spawn(async move { let _ = connection.await; }) }
+        } else {
+            let ca = std::fs::read(&d.ca_path).context("Database CA unavailable")?;
+            let tls = native_tls::TlsConnector::builder()
+                .add_root_certificate(native_tls::Certificate::from_pem(&ca)?)
+                .build()?;
+            pg.ssl_mode(tokio_postgres::config::SslMode::Require);
+            let (client, connection) = pg.connect(postgres_native_tls::MakeTlsConnector::new(tls)).await?;
+            Connection { client, task: tokio::spawn(async move { let _ = connection.await; }) }
         };
         // Keep a shared session lock for the entire request/connection lifetime.
         // An explicit upgrade holds the exclusive counterpart before its backup.
@@ -446,6 +468,29 @@ mod tests {
     use axum::{body::Body, http::Request};
     use tower::ServiceExt;
     #[test]
+    fn database_tls_is_optional_only_on_loopback() {
+        let base = json!({"host":"127.0.0.1","port":5432,"database":"test","username":"app","password":"test"});
+        let parse = |v: Value| serde_json::from_value::<DatabaseConfig>(v).unwrap();
+        assert!(parse(base.clone()).validate_transport().is_err());
+        for host in ["127.0.0.1", "::1"] {
+            let mut value=base.clone(); value["host"]=host.into(); value["sslMode"]="disable".into();
+            assert!(parse(value).validate_transport().is_ok());
+        }
+        for host in ["localhost", "10.20.30.10", "0.0.0.0", "::", "db.example", "127.0.0.1,10.0.0.1"] {
+            let mut value=base.clone(); value["host"]=host.into(); value["sslMode"]="disable".into();
+            assert!(parse(value).validate_transport().is_err());
+        }
+        let mut value=base.clone();value["caPath"]="ca.crt".into();
+        assert!(parse(value).validate_transport().is_ok());
+        let mut value=base.clone();value["host"]="/var/run/postgresql".into();
+        value["sslMode"]="disable".into();value.as_object_mut().unwrap().remove("password");
+        assert!(parse(value.clone()).validate_transport().is_ok());
+        value["host"]="127.0.0.1".into();
+        assert!(parse(value).validate_transport().is_err());
+        let mut value=base;value["sslMode"]="prefer".into();
+        assert!(serde_json::from_value::<DatabaseConfig>(value).is_err());
+    }
+    #[test]
     fn incompatible_database_versions_fail_closed() {
         let manifest: Value = serde_json::from_str(COMPATIBILITY).unwrap();
         assert_eq!(manifest["schemaVersion"], REQUIRED_SCHEMA_VERSION);
@@ -477,6 +522,7 @@ mod tests {
                 username: "unused".into(),
                 password: "unused".into(),
                 ca_path: "missing".into(),
+                ssl_mode: DatabaseSslMode::VerifyFull,
             },
         }))
     }
@@ -489,7 +535,7 @@ mod tests {
             assert_eq!(response.headers()[header::CACHE_CONTROL],"no-store");
             let value: Value=serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
             assert_eq!(value["error"],"team_update_required");
-            assert_eq!(value["compatibility"]["minimumClientVersion"],env!("CARGO_PKG_VERSION"));
+            assert_eq!(value["compatibility"]["minimumClientVersion"],serde_json::from_str::<Value>(COMPATIBILITY).unwrap()["minimumClientVersion"]);
         }
         assert_eq!(app().oneshot(Request::get("/client-policy").body(Body::empty()).unwrap()).await.unwrap().status(),StatusCode::OK);
     }

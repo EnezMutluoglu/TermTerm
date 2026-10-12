@@ -7,11 +7,18 @@ import secrets
 import shutil
 import socket
 import subprocess
+import sys
 import time
 import uuid
 
 ROOT=Path(__file__).resolve().parents[1]
 DOC=(ROOT/'docs/TEAM_TLS_POSTGRES_ADIM_ADIM_TR.md').read_text()
+assert sys.argv[1:] in ([], ['--owner-template'], ['--local-db'], ['--socket-db'])
+socket_db = sys.argv[1:] == ['--socket-db']
+local_db = socket_db or sys.argv[1:] == ['--local-db']
+owner_template = bool(sys.argv[1:])
+owner = 'termterm_team_owner' if owner_template else 'termterm_team_migrator'
+service = 'termterm_team_appuser' if owner_template else 'termterm_team_service'
 name='tt_tls_'+uuid.uuid4().hex[:8]
 private=Path('/var/lib/termterm-tls-guide')/name
 private.mkdir(parents=True,mode=0o755)
@@ -61,51 +68,91 @@ try:
         shutil.copy2(pki/source,tls/target);shutil.chown(tls/target,user='postgres',group='postgres');(tls/target).chmod(mode)
     setup=section(5,'bash').split("<<'SQL'\n",1)[1].rsplit('\nSQL',1)[0]
     sql(setup.replace('/etc/postgresql/18/main/termterm-tls',str(tls)))
-    hba=section(6,'conf')
-    (cluster/'pg_hba.conf').write_text('local all all peer\n'+hba+'\n')
+    hba=section(6,'conf').replace('termterm_team_migrator',owner).replace('termterm_team_service',service)
+    if local_db:
+        sql("ALTER SYSTEM SET ssl='off';")
+        hba=f'host termterm_team {owner},{service} 127.0.0.1/32 scram-sha-256\nhost all all 0.0.0.0/0 reject\nhost all all ::/0 reject'
+    socket_hba=f'local termterm_team {owner},{service} trust\n' if socket_db else ''
+    (cluster/'pg_hba.conf').write_text(socket_hba+'local all all peer\n'+hba+'\n')
     assert sql('SELECT count(*) FROM pg_hba_file_rules WHERE error IS NOT NULL;')=='0'
     assert sql('SELECT count(*) FROM pg_file_settings WHERE error IS NOT NULL;')=='0'
     run(['pg_ctlcluster','18',name,'restart'])
-    assert sql("SHOW ssl;")=='on'
+    assert sql("SHOW ssl;")==('off' if local_db else 'on')
     assert sql("SELECT count(*) FROM pg_settings WHERE pending_restart;")=='0'
     owner_password,service_password=secrets.token_hex(24),secrets.token_hex(24)
-    setup=(ROOT/'team-service/deploy/prepare-database.sql').read_text()
-    setup=setup.replace('\\password termterm_team_migrator',f"ALTER ROLE termterm_team_migrator PASSWORD '{owner_password}';")
-    setup=setup.replace('\\password termterm_team_service',f"ALTER ROLE termterm_team_service PASSWORD '{service_password}';")
+    setup=(ROOT/'team-service/deploy'/('prepare-database-owner-template.sql' if owner_template else 'prepare-database.sql')).read_text()
+    if socket_db:
+        setup='\\set socket_auth true\n'+setup
+    else:
+        setup=setup.replace(f'\\password {owner}',f"ALTER ROLE {owner} PASSWORD '{owner_password}';")
+        setup=setup.replace(f'\\password {service}',f"ALTER ROLE {service} PASSWORD '{service_password}';")
     sql(setup)
     ca=runtime/'postgres-ca.crt';shutil.copy2(pki/'postgres-ca.crt',ca);ca.chmod(0o644)
     pgpass=private/'migration.pgpass'
-    pgpass.write_text(f'localhost:{pgport}:termterm_team:termterm_team_migrator:{owner_password}\n');pgpass.chmod(0o600)
-    env={**os.environ,'PGHOST':'localhost','PGPORT':str(pgport),'PGDATABASE':'termterm_team','PGUSER':'termterm_team_migrator',
+    host='/var/run/postgresql' if socket_db else ('127.0.0.1' if local_db else 'localhost')
+    pgpass.write_text(f'{host}:{pgport}:termterm_team:{owner}:{owner_password}\n');pgpass.chmod(0o600)
+    env={**os.environ,'PGHOST':host,'PGPORT':str(pgport),'PGDATABASE':'termterm_team','PGUSER':owner,
          'PGSSLROOTCERT':str(ca),'PGPASSFILE':str(pgpass),'PGSSLMODE':'verify-full'}
+    if local_db:
+        env['PGSSLMODE']='disable';env.pop('PGSSLROOTCERT')
+    if socket_db:
+        env.pop('PGPASSFILE');pgpass.unlink()
+        assert sql(f"SELECT count(*) FROM pg_authid WHERE rolname IN ('{owner}','{service}') AND rolpassword IS NOT NULL")=='0'
     query=['psql','-X','-w','-qAt','-c','SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()']
-    assert run(query,env=env)=='t'
-    denied=subprocess.run(query,env={**env,'PGSSLMODE':'disable'},capture_output=True)
-    assert denied.returncode!=0 and b'pg_hba.conf rejects' in denied.stderr
-    denied=subprocess.run(query,env={**env,'PGHOST':'wrong.invalid','PGHOSTADDR':'127.0.0.1'},capture_output=True)
-    assert denied.returncode!=0 and b'certificate' in denied.stderr
-    run(['openssl','s_client','-starttls','postgres','-connect',f'localhost:{pgport}','-servername','localhost',
-         '-verify_hostname','localhost','-CAfile',str(ca),'-verify_return_error'],input='')
+    assert run(query,env=env)==('f' if local_db else 't')
+    if not local_db:
+        denied=subprocess.run(query,env={**env,'PGSSLMODE':'disable'},capture_output=True)
+        assert denied.returncode!=0 and b'pg_hba.conf rejects' in denied.stderr
+        denied=subprocess.run(query,env={**env,'PGHOST':'wrong.invalid','PGHOSTADDR':'127.0.0.1'},capture_output=True)
+        assert denied.returncode!=0 and b'certificate' in denied.stderr
+        run(['openssl','s_client','-starttls','postgres','-connect',f'localhost:{pgport}','-servername','localhost',
+             '-verify_hostname','localhost','-CAfile',str(ca),'-verify_return_error'],input='')
     tool=str(ROOT/'team-service/deploy/manage.py')
-    run(['python3',tool,'migrate','--service-role','termterm_team_service'],env=env)
+    run(['python3',tool,'migrate','--service-role',service],env=env)
+    if owner_template:
+        assert sql("SELECT pg_get_userbyid(datdba)||'|'||datcollate||'|'||datctype||'|'||datlocprovider::text FROM pg_database WHERE datname='termterm_team'") == owner+'|en_US.UTF-8|en_US.UTF-8|c'
+        assert sql(f"SELECT pg_has_role('{service}','{owner}','MEMBER')") == 'f'
+        assert sql(f"SELECT pg_has_role('{service}','termterm_team','USAGE')") == 't'
+        # Probe future tables too: global default ACLs must not leak Team data.
+        checks=f"""BEGIN;
+CREATE TABLE termterm_team_v2.permission_probe(id int);
+SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='termterm_team_v2' AND c.relkind='r'
+AND (pg_get_userbyid(c.relowner)<>'{owner}' OR EXISTS (
+ SELECT FROM unnest(ARRAY['{service}','termterm_team_app','termterm_team_developer','termterm_team_readonly']) r
+ WHERE has_table_privilege(r,c.oid,'SELECT, INSERT, UPDATE, DELETE')));
+ROLLBACK;"""
+        assert run(['psql','-X','-qAt','-v','ON_ERROR_STOP=1'],input=checks,env=env)=='0'
+        # Same-schema verification remains safe with the alternate account names.
+        run(['python3',tool,'migrate','--service-role',service],env=env)
     run(['python3',tool,'bootstrap','--team','TLS guide lab','--username','leader','--display-name','Leader',
          '--output',str(private/'leader.json')],env=env)
     assert len(json.loads((private/'leader.json').read_text())['temporaryPassword'])==21
-    cfg={'listen':f'127.0.0.1:{apiport}','database':{'host':'localhost','port':pgport,'database':'termterm_team',
-         'username':'termterm_team_service','password':service_password,'caPath':'/etc/termterm-team/postgres-ca.crt'}}
+    cfg={'listen':f'127.0.0.1:{apiport}','database':{'host':host,'port':pgport,'database':'termterm_team',
+         'username':service,'password':service_password,'caPath':'/etc/termterm-team/postgres-ca.crt'}}
+    if local_db:
+        cfg['database'].pop('caPath');cfg['database']['sslMode']='disable';ca.unlink()
+    if socket_db:
+        cfg['database'].pop('password')
     config=runtime/'service.json';config.write_text(json.dumps(cfg));os.chown(config,0,10001);config.chmod(0o640)
     team=name+'-api';containers.append(team)
+    binary=os.environ.get('TEAM_SERVICE_BINARY')
+    overrides=['-v',binary+':/usr/local/bin/termterm-team-service:ro'] if binary else []
+    if socket_db:
+        overrides+=['-v','/var/run/postgresql:/var/run/postgresql:ro']
+    image=os.environ.get('TEAM_SERVICE_IMAGE','termterm/team-service:0.4.1')
     run(['docker','run','-d','--name',team,'--network','host','--read-only','--cpus','1','--memory','512m',
-         '-v',str(runtime)+':/etc/termterm-team:ro','termterm/team-service:0.4.1'])
+         '-v',str(runtime)+':/etc/termterm-team:ro',*overrides,image])
     caddyfile=private/'Caddyfile'
-    caddyfile.write_text(f'{{\n admin off\n auto_https disable_redirects\n}}\nhttps://team.sirket.test:{httpsport} {{\n bind 127.0.0.1\n tls internal\n reverse_proxy 127.0.0.1:{apiport}\n}}\n')
+    https_host='127.0.0.1' if local_db else 'team.sirket.test'
+    caddyfile.write_text(f'{{\n admin off\n auto_https disable_redirects\n}}\nhttps://{https_host}:{httpsport} {{\n bind 127.0.0.1\n tls internal\n reverse_proxy 127.0.0.1:{apiport}\n}}\n')
     https=name+'-https';containers.append(https)
     run(['docker','run','-d','--name',https,'--network','host','-v',str(caddyfile)+':/etc/caddy/Caddyfile:ro',
          '-v',str(private/'caddy-data')+':/data',
          'caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb'])
     httpsca=private/'team-https-ca.crt'
     curl=['curl','--silent','--show-error','--fail','--max-time','3','--noproxy','*','--resolve',
-          f'team.sirket.test:{httpsport}:127.0.0.1','--cacert',str(httpsca),f'https://team.sirket.test:{httpsport}/ready']
+          f'{https_host}:{httpsport}:127.0.0.1','--cacert',str(httpsca),f'https://{https_host}:{httpsport}/ready']
     for _ in range(80):
         copy=subprocess.run(['docker','cp',https+':/data/caddy/pki/authorities/local/root.crt',str(httpsca)],capture_output=True)
         if copy.returncode==0:
@@ -114,11 +161,36 @@ try:
         time.sleep(.25)
     else:raise AssertionError('HTTPS with separate company CA did not become ready')
     assert json.loads(result.stdout)['schemaVersion']==64
-    wrong_ca=curl.copy();wrong_ca[wrong_ca.index('--cacert')+1]=str(ca)
-    assert subprocess.run(wrong_ca,capture_output=True).returncode==60, 'DB CA must not trust HTTPS CA'
-    denied=subprocess.run(query,env={**env,'PGSSLROOTCERT':str(httpsca)},capture_output=True)
-    assert denied.returncode!=0 and b'certificate' in denied.stderr, 'HTTPS CA must not trust DB CA'
-    print('PASS: documented encrypted CA/OpenSSL SAN recipe; private key permissions; ALTER SYSTEM + HBA validation/restart; TLS/SCRAM; plaintext/wrong hostname/wrong CA rejected; 64 migrations + leader; real Docker API/Caddy with exported company CA and HTTPS readiness.')
+    if owner_template:
+        print('PASS: owner/appuser template, en_US.UTF-8 libc, inherited CONNECT, isolated owner, no direct current/future Team table grants, repeat migration and real service readiness.')
+    if local_db:
+        # Verify a real application login traverses HTTPS -> API -> password-only DB.
+        credentials=json.loads((private/'leader.json').read_text())
+        body=json.dumps({'teamId':credentials['teamId'],'username':'leader','password':credentials['temporaryPassword'],
+                         'deviceId':str(uuid.uuid4()),'deviceName':'Local DB fixture'})
+        login=curl[:-1]+[f'https://{https_host}:{httpsport}/v1/auth/login','-H','Content-Type: application/json',
+                        '-H','x-termterm-client-version: 0.4.2','-H','x-termterm-api-version: 1','--data-binary','@-']
+        assert json.loads(run(login,input=body))['accessToken']
+        bad=json.loads(body);bad['password']='Wrong-Password-123456'
+        assert subprocess.run(login,input=json.dumps(bad),text=True,capture_output=True).returncode!=0
+        untrusted=curl.copy();index=untrusted.index('--cacert');del untrusted[index:index+2]
+        assert subprocess.run(untrusted,capture_output=True).returncode==60
+        print('PASS: PostgreSQL ssl=off, no CA file, '+('passwordless Unix socket owner/appuser' if socket_db else 'SCRAM owner/appuser')+', migration/bootstrap, HTTPS login and wrong-password rejection; schema 64.')
+        if os.environ.get('TEAM_DESKTOP_FIXTURE'):
+            fixture=ROOT/'.lab/team-042-socket'
+            fixture.mkdir(parents=True,exist_ok=True)
+            stop=fixture/'desktop.stop';stop.unlink(missing_ok=True)
+            (fixture/'windows-native.json').write_text(json.dumps({'profile':{'serviceUrl':f'https://{https_host}:{httpsport}',
+                'teamId':credentials['teamId'],'caPem':httpsca.read_text()},'username':'leader','password':credentials['temporaryPassword']}))
+            print('Disposable socket/HTTPS desktop fixture ready',flush=True)
+            deadline=time.monotonic()+3600
+            while not stop.exists() and time.monotonic()<deadline:time.sleep(1)
+    else:
+        wrong_ca=curl.copy();wrong_ca[wrong_ca.index('--cacert')+1]=str(ca)
+        assert subprocess.run(wrong_ca,capture_output=True).returncode==60, 'DB CA must not trust HTTPS CA'
+        denied=subprocess.run(query,env={**env,'PGSSLROOTCERT':str(httpsca)},capture_output=True)
+        assert denied.returncode!=0 and b'certificate' in denied.stderr, 'HTTPS CA must not trust DB CA'
+        print('PASS: documented CA/SAN/permissions, TLS/SCRAM, plaintext/wrong hostname/wrong CA rejected; 64 migrations + leader; Docker API/Caddy HTTPS readiness.')
 finally:
     for container in containers:subprocess.run(['docker','rm','-f',container],capture_output=True)
     if cluster.exists():subprocess.run(['pg_dropcluster','--stop','18',name],capture_output=True)

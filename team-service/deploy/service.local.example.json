@@ -1,0 +1,11 @@
+{
+  "listen": "127.0.0.1:41841",
+  "database": {
+    "host": "127.0.0.1",
+    "port": 5432,
+    "database": "termterm_team",
+    "username": "termterm_team_appuser",
+    "password": "REPLACE_IN_PRIVATE_CONFIG",
+    "sslMode": "disable"
+  }
+}

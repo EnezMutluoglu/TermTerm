@@ -1,14 +1,18 @@
-# TermTerm Team Service 0.4.1 — kurulum kılavuzu
+# TermTerm Team Service 0.4.2 — kurulum kılavuzu
 
-Bu paket **0.4.1** sürümü içindir. Doğrulama ve ertelenen ortamlar `VALIDATION_0.4.1.md` içinde açıklanır. Masaüstü Windows/Linux programıdır; aşağıdaki servis tarayıcı arayüzü sunmaz.
+Bu paket **0.4.2** sürümü içindir. Doğrulama ve ertelenen ortamlar `VALIDATION_0.4.2.md` içinde açıklanır. Masaüstü Windows/Linux programıdır; aşağıdaki servis tarayıcı arayüzü sunmaz.
+
+**Aynı sunucu ve alan adı olmayan kurulum:** [DB parolası/sertifikası olmadan Unix soketi; IP ile yerel HTTPS ve çalışanlara public sertifika dağıtımı](TEAM_SOCKET_KURULUM_TR.md). Aşağıdaki TLS/DB parolalı yollar da desteklenmeye devam eder.
 
 ## Gereksinimler ve ayrım
 
 PostgreSQL sertifikası, `postgresql.conf` / `postgresql.auto.conf`, HBA ve TermTerm'deki **Şirket CA sertifikası** alanı için [ayrıntılı TLS/CA kurulum rehberini](TEAM_TLS_POSTGRES_ADIM_ADIM_TR.md) izleyin. Aynı sunucu ve ayrı DB sunucusu örnekleri, değiştirilecek değerler ve bağlantı kontrolleri bulunur.
 
-Linux x64, Docker Engine + Compose eklentisi veya systemd; yönetim bilgisayarında Python 3, OpenSSL ve PostgreSQL `psql` gerekir. Masaüstü doğrudan PostgreSQL'e bağlanmaz. SSH/SFTP masaüstünden hedefe gider. Servis, TLS doğrulamalı PostgreSQL'e sınırlı bir rolle bağlanır. Servis parolası yalnız sunucuda kalır.
+Şirket rol şablonu için [owner/app/developer/readonly/appuser ile DB oluşturma ve yapılandırma](TEAM_DB_OWNER_TEMPLATE_TR.md) alternatifini kullanabilirsiniz. Aynı servis imajıyla çalışır; sadece yeni DB hazırlığı ve hesap isimleri değişir. İki ilk kurulum SQL'ini aynı DB'de çalıştırmayın.
 
-- İstemciler → HTTPS 443 (şirketin DNS adına bağlı sertifika).
+Linux x64, Docker Engine + Compose eklentisi veya systemd; yönetim bilgisayarında Python 3, OpenSSL ve PostgreSQL `psql` gerekir. Masaüstü doğrudan PostgreSQL'e bağlanmaz. SSH/SFTP masaüstünden hedefe gider. Servis sınırlı DB rolü kullanır; aynı sunucuda Unix soketi, uzak DB'de doğrulamalı TLS seçilir. DB parolası kullanılan yollarda parola yalnız sunucuda kalır.
+
+- İstemciler → HTTPS 443 (DNS adına veya IP'ye uygun sertifika).
 - Caddy → yalnız `127.0.0.1:41841` Team API.
 - Ayrı PostgreSQL seçeneği → yalnız `127.0.0.1:55433`, TLS/SCRAM.
 - Migration hesabı ayrı; normal servis rolü tablo veya şema sahibi olamaz, doğrudan tablo yetkileri alamaz.
@@ -23,15 +27,15 @@ PostgreSQL hesapları yalnız sunucudadır: **migrator** kurulumu/yükseltmeyi y
 
 ## Hazır Docker image — sunucuda derleme yok
 
-0.4.1 için [Debian 13 Docker ek paketini](https://github.com/EnezMutluoglu/TermTerm/releases/download/v0.4.1/TermTerm-Team-Docker-0.4.1-debian13-linux-x64.tar.gz) ve yanındaki `.sha256` dosyasını indirin. Dış arşivin SHA256 değerini doğrulayıp açın ve `termterm-team-docker-0.4.1` dizinine girin. Bu dizinde servis arşivi, `TermTerm-Team-Image-0.4.1-linux-x64.tar.gz`, image kimlik JSON'u, kılavuzlar ve iç SHA256 listesi birlikte bulunur. Image arşivi `docker save` biçimindedir; `docker import` kullanılmaz. Eski bağımsız servis arşivinde hazır image bulunmaz. Sonraki onaylı yayınlarda image ve kimlik dosyası zorunlu Release dosyalarıdır.
+0.4.2 [Release sayfasından](https://github.com/EnezMutluoglu/TermTerm/releases/tag/v0.4.2) Team Service arşivini, Team Image arşivini, image kimlik JSON'unu ve SHA256SUMS.txt dosyasını indirin. Image `docker save` biçimindedir; `docker import` kullanılmaz. Servis arşivi config/migration/kılavuzları, image arşivi hazır Debian 13 çalışma ortamını içerir. İkisini de indirin.
 
 ```bash
-# İndirilen dosyaların olduğu dizin; örnek sürüm 0.4.1.
-sha256sum --check SHA256SUMS.txt
-sudo docker load --input TermTerm-Team-Image-0.4.1-linux-x64.tar.gz
-tar -xzf TermTerm-Team-Service-0.4.1-linux-x64.tar.gz
+# İndirilen dosyaların olduğu dizin; örnek sürüm 0.4.2.
+sha256sum --check --ignore-missing SHA256SUMS.txt
+sudo docker load --input TermTerm-Team-Image-0.4.2-linux-x64.tar.gz
+tar -xzf TermTerm-Team-Service-0.4.2-linux-x64.tar.gz
 cd team-service-linux-x64
-sudo docker image inspect termterm/team-service:0.4.1 --format '{{.Id}}'
+sudo docker image inspect termterm/team-service:0.4.2 --format '{{.Id}}'
 ```
 
 Image ID, `.json` içindeki `imageId` ile aynı olmalıdır. Özel `deployment.env` içindeki `TERMTERM_SERVICE_IMAGE` indirilen sürüme sabitlenir. `latest` kullanılmaz. Aşağıdaki `--no-build` komutları image yoksa hata verir; sunucuda beklenmedik derleme veya farklı image indirmez. HTTPS katmanı ilk kullanımda sabit digest ile Caddy image'ını indirir. Rust/Node veya kaynak derleme araçları gerekmez; ilk migration için Python 3 ve `psql` gerekir.

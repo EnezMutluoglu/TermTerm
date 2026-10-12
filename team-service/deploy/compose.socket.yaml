@@ -1,0 +1,5 @@
+# Add to compose.yaml only when PostgreSQL runs on the same Linux host.
+services:
+  team:
+    volumes:
+      - /var/run/postgresql:/var/run/postgresql:ro

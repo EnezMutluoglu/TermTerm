@@ -1,7 +1,7 @@
 # Existing TLS PostgreSQL. Linux host networking keeps upstream HTTP loopback-only.
 services:
   team:
-    image: ${TERMTERM_SERVICE_IMAGE:-termterm/team-service:0.4.1}
+    image: ${TERMTERM_SERVICE_IMAGE:-termterm/team-service:0.4.2}
     pull_policy: never
     build:
       context: ..

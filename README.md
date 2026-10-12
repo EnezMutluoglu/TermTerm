@@ -2,9 +2,9 @@
 
 Tauri 2, Rust ve React ile geliştirilmiş kişisel SSH çalışma alanı. Windows x64, Linux x64 ve macOS Intel/Apple Silicon derleme hedefleri vardır. PostgreSQL olmadan çalışır. Bağlantılar, kimlikler ve oturum kayıtları parola korumalı `.ttvault` dosyasında tutulur.
 
-**Sürüm: 0.4.1.** Terminal başına canlı CPU/RAM/disk göstergesi, terminal temaları, klasör içinde host görünümü ve geliştirilmiş import adaptörleri içerir. 0.1 kasa/yedek biçimi korunur. Termius düzeninden esinlenen bağımsız uygulamadır. Planın tamamıyla özellik eşitliği henüz sağlanmış değildir. Özellikle doğrudan Windows Hello/FIDO2 anahtar oluşturma ve bazı üreticiye özel şifreli import biçimleri tamamlanmamıştır. Ayrıntılar: [0.4.1 doğrulama raporu](docs/VALIDATION_0.4.1.md), [platform derlemeleri](docs/BUILD_PLATFORMS.md), [import kapsamı](docs/IMPORT_SUPPORT.md), [PostgreSQL tablo ve kurulum akışı](docs/POSTGRES_FLOW.md).
+**Sürüm: 0.4.2.** Terminal başına canlı CPU/RAM/disk göstergesi, terminal temaları, klasör içinde host görünümü ve geliştirilmiş import adaptörleri içerir. 0.1 kasa/yedek biçimi korunur. Termius düzeninden esinlenen bağımsız uygulamadır. Planın tamamıyla özellik eşitliği henüz sağlanmış değildir. Özellikle doğrudan Windows Hello/FIDO2 anahtar oluşturma ve bazı üreticiye özel şifreli import biçimleri tamamlanmamıştır. Ayrıntılar: [0.4.2 doğrulama raporu](docs/VALIDATION_0.4.2.md), [platform derlemeleri](docs/BUILD_PLATFORMS.md), [import kapsamı](docs/IMPORT_SUPPORT.md), [PostgreSQL tablo ve kurulum akışı](docs/POSTGRES_FLOW.md).
 
-## Team ve parola panosu — 0.4.1
+## Team ve parola panosu — 0.4.2
 
 Team hesapları, kaynak bazında yetkiler, şifreli çevrimdışı kuyruk, karar ekranı ve kayıt geçmişi içerir. Team için Linux Team Service ve PostgreSQL gerekir; masaüstü yalnız HTTPS servis profili kullanır, DB parolası cihazlara verilmez. Lider kullanıcı oluşturur, kullanıcı kendi SSH/parola profilini saklar; ortak host bilgileri yetkili üyelerde aynıdır. Kişisel kasalar sunucusuz çalışır. [Servis kurulumu](docs/TEAM_SERVICE_INSTALL_TR.md), [yedekli yükseltme](docs/TEAM_UPGRADES_TR.md). [Team kullanım/DB kılavuzu](docs/TEAM_041_GUIDE_TR.md).
 
@@ -12,9 +12,13 @@ Sol alttaki **Parola üretici**, karakter sayısı ve harf/rakam/noktalama/sembo
 
 ## Team kurulumu
 
+**0.4.2 aynı sunucu, alan adı yok:** [DB Unix soketi, owner/appuser grupları, IP ile yerel HTTPS ve çalışanlara sertifika dağıtımı](docs/TEAM_SOCKET_KURULUM_TR.md). DB parolası/DB CA'sı gerekmez; masaüstü HTTPS ve Team kullanıcı adı/parolası kullanır.
+
+**Şirketiniz owner/app/developer/readonly/appuser rol düzeni kullanıyorsa:** [TermTerm DB oluşturma SQL'i ve owner/appuser bağlantı örnekleri](docs/TEAM_DB_OWNER_TEMPLATE_TR.md). Owner migration ve veri sahipliğini, appuser yalnız izinli servis işlemlerini üstlenir.
+
 **İlk kez PostgreSQL TLS/şirket CA'sı kuruyorsanız:** [komutlar, örnek conf/HBA içerikleri ve TermTerm CA alanıyla ayrıntılı rehber](docs/TEAM_TLS_POSTGRES_ADIM_ADIM_TR.md). Hangi değeri nereye yazacağınız, `postgresql.auto.conf` davranışı ve başarılı/başarısız bağlantı testleri adım adım gösterilir.
 
-**Linux x64 sunucu için hazır Debian 13 Docker paketi:** [paketi indir](https://github.com/EnezMutluoglu/TermTerm/releases/download/v0.4.1/TermTerm-Team-Docker-0.4.1-debian13-linux-x64.tar.gz) · [SHA256 dosyası](https://github.com/EnezMutluoglu/TermTerm/releases/download/v0.4.1/TermTerm-Team-Docker-0.4.1-debian13-linux-x64.tar.gz.sha256) · [ayrıntılı kurulum kılavuzu](docs/TEAM_SERVICE_INSTALL_TR.md).
+**Linux x64 hazır Debian 13 servis/imajı:** [0.4.2 dosyaları](https://github.com/EnezMutluoglu/TermTerm/releases/tag/v0.4.2) · [soket + IP HTTPS kurulumu](docs/TEAM_SOCKET_KURULUM_TR.md) · [TLS/diğer kurulumlar](docs/TEAM_SERVICE_INSTALL_TR.md).
 
 Team, normal Windows/Linux masaüstü uygulamasından kullanılır. Sunucudaki HTTPS servisi hesapları, izinleri ve şifreli eşitlemeyi yönetir; web arayüzü değildir. SSH/SFTP bağlantıları kullanıcı bilgisayarından hedefe gider. Sunucuda Rust/Node derlemesi gerekmez.
 

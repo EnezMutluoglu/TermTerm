@@ -1,0 +1,10 @@
+{
+  "listen": "127.0.0.1:41841",
+  "database": {
+    "host": "/var/run/postgresql",
+    "port": 5432,
+    "database": "termterm_team",
+    "username": "termterm_team_appuser",
+    "sslMode": "disable"
+  }
+}

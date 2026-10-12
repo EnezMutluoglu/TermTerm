@@ -26,7 +26,8 @@ export function releaseAssets(version, {includeMacos = false} = {}) {
   }
   // The already-published 0.4.1 assets remain immutable; future releases include the image.
   if (major > 0 || minor > 4 || (minor === 4 && patch >= 2)) {
-    required.push(`TermTerm-Team-Image-${version}-linux-x64.tar.gz`, `TermTerm-Team-Image-${version}-linux-x64.json`);
+    required.push(`TermTerm-Team-Image-${version}-linux-x64.tar.gz`, `TermTerm-Team-Image-${version}-linux-x64.json`,
+      'TEAM_SOCKET_KURULUM_TR.md', 'TEAM_DB_OWNER_TEMPLATE_TR.md');
   }
   return {platforms, required};
 }

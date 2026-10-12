@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Explicit operator tooling. No server-side bootstrap or automatic migration.
 
-Uses libpq environment + a private PGPASSFILE, never command-line passwords.
-All database traffic verifies the operator-supplied CA and hostname.
+Uses libpq environment; TCP passwords require a private PGPASSFILE.
+TLS verifies CA/hostname; explicit disable permits only Unix sockets/loopback.
 """
 import argparse
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -23,15 +24,31 @@ def literal(value):
 
 def environment():
     env = os.environ.copy()
-    for name in ["PGHOST", "PGDATABASE", "PGUSER", "PGSSLROOTCERT", "PGPASSFILE"]:
+    for name in ["PGHOST", "PGDATABASE", "PGUSER"]:
         if not env.get(name):
             raise ValueError("Set " + name)
-    path = Path(env["PGPASSFILE"])
-    if not path.is_file() or stat.S_IMODE(path.stat().st_mode) & 0o077:
-        raise ValueError("PGPASSFILE must exist with mode 0600 or stricter")
-    if not Path(env["PGSSLROOTCERT"]).is_file():
-        raise ValueError("PostgreSQL CA file missing")
-    env["PGSSLMODE"] = "verify-full"
+    socket = env["PGHOST"].startswith('/')
+    if not socket or env.get("PGPASSFILE"):
+        path = Path(env.get("PGPASSFILE", ""))
+        if not path.is_file() or stat.S_IMODE(path.stat().st_mode) & 0o077:
+            raise ValueError("PGPASSFILE must exist with mode 0600 or stricter")
+    mode = env.get("PGSSLMODE", "verify-full")
+    if mode == "disable":
+        if socket:
+            if env.get("PGHOSTADDR") or ',' in env["PGHOST"]:
+                raise ValueError("Unix socket mode cannot use PGHOSTADDR or multiple hosts")
+        else:
+            for host in [env["PGHOST"], env.get("PGHOSTADDR", env["PGHOST"])]:
+                if not ipaddress.ip_address(host).is_loopback:
+                    raise ValueError("PGSSLMODE=disable requires a Unix socket or literal loopback IP")
+    elif mode == "verify-full":
+        if not env.get("PGSSLROOTCERT") or not Path(env["PGSSLROOTCERT"]).is_file():
+            raise ValueError("PostgreSQL CA file missing")
+    else:
+        raise ValueError("Use verify-full, or disable for a same-host loopback connection")
+    env["PGSSLMODE"] = mode
+    env["PGGSSENCMODE"] = "disable"
+    env.pop("PGSERVICE", None)
     env["PGCONNECT_TIMEOUT"] = "5"
     env.pop("PGPASSWORD", None)
     return env

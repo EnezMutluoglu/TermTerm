@@ -145,7 +145,7 @@ def main():
  print('PASS: forced process interruption, atomic revision/checksum, bounded resume, no duplicate write, checksum and downgrade rejection',flush=True)
  # Use a real updated service behind Caddy for lock/readiness/certificate checks.
  sys.path.insert(0,str(ROOT/'team-service/deploy'));import upgrade
- service=Path('/root/termterm-team-v2-build/team-service/target/debug/termterm-team-service')
+ service=Path(os.environ.get('TEAM_SERVICE_BINARY','/root/termterm-team-v2-build/team-service/target/debug/termterm-team-service'))
  cfg=case/'service.json';cfg.write_text(json.dumps({'listen':'127.0.0.1:41854','database':{'host':'localhost','port':55432,'database':source,'username':SERVICE,'password':passwords[SERVICE],'caPath':CA}}));cfg.chmod(0o600)
  caddy=case/'Caddyfile';caddy.write_text('{\n admin off\n auto_https disable_redirects\n}\nhttps://localhost:41855 {\n bind 127.0.0.1\n tls internal\n reverse_proxy 127.0.0.1:41854\n}\n')
  container='termterm-team-upgrade-qualification';process=subprocess.Popen([str(service),str(cfg)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)

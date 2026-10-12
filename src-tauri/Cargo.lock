@@ -6446,7 +6446,7 @@ dependencies = [
 
 [[package]]
 name = "termterm"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "aes 0.9.3",
  "anyhow",
@@ -6506,7 +6506,7 @@ dependencies = [
 
 [[package]]
 name = "termterm-team-client"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "anyhow",
  "argon2 0.5.3",

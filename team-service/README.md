@@ -1,8 +1,10 @@
-# TermTerm Team Service — 0.4.1
+# TermTerm Team Service — 0.4.2
 
-Windows/Linux masaüstü TermTerm uygulamasının hesap, yetki ve şifreli eşitleme servisidir; tarayıcı arayüzü sunmaz. SSH/SFTP trafiği masaüstünden hedefe gider. Bu paket 0.4.1 sürümüdür.
+Windows/Linux masaüstü TermTerm uygulamasının hesap, yetki ve şifreli eşitleme servisidir; tarayıcı arayüzü sunmaz. SSH/SFTP trafiği masaüstünden hedefe gider. Bu paket 0.4.2 sürümüdür.
 
 ## Kurulum
+
+Aynı sunucu/alan adı olmayan kurulum için `docs/TEAM_SOCKET_KURULUM_TR.md`: owner/appuser şablonu, Unix soketi, IP ile yerel HTTPS ve çalışanlara public CA dağıtımı.
 
 Hazır Linux x64 Docker image'ı Debian 13 Trixie slim tabanlıdır. `TermTerm-Team-Image-<sürüm>-linux-x64.tar.gz` dosyası `docker load` ile yüklenir; servis paketiyle birlikte kullanılır. Sunucuda Rust derlemesi gerekmez. `deploy/prepare-database.sql` DBA'nın elle kurduğu PostgreSQL için ilk rol/DB hazırlığını sağlar; ardından açık `manage.py migrate` adımı gerekir. Kaynak sınırları `deploy/deployment.env.example` içindedir. Image üretimi `scripts/package-team-image.py` ile yerelde yapılır; script GitHub'a yayın yapmaz.
 
@@ -12,16 +14,16 @@ Mevcut veritabanının yükseltilmesi `docs/TEAM_UPGRADES_TR.md` içindeki **pla
 
 - Normal servis rolü tablo sahibi/superuser/BYPASSRLS olamaz; doğrudan tablo yetkileri reddedilir.
 - Normalleştirilmiş tablolar: hesap/cihaz/oturum, klasör/host/hop, kişisel/ortak kimlik/sürüm/zarf, kişisel profil, ACL/delegasyon, işlem/karar/geçmiş/kurtarma. API fonksiyonları açık izin listesiyle açılır.
-- Hesap/izin/şifreli veri HTTPS üzerinden taşınır. PostgreSQL bağlantısı da CA ve gerçek sunucu adıyla doğrulanır. Kullanıcı bilgisayarına DB parolası dağıtılmaz.
+- Hesap/izin/şifreli veri HTTPS üzerinden taşınır. PostgreSQL bağlantısı uzak sunucuda CA ile doğrulanır; aynı sunucuda açıkça seçilmiş Unix soketi/parolasız HBA veya loopback SCRAM kullanılabilir. Kullanıcı bilgisayarına DB parolası dağıtılmaz.
 - 15 dakikalık erişim ve 30 günlük dönen refresh token'ı; sunucuda yalnız hash. Yeni hesap geçici parolası 21 karakter/24 saat, ilk girişte değiştirilir.
 - Özel sırlar normal lider ekranına verilmez. Şirket kurtarma dosyasının private key'i masaüstünde şifreli kalır; gerekçeli ve denetim kayıtlı kurtarma kullanılır.
 - `/v1/register`, `/v1/sql`, `/v1/rpc` ve `/v1/bootstrap` uçları yoktur. Token, özel anahtar, parola ve sorgu parametreleri loglanmaz.
 - 16 eşzamanlı istek, 256 KiB istek gövdesi, 20 saniye istek/15 saniye SQL/5 saniye bağlantı-kilit bütçesi vardır. Sonucu belirsiz yazma yeni işlem kimliğiyle otomatik tekrarlanmaz.
-- `/health` süreç canlılığıdır. `/ready` sınırlı TLS DB bağlantısını ve paketle aynı şema/API sürümünü gerektirir; uyumsuz şemada 503 döner.
+- `/health` süreç canlılığıdır. `/ready` sınırlı DB bağlantısını ve paketle aynı şema/API sürümünü gerektirir; uyumsuz şemada 503 döner.
 
 ## İstemci sürümünü zorunlu kılma
 
-Kişisel güncellemeler isteğe bağlıdır. Team sahibi masaüstündeki **Team → Sürüm politikası** ekranından desteklenen istemci sürümünü seçer ve önizlemeyi onaylar. Karar yalnız kendi takımına uygulanır; API erişimi ve istemci ekranı birlikte denetler. `compatibility.json` içindeki `clientVersions` paketle doğrulanmış seçenekler, `minimumClientVersion`/`apiVersion` teknik sınırdır. Bu pakette yalnız doğrulanmış 0.4.1 listelenir. Yeni tablo eklemek kendi başına otomatik istemci güncelleme kararı değildir. Ayrıntılar `docs/TEAM_041_GUIDE_TR.md` ve `docs/TEAM_UPGRADES_TR.md` içindedir.
+Kişisel güncellemeler isteğe bağlıdır. Team sahibi masaüstündeki **Team → Sürüm politikası** ekranından desteklenen istemci sürümünü seçer ve önizlemeyi onaylar. Karar yalnız kendi takımına uygulanır; API erişimi ve istemci ekranı birlikte denetler. `compatibility.json` içindeki `clientVersions` paketle doğrulanmış seçenekler, `minimumClientVersion`/`apiVersion` teknik sınırdır. Bu pakette 0.4.1 ve 0.4.2 istemci seçenekleri listelenir; teknik alt sınır 0.4.1 kalır. Yeni tablo eklemek kendi başına otomatik istemci güncelleme kararı değildir. Ayrıntılar `docs/TEAM_041_GUIDE_TR.md` ve `docs/TEAM_UPGRADES_TR.md` içindedir.
 
 ## Doğrulama
 
