@@ -31,3 +31,14 @@ export async function selectValue(element, value) {
     value,
   );
 }
+
+// Embedded WDIO does not synthesize contextmenu for a right-button click.
+// Trusted mouse and Shift+F10 behavior are exercised by Playwright separately.
+export async function contextMenu(element) {
+  const target = await element;
+  await target.waitForDisplayed();
+  await browser.execute(el => {
+    const box = el.getBoundingClientRect();
+    el.dispatchEvent(new MouseEvent("contextmenu", {bubbles:true,cancelable:true,button:2,clientX:box.left+20,clientY:box.top+20}));
+  }, target);
+}

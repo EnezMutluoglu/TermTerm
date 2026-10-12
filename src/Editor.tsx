@@ -6,9 +6,7 @@ import {
   KeyRound,
   Folder,
   ArrowUp,
-  ArrowDown,
   Plus,
-  Trash2,
   Shield,
   Link,
   Terminal,
@@ -36,13 +34,11 @@ export default function Editor({
   records,
   onClose,
   onSave,
-  onConnect,
 }: {
   record: Entity;
   records: Entity[];
   onClose: () => void;
   onSave: (r: Entity) => Promise<void>;
-  onConnect: (id: string) => void;
 }) {
   const [data, setData] = useState(structuredClone(record.data));
   const [tab, setTab] = useState("general");

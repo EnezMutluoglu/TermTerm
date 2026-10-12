@@ -16,17 +16,14 @@ import {
   List,
   ChevronDown,
   ChevronRight,
-  MoreHorizontal,
   LockKeyhole,
   ShieldCheck,
   HardDrive,
   Link,
-  ArrowUpRight,
   Copy,
   Trash2,
   X,
   Play,
-  Square,
   Columns2,
   Maximize2,
   Radio,
@@ -36,11 +33,8 @@ import {
   Download,
   FileArchive,
   Check,
-  Monitor,
   Box,
-  Wifi,
   ArrowRight,
-  RefreshCw,
   Keyboard,
   Info,
   Pencil,
@@ -70,13 +64,12 @@ import {
   Modal,
   Field,
   Select,
-  Check as Checkbox,
-  Busy,
   Empty,
-  Pill,
 } from "./components";
 import Onboarding from "./Onboarding";
 import Team, { TeamLogin } from "./Team";
+import TeamService from "./TeamService";
+import WorkspaceBrand from "./WorkspaceBrand";
 import Editor from "./Editor";
 import TerminalPane from "./TerminalPane";
 import { InputQueue } from "./inputQueue";
@@ -158,6 +151,9 @@ export default function App() {
   const [teamMode, setTeamMode] = useState(false);
   const [teamRecordId, setTeamRecordId] = useState<string>();
   const [teamLogin, setTeamLogin] = useState(false);
+  const [teamService, setTeamService] = useState(false);
+  const teamServiceRef = useRef(teamService);
+  teamServiceRef.current = teamService;
   const [vault, setVault] = useState<Vault | null>(null);
   useEffect(() => {
     if (!teamMode) return;
@@ -366,6 +362,7 @@ export default function App() {
     let unsub: Promise<() => void> | undefined;
     if (desktop)
       unsub = listen<Prompt>("session-prompt", ({ payload }) => {
+        if (teamServiceRef.current) return;
         setPrompts((p) => [...p, payload]);
       });
     return () => {
@@ -1317,6 +1314,12 @@ export default function App() {
         </div>
       ));
   }
+  if (!vault && teamService)
+    return (
+      <TeamService
+        onBack={() => setTeamService(false)}
+      />
+    );
   if (!vault && teamMode)
     return (
       <Team
@@ -1349,7 +1352,7 @@ export default function App() {
           loading={starting}
           onOpen={setVault}
           onRestore={() => setDataMode("restore")}
-          onTeam={() => setTeamLogin(true)}
+          onTeam={() => setTeamService(true)}
         />
         {dataMode && (
           <DataTools
@@ -1375,12 +1378,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand compact">
-          <div className="brand-mark">
-            <Terminal size={20} />
-          </div>
-          TermTerm
-        </div>
+        <WorkspaceBrand />
         <div
           className="top-tabs"
           ref={topTabs}
@@ -2253,7 +2251,6 @@ export default function App() {
             records={records}
             onClose={() => setEditor(null)}
             onSave={save}
-            onConnect={(id) => void connect(id)}
           />
         )}
       </div>

@@ -121,27 +121,120 @@ pub async fn authenticate_key<H: russh::client::Handler + Send + 'static>(
     handle: &mut russh::client::Handle<H>,
     username: &str,
     key: std::sync::Arc<PrivateKey>,
-) -> Result<bool> {
+) -> Result<russh::client::AuthResult> {
     let candidates = if key.algorithm().is_rsa() {
         rsa_hash_candidates(handle.best_supported_rsa_hash().await?)
     } else {
         vec![None]
     };
+    let mut result = russh::client::AuthResult::Failure { remaining_methods: russh::MethodSet::empty(), partial_success:false };
     for hash in candidates {
-        if handle
+        result = handle
             .authenticate_publickey(
                 username,
                 russh::keys::PrivateKeyWithHashAlg::new(key.clone(), hash),
             )
-            .await?
-            .success()
-        {
-            return Ok(true);
-        }
+            .await?;
+        if result.success() || partial_auth(&result) { break; }
     }
-    Ok(false)
+    Ok(result)
 }
 
 #[cfg(test)]
 #[path = "ssh_compat_tests.rs"]
 mod tests;
+
+// russh's legacy certificate helper signs RSA with SHA-1. Use its external
+// signer interface so certificate authentication honours negotiated RSA-SHA2.
+struct CertificateSigner(std::sync::Arc<PrivateKey>);
+
+impl russh::Signer for CertificateSigner {
+    type Error = anyhow::Error;
+
+    async fn auth_sign(
+        &mut self,
+        identity: &russh::keys::agent::AgentIdentity,
+        hash: Option<HashAlg>,
+        mut data: Vec<u8>,
+    ) -> Result<Vec<u8>> {
+        use russh::keys::ssh_key::{private::KeypairData, Signature};
+        use ssh_encoding::Encode;
+        ensure!(
+            identity.public_key().key_data() == self.0.public_key().key_data(),
+            "SSH certificate does not match the selected private key"
+        );
+        let signature: Signature = match self.0.key_data() {
+            KeypairData::Rsa(rsa) => signature::Signer::try_sign(&(rsa, hash), &data)?,
+            key => signature::Signer::try_sign(key, &data)?,
+        };
+        // The signer returns the original auth packet followed by an SSH string
+        // containing the signature (algorithm and signature bytes).
+        let mut encoded = Vec::new();
+        signature.encode(&mut encoded)?;
+        encoded.encode(&mut data)?;
+        Ok(data)
+    }
+}
+
+pub async fn authenticate_certificate<H: russh::client::Handler + Send + 'static>(
+    handle: &mut russh::client::Handle<H>,
+    username: &str,
+    key: std::sync::Arc<PrivateKey>,
+    certificate: russh::keys::Certificate,
+) -> Result<russh::client::AuthResult> {
+    ensure!(
+        certificate.public_key() == key.public_key().key_data(),
+        "SSH certificate does not match the selected private key"
+    );
+    let candidates = if key.algorithm().is_rsa() {
+        rsa_hash_candidates(handle.best_supported_rsa_hash().await?)
+    } else {
+        vec![None]
+    };
+    let mut signer = CertificateSigner(key);
+    let mut result = russh::client::AuthResult::Failure { remaining_methods: russh::MethodSet::empty(), partial_success:false };
+    for hash in candidates {
+        result = handle
+            .authenticate_certificate_with(username, certificate.clone(), hash, &mut signer)
+            .await?;
+        if result.success() || partial_auth(&result) { break; }
+    }
+    Ok(result)
+}
+
+// A successful first factor must not be retried with another signature/key.
+pub fn partial_auth(result: &russh::client::AuthResult) -> bool {
+    matches!(result, russh::client::AuthResult::Failure { partial_success:true, .. })
+}
+pub fn interactive_factor(result: &russh::client::AuthResult) -> bool {
+    matches!(result, russh::client::AuthResult::Failure { partial_success:true, remaining_methods } if remaining_methods.contains(&russh::MethodKind::KeyboardInteractive))
+}
+pub fn agent_identity_id(identity: &russh::keys::agent::AgentIdentity) -> Result<String> {
+    use base64::{Engine,engine::general_purpose::STANDARD_NO_PAD};
+    use sha2::{Digest,Sha256};
+    Ok(match identity {
+        russh::keys::agent::AgentIdentity::PublicKey { key, .. } => key.fingerprint(HashAlg::Sha256).to_string(),
+        russh::keys::agent::AgentIdentity::Certificate { certificate, .. } => format!("CERT-SHA256:{}",STANDARD_NO_PAD.encode(Sha256::digest(certificate.to_bytes()?))),
+    })
+}
+
+pub fn password_factor(result: &russh::client::AuthResult) -> bool {
+    matches!(result, russh::client::AuthResult::Failure { partial_success:true, remaining_methods } if remaining_methods.contains(&russh::MethodKind::Password))
+}
+pub async fn authenticate_agent_identity<H: russh::client::Handler + Send + 'static, S: russh::keys::agent::client::AgentStream + Send + Unpin>(
+    handle: &mut russh::client::Handle<H>, username: &str, identity: &russh::keys::agent::AgentIdentity,
+    agent: &mut russh::keys::agent::client::AgentClient<S>,
+) -> Result<russh::client::AuthResult> {
+    let hashes=if identity.public_key().algorithm().is_rsa() { rsa_hash_candidates(handle.best_supported_rsa_hash().await?) } else { vec![None] };
+    let mut result=russh::client::AuthResult::Failure{remaining_methods:russh::MethodSet::empty(),partial_success:false};
+    for hash in hashes {
+        result=tokio::time::timeout(std::time::Duration::from_secs(120),async {
+            match identity {
+                russh::keys::agent::AgentIdentity::PublicKey{key,..}=>handle.authenticate_publickey_with(username,key.clone(),hash,agent).await,
+                russh::keys::agent::AgentIdentity::Certificate{certificate,..}=>handle.authenticate_certificate_with(username,certificate.clone(),hash,agent).await,
+            }
+        }).await.map_err(|_|anyhow::anyhow!("SSH agent signing timed out"))??;
+        if result.success() || partial_auth(&result) {break;}
+    }
+    Ok(result)
+}

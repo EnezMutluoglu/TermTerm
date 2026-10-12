@@ -106,6 +106,14 @@ async fn postgres_encrypted_acl_and_history() -> Result<()> {
         )?);
         raw_rpc(owner, "acl_set", &body).await?;
     }
+    let before_source=raw_rpc(owner,"records",&json!({"vaultId":vault})).await?;
+    let before_members=raw_rpc(owner,"members",&json!({"teamId":team})).await?;
+    let snapshot=migration::capture(owner,&team).await?;
+    assert_eq!(snapshot.vaults.len(),1);
+    assert_eq!(snapshot.vaults[0].records[0].record.as_ref().unwrap(),&record);
+    assert!(migration::capture(operator,&team).await.is_err());
+    assert_eq!(raw_rpc(owner,"records",&json!({"vaultId":vault})).await?["records"],before_source["records"]);
+    assert_eq!(raw_rpc(owner,"members",&json!({"teamId":team})).await?,before_members);
     let rows = raw_rpc(operator, "records", &json!({"vaultId":vault})).await?;
     let decrypted = crypto::decrypt(&*identity(operator)?, &vault, &rows["records"][0])?;
     assert_eq!(decrypted, record);

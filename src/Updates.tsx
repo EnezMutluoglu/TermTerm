@@ -12,7 +12,7 @@ type Info = {
   packageSupported: boolean;
 };
 type Release = { available: boolean; version?: string; notes?: string };
-export default function Updates() {
+export default function Updates({ minimumVersion }: { minimumVersion?: string } = {}) {
   const [info, setInfo] = useState<Info>();
   const [release, setRelease] = useState<Release>();
   const [busy, setBusy] = useState(false);
@@ -64,16 +64,16 @@ export default function Updates() {
         : tr("Checking approved releases…"),
     );
     try {
-      if (install) await call("update_install", { version: release?.version });
+      if (install) await call("update_install", { version: release?.version, minimumVersion });
       else {
-        const result = await call<Release>("update_check");
+        const result = await call<Release>("update_check", { minimumVersion });
         setRelease(result);
         setMessage(
           result.available
             ? tr("Version {version} is available.", {
                 version: result.version ?? "",
               })
-            : tr("You are up to date."),
+            : minimumVersion ? "Team için gereken sürüm güncelleme kaynağında henüz yok. Yöneticinizle iletişime geçin." : tr("You are up to date."),
         );
       }
     } catch (e) {

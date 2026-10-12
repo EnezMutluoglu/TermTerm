@@ -1,4 +1,15 @@
 {
+  "SFTP connection closed. Reconnect to continue.": "SFTP bağlantısı kapandı. Devam etmek için yeniden bağlanın.",
+  "Connect to {name}": "{name} sunucusuna bağlan",
+  "Choose SFTP host": "SFTP sunucusu seç",
+  "Search host names": "Sunucu adına göre ara",
+  "Host folders": "Sunucu klasörleri",
+  "Hosts in this folder": "Bu klasördeki sunucular",
+  "Vault root": "Kasa kökü",
+  "Recent connections": "Son bağlantılar",
+  "No matching hosts": "Eşleşen sunucu yok",
+  "Search results": "Arama sonuçları",
+  "Show more": "Daha fazla göster",
   "Hosts": "Sunucular",
   "Working…": "İşlem yapılıyor…",
   "Use a vault password of at least 8 characters": "En az 8 karakterlik bir kasa parolası kullanın",
@@ -714,5 +725,16 @@
   "{count} full": "{count} dolu",
   "{count} critical": "{count} kritik",
   "Rates belong to the selected interface and disk on the connected machine. Devices and mounts are not added together.": "Hızlar, bağlı makinedeki seçili ağ arayüzüne ve diske aittir. Aygıtlar ve bağlama noktaları toplanmaz.",
-  "Network: Mbit/s. Disk read/write: MiB/s. Disk activity is separate from capacity.": "Ağ: Mbit/s. Disk okuma/yazma: MiB/s. Disk etkinliği, doluluk oranından ayrıdır."
+  "Network: Mbit/s. Disk read/write: MiB/s. Disk activity is separate from capacity.": "Ağ: Mbit/s. Disk okuma/yazma: MiB/s. Disk etkinliği, doluluk oranından ayrıdır.",
+  "network_unavailable": "Team servisine ulaşılamıyor. İndirilen kayıtlar şifreli önbellekten kullanılabilir.",
+  "secure_transport_failed": "Güvenli bağlantı doğrulanamadı. Servis adresini ve CA sertifikasını kontrol edin; bu hata çevrimdışı erişim izni vermez.",
+  "local_revision_conflict": "Kayıt bu cihazda değişti. Son halini açıp düzenlemenizi yeniden karşılaştırın.",
+  "local_generation_required": "Bu kayıt için bekleyen bir düzenleme var. Güncel yerel kaydı açıp tekrar deneyin.",
+  "offline_edit_expired": "24 saatlik çevrimdışı düzenleme süresi doldu. Değişiklik yapmak için çevrimiçi yetki doğrulaması gerekir.",
+  "Connect online once before using this host offline": "Bu hostu çevrimdışı kullanmadan önce bir kez çevrimiçi bağlanın.",
+  "Offline login unavailable; sign in online again": "Çevrimdışı giriş kaydı kullanılamıyor. Önce çevrimiçi giriş yapın.",
+  "offline_creation_scope_missing": "Bu klasör için çevrimdışı oluşturma izni indirilmemiş. Önce çevrimiçi açın.",
+  "candidate_delivery_unavailable": "Bu cihazda sınırlı taslak teslim kaydı yok. Önce başarılı çevrimiçi giriş gerekir.",
+  "candidate_delivery_expired": "90 günlük taslak teslim izni dolmuş. Şifreli taslaklar korunuyor; takım liderinle iletişime geçin.",
+  "Wait for both directories to load successfully.": "İki klasörün de başarıyla yüklenmesini bekleyin."
 }

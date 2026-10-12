@@ -6446,7 +6446,7 @@ dependencies = [
 
 [[package]]
 name = "termterm"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "aes 0.9.3",
  "anyhow",
@@ -6482,6 +6482,8 @@ dependencies = [
  "serialport",
  "sha1 0.10.7",
  "sha2 0.10.9",
+ "signature",
+ "ssh-encoding",
  "sysinfo",
  "tauri",
  "tauri-build",
@@ -6491,6 +6493,7 @@ dependencies = [
  "tauri-plugin-wdio",
  "tauri-plugin-wdio-webdriver",
  "tempfile",
+ "termterm-team-client",
  "thiserror 2.0.20",
  "tokio",
  "tokio-postgres",
@@ -6498,6 +6501,29 @@ dependencies = [
  "url",
  "uuid",
  "windows-sys 0.61.2",
+ "zeroize",
+]
+
+[[package]]
+name = "termterm-team-client"
+version = "0.4.1"
+dependencies = [
+ "anyhow",
+ "argon2 0.5.3",
+ "chacha20poly1305",
+ "chrono",
+ "crypto_box",
+ "hex",
+ "rand 0.8.8",
+ "reqwest 0.12.28",
+ "rusqlite",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tokio",
+ "url",
+ "uuid",
  "zeroize",
 ]
 

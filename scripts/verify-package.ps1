@@ -20,14 +20,14 @@ $source=[System.IO.Compression.ZipFile]::OpenRead((Join-Path $release "TermTerm-
 try {
   $names=@($source.Entries | ForEach-Object {$_.FullName -replace '\\','/'})
   if ($names | Where-Object {($_ -match '(^|/)(\.lab|\.tools|node_modules|target)/|\.(ttvault|ttbackup|pem|key)$|connection\.json|ssh\.json|(^|/)\.\./') -and $_ -notmatch '^tests/ssh-keys/(rsa4096\.aes(128|192|256)|ecdsa(256|384|521)\.aes256)\.pem$'}) { throw 'Source archive includes a private or build path' }
-  foreach($required in @('README.md','rust-toolchain.toml','src-tauri/Cargo.lock','docs/USER_GUIDE_TR.md','docs/STATUS.md','docs/VALIDATION_0.3.md','docs/POSTGRES_FLOW.md','docs/BUILD_PLATFORMS.md','docs/licenses/THIRD_PARTY_LICENSES.txt','migrations/001_sync.sql','scripts/lab.ps1','.github/workflows/desktop.yml')) {
+  foreach($required in @('.gitattributes','team-client/Cargo.toml','team-client/src/lib.rs','team-service/Cargo.toml','team-service/src/main.rs','team-service/compatibility.json','team-service/deploy/upgrade.py','docs/TEAM_041_GUIDE_TR.md','README.md','rust-toolchain.toml','src-tauri/Cargo.lock','docs/USER_GUIDE_TR.md','docs/STATUS.md','docs/VALIDATION_0.3.md','docs/POSTGRES_FLOW.md','docs/BUILD_PLATFORMS.md','docs/licenses/THIRD_PARTY_LICENSES.txt','migrations/001_sync.sql','scripts/lab.ps1','.github/workflows/desktop.yml')) {
     if ($required -notin $names) { throw "Missing source entry: $required" }
   }
 } finally { $source.Dispose() }
 $portable=[System.IO.Compression.ZipFile]::OpenRead((Join-Path $release "TermTerm-$version-windows-x64-portable.zip"))
 try {
   $names=@($portable.Entries | ForEach-Object {$_.FullName -replace '\\','/'})
-  foreach($required in @('TermTerm.exe','prerequisites/MicrosoftEdgeWebView2RuntimeInstallerX64.exe','mosh/bin/mosh-client.exe','mosh/bin/cygwin1.dll','mosh/usr/share/doc/mosh/COPYING','licenses/THIRD_PARTY_LICENSES.txt','USER_GUIDE_TR.md','STATUS.md')) {
+  foreach($required in @('TermTerm.exe','prerequisites/MicrosoftEdgeWebView2RuntimeInstallerX64.exe','mosh/bin/mosh-client.exe','mosh/bin/cygwin1.dll','mosh/usr/share/doc/mosh/COPYING','licenses/THIRD_PARTY_LICENSES.txt','USER_GUIDE_TR.md','STATUS.md','TEAM_041_GUIDE_TR.md','TEAM_SERVICE_INSTALL_TR.md','TEAM_UPGRADES_TR.md')) {
     if ('TermTerm-win-x64/'+$required -notin $names) { throw "Missing portable entry: $required" }
   }
 } finally { $portable.Dispose() }

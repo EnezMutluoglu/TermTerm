@@ -1,0 +1,27 @@
+# Optional dedicated PostgreSQL; add to compose.yaml with a second -f argument.
+# Host access is loopback only, TLS and SCRAM required for all TCP clients.
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    environment:
+      POSTGRES_DB: termterm_team
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    ports:
+      - "127.0.0.1:${TERMTERM_PG_PORT:-55433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ${TERMTERM_PRIVATE_DIR:?Set private deployment directory}/postgres-password:/run/secrets/postgres_password:ro
+      - ${TERMTERM_PRIVATE_DIR}/migration-password:/run/secrets/migration_password:ro
+      - ${TERMTERM_PRIVATE_DIR}/service-password:/run/secrets/service_password:ro
+      - ${TERMTERM_PRIVATE_DIR}/postgres-tls:/run/tls-source:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d termterm_team"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+volumes:
+  postgres_data:

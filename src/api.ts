@@ -14,7 +14,13 @@ export async function call<T>(
         "Open the desktop application to use the encrypted vault and connections.",
       ),
     );
-  return invoke<T>(command, args);
+  try { return await invoke<T>(command, args); }
+  catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (command !== "team_v2_compatibility" && message.startsWith("team_update_required:"))
+      window.dispatchEvent(new Event("team-update-required"));
+    throw error;
+  }
 }
 export const errorText = (e: unknown) =>
   tr(e instanceof Error ? e.message : String(e));

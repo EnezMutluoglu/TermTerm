@@ -20,6 +20,7 @@ pub mod shared_terminal;
 pub mod ssh_compat;
 pub mod state;
 pub mod team;
+pub mod team_v2;
 pub mod sync;
 pub mod transfers;
 pub mod tunnels;
@@ -37,11 +38,27 @@ pub fn run() {
     builder
         .manage(std::sync::Arc::new(state::AppState::default()))
         .manage(updater::UpdateState::default())
+        .manage(termterm_team_client::desktop::DesktopState::default())
+        .manage(team_v2::NativeConnections::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            team_v2::team_v2_login,
+            team_v2::signin::team_v2_saved_login,
+            team_v2::signin::team_v2_login_remembered,
+            team_v2::signin::team_v2_forget_login,
+            team_v2::team_v2_compatibility,
+            team_v2::team_v2_submit_drafts,
+            team_v2::team_v2_action,
+            team_v2::team_v2_logout,
+            team_v2::terminal::team_v2_start,
+            team_v2::terminal::team_v2_document_start,
+            team_v2::sftp::team_v2_sftp,
+            team_v2::tunnel::team_v2_tunnel,
             passwords::password_board,
+            team::migration::team_migration_export,
+            team::migration::team_migration_preview,
             team::team_auth,
             team::team_offline,
             team::team_status,
@@ -126,6 +143,7 @@ pub fn run() {
                     let app = app.clone();
                     let state = app.state::<state::Shared>().inner().clone();
                     tauri::async_runtime::spawn(async move {
+                        let _ = app.state::<termterm_team_client::desktop::DesktopState>().logout();
                         let _ = tokio::time::timeout(
                             std::time::Duration::from_secs(8),
                             commands::close_connections(&state),

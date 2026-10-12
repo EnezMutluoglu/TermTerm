@@ -6,7 +6,6 @@ import {
   FileArchive,
   ArrowRight,
   ShieldCheck,
-  Download,
   Upload,
   CheckCircle2,
   AlertTriangle,

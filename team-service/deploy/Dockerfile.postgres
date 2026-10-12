@@ -1,0 +1,6 @@
+FROM postgres:18-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c
+COPY postgres-entrypoint.sh /usr/local/bin/team-postgres-entrypoint
+COPY init-database.sh /docker-entrypoint-initdb.d/10-termterm.sh
+COPY pg_hba.conf /etc/termterm-pg-hba.conf
+RUN chmod 755 /usr/local/bin/team-postgres-entrypoint /docker-entrypoint-initdb.d/10-termterm.sh
+ENTRYPOINT ["/usr/local/bin/team-postgres-entrypoint"]

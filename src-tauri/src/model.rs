@@ -54,6 +54,7 @@ pub struct Host {
     pub certificate: String,
     pub agent: String,
     pub agent_key: String,
+    pub keyboard_interactive: bool,
     pub mosh_address: String,
     pub serial_baud: u32,
     pub serial_data_bits: u8,

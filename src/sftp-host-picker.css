@@ -1,0 +1,135 @@
+.sftp-page .file-pane {
+  overflow: visible;
+}
+.sftp-page .file-pane > header {
+  border-radius: 8px 8px 0 0;
+}
+.sftp-host-picker {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.sftp-host-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+.sftp-host-trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sftp-host-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 25;
+  width: min(580px, calc(100vw - 80px));
+  max-width: calc(200% - 24px);
+  color: var(--text);
+  background: var(--panel, #202b38);
+  border: 1px solid var(--border, #364251);
+  border-radius: 12px;
+  box-shadow: 0 16px 45px #0006;
+  padding: 10px;
+}
+[data-file-pane="1"] .sftp-host-popover {
+  left: auto;
+  right: 0;
+}
+.sftp-host-search {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.sftp-host-search input {
+  min-width: 0;
+  width: 100%;
+}
+.sftp-host-search button {
+  padding: 6px;
+}
+.sftp-host-browser {
+  display: grid;
+  grid-template-columns: minmax(110px, 36%) minmax(0, 1fr);
+  max-height: min(390px, 60vh);
+}
+.sftp-host-browser nav {
+  overflow: auto;
+  border-right: 1px solid var(--border, #364251);
+  padding-right: 8px;
+}
+.sftp-host-browser nav button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+  width: 100%;
+  margin-bottom: 4px;
+  border-color: transparent;
+  background: transparent;
+}
+.sftp-host-browser nav button span {
+  overflow-wrap: anywhere;
+}
+.sftp-host-browser nav button.active {
+  background: #58a6ff18;
+}
+.sftp-host-results {
+  overflow: auto;
+  min-width: 0;
+  padding-left: 8px;
+}
+.sftp-host-results h3 {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.75;
+  margin: 7px 4px;
+}
+.sftp-host-results section + section {
+  border-top: 1px solid var(--border, #364251);
+  margin-top: 10px;
+}
+.sftp-host-choice {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  text-align: left;
+  width: 100%;
+  margin-bottom: 3px;
+  border-color: transparent;
+  background: transparent;
+}
+.sftp-host-choice span {
+  min-width: 0;
+}
+.sftp-host-choice strong,
+.sftp-host-choice small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sftp-host-choice strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.sftp-host-choice small {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-top: 3px;
+}
+.sftp-host-browser button:hover {
+  background: #58a6ff18;
+}
+.sftp-host-browser svg {
+  flex-shrink: 0;
+}
+.sftp-host-browser nav button {
+  justify-content: flex-start;
+}

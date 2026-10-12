@@ -32,6 +32,8 @@ pub async fn prompt(
     kind: &str,
     detail: Value,
 ) -> Result<Vec<String>> {
+    struct PendingPrompt {state:Shared,id:String}
+    impl Drop for PendingPrompt {fn drop(&mut self){if let Ok(mut prompts)=self.state.prompts.lock(){prompts.remove(&self.id);}}}
     let id = Uuid::new_v4().to_string();
     let (tx, rx) = oneshot::channel();
     state
@@ -39,6 +41,7 @@ pub async fn prompt(
         .lock()
         .map_err(|_| anyhow!("Prompt lock"))?
         .insert(id.clone(), tx);
+    let _cleanup=PendingPrompt{state:state.clone(),id:id.clone()};
     app.emit(
         "session-prompt",
         json!({"id":id,"sessionId":session,"kind":kind,"detail":detail}),
@@ -61,10 +64,12 @@ pub struct SshHandler {
     pub port: u16,
     pub vault_id: String,
     pub remote_target: Option<(String, u16)>,
+    pub team_trust: Option<Arc<crate::team_v2::TrustState>>,
 }
 impl client::Handler for SshHandler {
     type Error = anyhow::Error;
     async fn check_server_key(&mut self, key: &PublicKeyOrCertificate) -> Result<bool> {
+        if let Some(trust)=&self.team_trust {return trust.verify(&self.app,&self.state,&self.session,&self.address,self.port,key).await;}
         let public = key.public_key();
         let fingerprint = public.fingerprint(HashAlg::Sha256).to_string();
         let public_key = public.to_openssh()?;
@@ -248,6 +253,14 @@ pub async fn connect_ssh(
     }
     let mut hops = vec![];
     expand(&records, host_id, &mut vec![], &mut hops)?;
+    let connection = connect_hops(app,state,id,&vault_id,&hops,&records,remote_target,None,false).await?;
+    Ok(SshConnection {_audit:crate::team::connection_opened(state,&vault_id,host_id)?,..connection})
+}
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn connect_hops(
+ app:&AppHandle,state:&Shared,id:&str,vault_id:&str,hops:&[Host],records:&[Record],
+ remote_target:Option<(String,u16)>,team_trust:Option<Arc<crate::team_v2::TrustState>>,strict_auth:bool
+)->Result<SshConnection>{
     let mut handles: Vec<client::Handle<SshHandler>> = vec![];
     for (index, host) in hops.iter().enumerate() {
         event(
@@ -255,7 +268,7 @@ pub async fn connect_ssh(
             id,
             "status",
             json!(format!(
-                "Connecting hop {}/{} · {}:{}",
+                "Connecting hop {}/{} Â· {}:{}",
                 index + 1,
                 hops.len(),
                 host.address,
@@ -289,7 +302,8 @@ pub async fn connect_ssh(
                 proxy_connect(stream, proxy, &host.address, host.port),
             )
             .await
-            .context("Proxy handshake timed out")??
+            .with_context(||format!("Hop {}: proxy handshake timed out",index+1))?
+            .with_context(||format!("Hop {}: proxy connection failed",index+1))?
         } else {
             stream
         };
@@ -307,7 +321,8 @@ pub async fn connect_ssh(
             session: id.into(),
             address: host.address.clone(),
             port: host.port,
-            vault_id: vault_id.clone(),
+            vault_id: vault_id.to_string(),
+            team_trust: team_trust.clone(),
             remote_target: if index + 1 == hops.len() {
                 remote_target.clone()
             } else {
@@ -334,108 +349,66 @@ pub async fn connect_ssh(
         } else {
             host.username.clone()
         };
-        let mut authenticated = false;
+        use crate::ssh_compat::{partial_auth, interactive_factor};
+        let mut result = client::AuthResult::Failure { remaining_methods:russh::MethodSet::empty(), partial_success:false };
         if !host.agent.is_empty() {
-            let mut agent = crate::keys::agent(&host.agent)
-                .await
-                .context("SSH signing agent is unavailable")?;
-            for identity in agent.request_identities().await? {
-                let key = identity.public_key().into_owned();
-                if !host.agent_key.is_empty()
-                    && key.fingerprint(HashAlg::Sha256).to_string() != host.agent_key
-                {
-                    continue;
-                }
-                let hashes = if key.algorithm().is_rsa() {
-                    crate::ssh_compat::rsa_hash_candidates(handle.best_supported_rsa_hash().await?)
-                } else {
-                    vec![None]
-                };
-                for hash in hashes {
-                    if handle
-                        .authenticate_publickey_with(&username, key.clone(), hash, &mut agent)
-                        .await?
-                        .success()
-                    {
-                        authenticated = true;
-                        break;
-                    }
-                }
-                if authenticated {
-                    break;
-                }
+            let mut agent = crate::keys::agent(&host.agent).await.context("SSH signing agent is unavailable")?;
+            let identities = tokio::time::timeout(Duration::from_secs(10),agent.request_identities()).await.context("SSH agent did not respond")??;
+            let mut selected = false;
+            for identity in identities {
+                if !host.agent_key.is_empty() && crate::ssh_compat::agent_identity_id(&identity)? != host.agent_key { continue; }
+                selected = true;
+                result=crate::ssh_compat::authenticate_agent_identity(&mut handle,&username,&identity,&mut agent).await?;
+                if result.success() || partial_auth(&result) { break; }
             }
+            ensure!(selected,"Hop {}: selected SSH agent key is not loaded; no fallback was attempted",index+1);
         }
-        if !authenticated && !host.private_key.is_empty() {
-            let key = crate::ssh_compat::decode_private_key(&host.private_key, &host.passphrase)?;
-            let key = Arc::new(key);
-            authenticated = if !host.certificate.is_empty() {
-                handle
-                    .authenticate_openssh_cert(
-                        &username,
-                        key,
-                        russh::keys::Certificate::from_openssh(&host.certificate)?,
-                    )
-                    .await?
-                    .success()
-            } else {
-                crate::ssh_compat::authenticate_key(&mut handle, &username, key).await?
-            };
+        if !result.success() && !partial_auth(&result) && !host.private_key.is_empty() {
+            let key = Arc::new(crate::ssh_compat::decode_private_key(&host.private_key, &host.passphrase)?);
+            result = if !host.certificate.is_empty() {
+                crate::ssh_compat::authenticate_certificate(&mut handle,&username,key,russh::keys::Certificate::from_openssh(&host.certificate)?).await?
+            } else { crate::ssh_compat::authenticate_key(&mut handle,&username,key).await? };
         }
-        if !authenticated && !host.password.is_empty() {
-            authenticated = handle
-                .authenticate_password(&username, &host.password)
-                .await?
-                .success();
+        if !result.success() && !partial_auth(&result) && !host.password.is_empty() {
+            result = handle.authenticate_password(&username,&host.password).await?;
         }
-        if !authenticated {
-            let mut result = handle
-                .authenticate_keyboard_interactive_start(&username, None::<String>)
-                .await?;
-            for _ in 0..8 {
-                match result {
-                    client::KeyboardInteractiveAuthResponse::Success => {
-                        authenticated = true;
-                        break;
-                    }
+        // An explicit password prompt is the first factor, not a retry after MFA.
+        let ask_password = (strict_auth && host.password.is_empty() && host.private_key.is_empty() && host.agent.is_empty() && !host.keyboard_interactive) || crate::ssh_compat::password_factor(&result);
+        if !result.success() && ask_password {
+            let answers=zeroize::Zeroizing::new(prompt(app,state,id,"authentication",json!({"name":format!("{}@{}",username,host.address),"prompts":[{"prompt":"Password","echo":false}]})).await?);
+            ensure!(answers.len()==1 && !answers[0].is_empty(),"Authentication cancelled");
+            result=handle.authenticate_password(&username,&answers[0]).await?;
+        }
+        ensure!(!partial_auth(&result) || interactive_factor(&result),"Hop {}: first factor accepted, but the server requires an unsupported additional method",index+1);
+        let mut authenticated = result.success();
+        if !authenticated && (!strict_auth || host.keyboard_interactive || interactive_factor(&result)) {
+            let mut response = handle.authenticate_keyboard_interactive_start(&username,None::<String>).await?;
+            for round in 0..=8 {
+                match response {
+                    client::KeyboardInteractiveAuthResponse::Success => { authenticated=true;break; }
                     client::KeyboardInteractiveAuthResponse::Failure { .. } => break,
-                    client::KeyboardInteractiveAuthResponse::InfoRequest {
-                        name,
-                        instructions,
-                        prompts,
-                    } => {
-                        let details = json!({"name":name,"instructions":instructions,"prompts":prompts.iter().map(|p|json!({"prompt":p.prompt,"echo":p.echo})).collect::<Vec<_>>()});
-                        let answers = prompt(app, state, id, "authentication", details).await?;
-                        ensure!(answers.len() == prompts.len(), "Authentication cancelled");
-                        result = handle
-                            .authenticate_keyboard_interactive_respond(answers)
-                            .await?;
+                    client::KeyboardInteractiveAuthResponse::InfoRequest {name,instructions,prompts} => {
+                        ensure!(round<8 && prompts.len()<=16 && name.len()+instructions.len()+prompts.iter().map(|p|p.prompt.len()).sum::<usize>()<=16384,"SSH authentication challenge exceeds limits");
+                        let details=json!({"name":format!("Hop {} · {}@{} · {}",index+1,username,host.address,name),"instructions":instructions,"prompts":prompts.iter().map(|p|json!({"prompt":p.prompt,"echo":p.echo})).collect::<Vec<_>>()});
+                        let answers=prompt(app,state,id,"authentication",details).await?;
+                        ensure!(answers.len()==prompts.len(),"Authentication cancelled");
+                        response=handle.authenticate_keyboard_interactive_respond(answers).await?;
                     }
                 }
             }
         }
-        if !authenticated && host.password.is_empty() {
-            let answers=prompt(app,state,id,"authentication",json!({"name":format!("{}@{}",username,host.address),"prompts":[{"prompt":"Password","echo":false}]})).await?;
-            if let Some(password) = answers.first() {
-                authenticated = handle
-                    .authenticate_password(&username, password)
-                    .await?
-                    .success();
-            }
+        if !authenticated && !strict_auth && !partial_auth(&result) && host.password.is_empty() {
+            let answers=zeroize::Zeroizing::new(prompt(app,state,id,"authentication",json!({"name":format!("{}@{}",username,host.address),"prompts":[{"prompt":"Password","echo":false}]})).await?);
+            if let Some(password)=answers.first() { authenticated=handle.authenticate_password(&username,password).await?.success(); }
         }
-        ensure!(
-            authenticated,
-            "Hop {} ({}): authentication failed",
-            index + 1,
-            host.address
-        );
+        ensure!(authenticated,"Hop {} ({}): authentication failed",index+1,host.address);
         handles.push(handle);
     }
     let handle = handles.pop().ok_or_else(|| anyhow!("Empty host chain"))?;
     Ok(SshConnection {
         handle,
         _parents: handles,
-        _audit: crate::team::connection_opened(state,&vault_id,host_id)?,
+        _audit: None,
     })
 }
 fn output(app: &AppHandle, id: &str, data: &[u8], log: &mut Vec<u8>) {
@@ -781,13 +754,53 @@ async fn run_mosh(
     let ssh = Arc::new(
         tokio::select! {r=connect_ssh(&app,&state,&id,&host_id,None)=>r?,_=wait_close(&mut rx, &mut initial_size)=>return Ok(())},
     );
-    let mut channel = ssh.handle.channel_open_session().await?;
-    // Fixed bootstrap command. The one-use MOSH_KEY never enters the renderer or a log.
-    channel
-        .exec(true, "mosh-server new -c 256 -l LANG=C.UTF-8")
-        .await?;
-    let bootstrap = tokio::time::timeout(Duration::from_secs(20), async {
-        let mut bytes = Vec::new();
+    run_authorized_mosh(app, state, id, MoshOptions { address:host.address, udp_address:host.mosh_address, label:host.label, startup:host.startup }, ssh, initial_size, rx).await
+}
+
+pub(crate) struct MoshOptions {
+    pub address: String,
+    pub udp_address: String,
+    pub label: String,
+    pub startup: String,
+}
+fn mosh_bootstrap_command(startup: &str) -> Result<zeroize::Zeroizing<String>> {
+    ensure!(startup.len() <= 16384 && !startup.contains('\0'), "Invalid Mosh startup command");
+    let base = "mosh-server new -c 256 -l LANG=C.UTF-8";
+    if startup.is_empty() { return Ok(zeroize::Zeroizing::new(base.into())); }
+    // -- starts mosh-server's command argv. Quote the entire inner script as
+    // one argument to the authenticated server's shell, never as a UDP address.
+    let script = zeroize::Zeroizing::new(format!("{startup}\nexec \"${{SHELL:-/bin/sh}}\" -l"));
+    Ok(zeroize::Zeroizing::new(format!("{base} -- /bin/sh -c '{}'",script.replace('\'', "'\"'\"'"))))
+}
+
+// Also used by Team after root-scoped authorization and hop authentication.
+// Dropping the future must stop the blocking child (logout, denied permission,
+// or window close), not merely detach its JoinHandle.
+struct MoshCancellation(std::sync::Arc<std::sync::atomic::AtomicBool>);
+impl Drop for MoshCancellation {
+    fn drop(&mut self) { self.0.store(true, std::sync::atomic::Ordering::Release); }
+}
+struct MoshChildGuard(Box<dyn portable_pty::ChildKiller + Send + Sync>);
+impl Drop for MoshChildGuard {
+    fn drop(&mut self) { let _ = self.0.kill(); }
+}
+pub(crate) async fn run_authorized_mosh(
+    app: AppHandle, state: Shared, id: String, options: MoshOptions,
+    ssh: Arc<SshConnection>, mut initial_size: (u16, u16),
+    mut rx: mpsc::Receiver<SessionInput>,
+) -> Result<()> {
+    let MoshOptions {address,udp_address,label,startup} = options;
+    let startup = zeroize::Zeroizing::new(startup);
+    let bootstrap_command = mosh_bootstrap_command(&startup)?;
+    let cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let _cancel = MoshCancellation(cancelled.clone());
+    let bootstrap = tokio::select! {
+      result = tokio::time::timeout(Duration::from_secs(20), async {
+        let mut channel = ssh.handle.channel_open_session().await?;
+        // The one-use MOSH_KEY stays native and is zeroized on
+        // completion, timeout and cancellation (including early read errors).
+        channel.exec(true, bootstrap_command.as_str()).await?;
+        let mut bytes = zeroize::Zeroizing::new(Vec::new());
         while let Some(msg) = channel.wait().await {
             match msg {
                 ChannelMsg::Data { data } | ChannelMsg::ExtendedData { data, .. } => {
@@ -798,10 +811,12 @@ async fn run_mosh(
                 _ => {}
             }
         }
-        Ok::<_, anyhow::Error>(String::from_utf8_lossy(&bytes).into_owned())
-    })
-    .await
-    .context("Mosh server bootstrap timed out")??;
+        let text = zeroize::Zeroizing::new(String::from_utf8_lossy(&bytes).into_owned());
+        zeroize::Zeroize::zeroize(&mut bytes);
+        Ok::<_, anyhow::Error>(text)
+      }) => result.context("Mosh server bootstrap timed out")??,
+      _ = wait_close(&mut rx, &mut initial_size) => return Ok(()),
+    };
     let tokens=bootstrap.lines().find_map(|l|l.strip_prefix("MOSH CONNECT ")).ok_or_else(||anyhow!("The server did not start Mosh. Install mosh-server and ensure a UTF-8 locale is available."))?;
     let mut parts = tokens.split_whitespace();
     let port = parts
@@ -814,10 +829,10 @@ async fn run_mosh(
             .ok_or_else(|| anyhow!("Missing Mosh session key"))?
             .to_string(),
     );
-    let address = if host.mosh_address.is_empty() {
-        host.address.clone()
+    let address = if udp_address.is_empty() {
+        address
     } else {
-        host.mosh_address.clone()
+        udp_address
     };
     let ip = tokio::net::lookup_host((address.as_str(), port))
         .await?
@@ -844,7 +859,7 @@ async fn run_mosh(
         &id,
         "status",
         json!(format!(
-            "Mosh UDP · {}:{} · UDP must be reachable separately from SSH proxies",
+            "Mosh UDP Â· {}:{} Â· UDP must be reachable separately from SSH proxies",
             ip, port
         )),
     );
@@ -852,7 +867,7 @@ async fn run_mosh(
         &app,
         &state,
         &id,
-        crate::metrics::Target::Ssh(ssh.clone(), host.label.clone()),
+        crate::metrics::Target::Ssh(ssh.clone(), label),
     );
     tokio::task::spawn_blocking(move || -> Result<()> {
         use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
@@ -874,6 +889,7 @@ async fn run_mosh(
         #[cfg(target_os = "linux")]
         cmd.env("LD_LIBRARY_PATH", runtime.join("lib"));
         let mut child = pair.slave.spawn_command(cmd)?;
+        let _child_guard = MoshChildGuard(child.clone_killer());
         drop(pair.slave);
         let mut reader = pair.master.try_clone_reader()?;
         let mut writer = pair.master.take_writer()?;
@@ -890,6 +906,10 @@ async fn run_mosh(
         });
         event(&app, &id, "connected", Value::Null);
         loop {
+            if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+                let _ = child.kill();
+                break;
+            }
             match rx.try_recv() {
                 Ok(SessionInput::Data(data)) => {
                     writer.write_all(&data)?;
@@ -977,6 +997,15 @@ impl Telnet {
 #[cfg(test)]
 mod resize_tests {
     use super::*;
+    #[test]
+    fn mosh_startup_has_a_bounded_separate_command_argument() {
+        assert_eq!(mosh_bootstrap_command("").unwrap().as_str(), "mosh-server new -c 256 -l LANG=C.UTF-8");
+        assert!(mosh_bootstrap_command("bad\0command").is_err());
+        assert!(mosh_bootstrap_command(&"x".repeat(16385)).is_err());
+        let command=mosh_bootstrap_command("printf '%s\\n' \"İstanbul\"\nprintf done").unwrap();
+        assert!(command.starts_with("mosh-server new -c 256 -l LANG=C.UTF-8 -- /bin/sh -c '"));
+        assert!(command.ends_with("exec \"${SHELL:-/bin/sh}\" -l'"));
+    }
     #[tokio::test]
     async fn authentication_wait_keeps_latest_size_and_remains_cancellable() {
         let (tx, mut rx) = mpsc::channel(8);

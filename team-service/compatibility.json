@@ -1,0 +1,13 @@
+{
+  "formatVersion": 1,
+  "serviceVersion": "0.4.1",
+  "apiVersion": 1,
+  "minimumClientVersion": "0.4.1",
+  "clientVersions": [
+    "0.4.1"
+  ],
+  "schemaVersion": 64,
+  "minimumUpgradeSchema": 1,
+  "maintenanceProtocol": 1,
+  "automaticDowngrade": false
+}

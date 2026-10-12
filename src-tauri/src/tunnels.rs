@@ -28,6 +28,11 @@ pub async fn start(app: AppHandle, state: Shared, id: String, tunnel: Tunnel) ->
         None
     };
     let ssh = Arc::new(connect_ssh(&app, &state, &id, &tunnel.host_id, remote).await?);
+    start_connected(app,state,id,tunnel,ssh).await
+}
+pub(crate) async fn start_connected(app:AppHandle,state:Shared,id:String,tunnel:Tunnel,ssh:Arc<crate::connections::SshConnection>)->Result<()> {
+    ensure!(["127.0.0.1","::1","localhost"].contains(&tunnel.bind_address.as_str()),"Tunnels bind to loopback only");
+    ensure!(["local","dynamic","remote"].contains(&tunnel.mode.as_str()),"Invalid tunnel mode");
     let task_id = id.clone();
     let task = if tunnel.mode == "remote" {
         let port = ssh

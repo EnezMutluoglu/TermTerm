@@ -1,4 +1,41 @@
 use super::*;
+
+#[tokio::test]
+async fn certificate_signer_uses_requested_rsa_sha2_and_rejects_another_key() {
+    use russh::keys::ssh_key::{certificate, Signature};
+    use russh::Signer;
+    use ssh_encoding::Decode;
+    let key = Arc::new(rsa4096().clone());
+    let ca = random_key(Algorithm::Ed25519);
+    let mut builder =
+        certificate::Builder::new_with_random_nonce(&mut safe_rng(), key.public_key(), 0, u64::MAX)
+            .unwrap();
+    builder.valid_principal("testuser").unwrap();
+    let identity = builder.sign(&ca).unwrap().into();
+    let mut signer = CertificateSigner(key.clone());
+    for hash in [HashAlg::Sha256, HashAlg::Sha512] {
+        let message = b"disposable SSH auth packet";
+        let packet = signer
+            .auth_sign(&identity, Some(hash), message.to_vec())
+            .await
+            .unwrap();
+        assert_eq!(&packet[..message.len()], message);
+        let mut framed = &packet[message.len()..];
+        let encoded = Vec::<u8>::decode(&mut framed).unwrap();
+        assert!(framed.is_empty());
+        let mut bytes = encoded.as_slice();
+        let signature = Signature::decode(&mut bytes).unwrap();
+        assert!(bytes.is_empty());
+        assert_eq!(signature.algorithm(), Algorithm::Rsa { hash: Some(hash) });
+        signature::Verifier::verify(key.public_key(), message, &signature).unwrap();
+        assert!(signature::Verifier::verify(key.public_key(), b"modified", &signature).is_err());
+    }
+    let other = random_key(Algorithm::Ed25519).public_key().clone().into();
+    assert!(signer
+        .auth_sign(&other, Some(HashAlg::Sha256), vec![1])
+        .await
+        .is_err());
+}
 use russh::keys::{
     key::safe_rng,
     ssh_key::{
@@ -153,6 +190,9 @@ impl server::Handler for KeyAuthServer {
             },
         )
     }
+    async fn auth_openssh_certificate(&mut self,user:&str,cert:&russh::keys::Certificate)->Result<server::Auth,Self::Error> {
+        Ok(if user=="fixture" && cert.public_key()==self.authorized.key_data() {server::Auth::Accept} else {server::Auth::reject()})
+    }
 }
 struct Fixture {
     task: tokio::task::JoinHandle<()>,
@@ -237,7 +277,7 @@ async fn real_handshake_uses_saved_ecdsa_and_rsa4096_authenticates() {
         )
         .await
         .unwrap()
-        .unwrap());
+        .unwrap().success());
     }
 }
 
@@ -268,7 +308,7 @@ async fn ed25519_and_ecdsa_user_keys_still_authenticate() {
         assert!(
             authenticate_key(&mut result.unwrap(), "fixture", Arc::new(key))
                 .await
-                .unwrap()
+                .unwrap().success()
         );
     }
 }
@@ -385,7 +425,7 @@ async fn independent_key_formats_authenticate_over_real_ssh() {
         .await
         .unwrap()
         .unwrap();
-        assert!(success, "SSH authentication failed: {name}");
+        assert!(success.success(), "SSH authentication failed: {name}");
     }
 }
 
@@ -401,4 +441,54 @@ fn damaged_pem_and_unsupported_ciphers_fail_without_panicking() {
         assert!(decode_private_key(&damaged, "termterm-disposable-test").is_err());
     }
     assert!(decode_private_key("not a key", "").is_err());
+}
+
+#[test]
+fn second_factor_requires_explicit_partial_success() {
+    let methods=russh::MethodSet::from(&[russh::MethodKind::KeyboardInteractive,russh::MethodKind::Password][..]);
+    let rejected=client::AuthResult::Failure{remaining_methods:methods.clone(),partial_success:false};
+    assert!(!interactive_factor(&rejected));assert!(!password_factor(&rejected));
+    let partial=client::AuthResult::Failure{remaining_methods:methods,partial_success:true};
+    assert!(partial_auth(&partial));assert!(interactive_factor(&partial));assert!(password_factor(&partial));
+    assert!(!interactive_factor(&client::AuthResult::Success));
+}
+#[test]
+fn agent_certificate_selection_does_not_alias_its_plain_key() {
+    use russh::keys::ssh_key::certificate;
+    let key=rsa4096();let ca=random_key(Algorithm::Ed25519);
+    let mut builder=certificate::Builder::new_with_random_nonce(&mut safe_rng(),key.public_key(),0,u64::MAX).unwrap();
+    builder.valid_principal("fixture").unwrap();
+    let cert=builder.sign(&ca).unwrap();
+    let plain=agent_identity_id(&key.public_key().clone().into()).unwrap();
+    let signed=agent_identity_id(&cert.into()).unwrap();
+    assert!(plain.starts_with("SHA256:"));assert!(signed.starts_with("CERT-SHA256:"));assert_ne!(plain,signed);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn real_openssh_agent_signs_without_exporting_private_key() {
+    use std::process::{Command,Stdio};
+    struct Agent(std::process::Child);
+    impl Drop for Agent { fn drop(&mut self){let _=self.0.kill();let _=self.0.wait();} }
+    let dir=tempfile::tempdir().unwrap();let socket=dir.path().join("agent.sock");
+    let _agent=Agent(Command::new("ssh-agent").args(["-D","-a"]).arg(&socket).stdout(Stdio::null()).stderr(Stdio::null()).spawn().expect("Install OpenSSH ssh-agent for this test"));
+    for _ in 0..50 {if socket.exists(){break;}tokio::time::sleep(Duration::from_millis(20)).await;}
+    let key=rsa4096();let file=dir.path().join("key");
+    std::fs::write(&file,key.to_openssh(LineEnding::LF).unwrap().as_bytes()).unwrap();
+    let ca=random_key(Algorithm::Ed25519);
+    let mut builder=russh::keys::ssh_key::certificate::Builder::new_with_random_nonce(&mut safe_rng(),key.public_key(),0,u64::MAX).unwrap();
+    builder.valid_principal("fixture").unwrap();
+    std::fs::write(dir.path().join("key-cert.pub"),builder.sign(&ca).unwrap().to_openssh().unwrap()).unwrap();
+    use std::os::unix::fs::PermissionsExt;std::fs::set_permissions(&file,std::fs::Permissions::from_mode(0o600)).unwrap();
+    assert!(Command::new("ssh-add").arg(&file).env("SSH_AUTH_SOCK",&socket).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status().unwrap().success());
+    let stream=tokio::net::UnixStream::connect(&socket).await.unwrap();
+    let mut agent=russh::keys::agent::client::AgentClient::connect(stream);
+    let keys=agent.request_identities().await.unwrap();assert_eq!(keys.len(),2);
+    assert!(keys.iter().any(|k|matches!(k,russh::keys::agent::AgentIdentity::Certificate{..})));
+    for identity in keys {
+        let (_server,connected)=connect_fixture(key,Some(HashAlg::Sha512),true,false).await;
+        assert!(authenticate_agent_identity(&mut connected.unwrap(),"fixture",&identity,&mut agent).await.unwrap().success());
+    }
+    assert!(Command::new("ssh-add").arg("-d").arg(&file).env("SSH_AUTH_SOCK",&socket).stdout(Stdio::null()).stderr(Stdio::null()).status().unwrap().success());
+    assert!(agent.request_identities().await.unwrap().is_empty());
 }

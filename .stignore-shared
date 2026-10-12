@@ -3,6 +3,8 @@
 node_modules
 /dist
 /src-tauri/target
+/team-service/target
+/team-client/target
 /src-tauri/gen
 /src-tauri/resources/mosh
 /src-tauri/resources/mosh-native
@@ -14,9 +16,21 @@ node_modules
 /artifacts
 (?i)*.ttvault*
 (?i)*.ttbackup
+(?i)*.ttcache*
+(?i)*.ttlogin
+(?i)*.ttpolicy*
+(?i)*.ttrecovery
 (?i)*.ttteam*
 *.log
 /.git
 /.stversions
 __pycache__
 *.pyc
+
+# Password-encrypted Team migration archives contain private source records.
+*.ttmigration
+
+# Private database upgrade backups
+*.dump
+
+*.ttsettings*

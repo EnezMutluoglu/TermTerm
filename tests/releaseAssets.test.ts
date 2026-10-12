@@ -19,3 +19,13 @@ it('does not advertise unbuilt Mac packages when macOS is deferred',()=>{
   expect(plan.required.some((name:string)=>/macos|\.dmg|\.app\./.test(name))).toBe(false);
   for(const name of Object.values(plan.platforms)) expect(plan.required).toContain(`${name}.sig`);
 });
+
+it('requires Team service and operator guides starting with 0.4.1',()=>{
+  for(const version of ['0.4.1','0.4.2','0.5.0','1.0.0']) {
+    const plan=releaseAssets(version);
+    expect(plan.required).toContain(`TermTerm-Team-Service-${version}-linux-x64.tar.gz`);
+    for(const guide of ['TEAM_SERVICE_INSTALL_TR.md','TEAM_041_GUIDE_TR.md','TEAM_UPGRADES_TR.md','SOURCE_FINGERPRINT.json']) expect(plan.required).toContain(guide);
+    expect(new Set(plan.required).size).toBe(plan.required.length);
+  }
+  expect(releaseAssets('0.4.0').required.some((name:string)=>name.includes('Team-Service'))).toBe(false);
+});

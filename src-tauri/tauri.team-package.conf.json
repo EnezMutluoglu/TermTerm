@@ -1,0 +1,9 @@
+{
+  "mainBinaryName": "termterm-team-dev",
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": false,
+    "shortDescription": "TermTerm Team development evaluation"
+  },
+  "plugins": { "updater": { "endpoints": [] } }
+}

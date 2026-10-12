@@ -507,7 +507,7 @@ test("host SFTP opens the target; file actions use context menus with exact path
   });
   await folder(page, "Production");
   await menu(page, "API", "Open SFTP");
-  await expect(page.getByLabel("Right connection")).toHaveValue("a");
+  await expect(page.getByRole("button", { name: "Right connection" })).toContainText("API");
   await expect(page.getByLabel("Right path")).toHaveValue("/srv/demo");
   const file = page
     .locator(".file-pane")

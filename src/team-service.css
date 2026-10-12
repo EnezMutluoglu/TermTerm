@@ -1,0 +1,755 @@
+.team-service {
+  height: 100vh;
+  overflow: auto;
+  background: #161b22;
+  color: #e6edf3;
+  font-size: 14px;
+}
+.team-service
+  :is(
+    .ts-dialog,
+    .ts-login,
+    .ts-context,
+    .ts-actions,
+    .ts-toolbar,
+    .ts-admin-nav,
+    .ts-cards,
+    .ts-breadcrumb
+  )
+  button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #303b49;
+  border-radius: 9px;
+  padding: 9px 13px;
+  background: #202935;
+  color: #dce6f1;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.team-service
+  :is(
+    .ts-dialog,
+    .ts-login,
+    .ts-context,
+    .ts-actions,
+    .ts-toolbar,
+    .ts-admin-nav,
+    .ts-cards,
+    .ts-breadcrumb
+  )
+  button:hover:not(:disabled) {
+  background: #2b3848;
+  border-color: #536d89;
+}
+.team-service
+  :is(
+    .ts-dialog,
+    .ts-login,
+    .ts-context,
+    .ts-actions,
+    .ts-toolbar,
+    .ts-admin-nav,
+    .ts-cards,
+    .ts-breadcrumb
+  )
+  button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.team-service
+  :is(
+    .ts-dialog,
+    .ts-login,
+    .ts-context,
+    .ts-actions,
+    .ts-toolbar,
+    .ts-admin-nav,
+    .ts-cards,
+    .ts-breadcrumb
+  )
+  button:focus-visible,
+.team-service input:focus-visible,
+.team-service select:focus-visible {
+  outline: 2px solid #75b5fa;
+  outline-offset: 3px;
+}
+.team-service .ts-primary {
+  background: #325b85;
+  border-color: #4f7fae;
+  color: #fff;
+}
+.team-service p,
+.team-service small {
+  color: #a8b7c9;
+  line-height: 1.6;
+}
+.team-service :is(.ts-dialog, .ts-login) label {
+  display: grid;
+  gap: 7px;
+  margin: 14px 0;
+  font-size: 13px;
+}
+.team-service :is(.ts-dialog, .ts-login) input,
+.team-service :is(.ts-dialog, .ts-login) select,
+.team-service :is(.ts-dialog, .ts-login) textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #344153;
+  border-radius: 8px;
+  background: #101720;
+  color: #e6edf3;
+  padding: 10px 12px;
+  font: inherit;
+}
+.team-service :is(.ts-dialog, .ts-login) textarea {
+  resize: vertical;
+}
+.team-service h1 {
+  font-size: 23px;
+  line-height: 1.3;
+  margin: 0;
+}
+.team-service h2 {
+  font-size: 18px;
+}
+.team-service form > .ts-primary {
+  margin-top: 14px;
+  min-width: 150px;
+}
+.ts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 26px;
+  border-bottom: 1px solid #2c3744;
+}
+.ts-header > div {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.ts-chip {
+  font-size: 11px;
+  color: #9ac2e8;
+  background: #24384c;
+  border-radius: 20px;
+  padding: 5px 9px;
+}
+.ts-message {
+  margin: 12px 26px;
+  padding: 12px 16px;
+  border-radius: 9px;
+  background: #21334a;
+  color: #d9e9f8;
+}
+.ts-journal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ts-journal button {
+  margin-left: auto;
+  padding: 6px 12px;
+  border: 1px solid #52677f;
+  border-radius: 7px;
+  background: #2b4058;
+  color: #e6edf3;
+}
+.ts-journal button:hover:not(:disabled) {
+  background: #344e6b;
+}
+.ts-error {
+  background: #462d31;
+  color: #ffced4;
+}
+.ts-login {
+  max-width: 470px;
+  margin: 44px auto;
+  padding: 30px;
+  background: #1c2530;
+  border: 1px solid #2c3745;
+  border-radius: 16px;
+}
+.ts-login small {
+  display: block;
+  margin-top: 24px;
+}
+.team-service .ts-link {
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  margin-top: 20px;
+  padding-left: 0;
+}
+.ts-workspace {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  min-height: calc(100vh - 78px);
+}
+.ts-workspace > aside {
+  padding: 26px 18px;
+  background: #19212b;
+  border-right: 1px solid #2b3643;
+}
+.ts-workspace > aside > button {
+  width: 100%;
+  justify-content: flex-start;
+  margin: 5px 0;
+  background: transparent;
+  border-color: transparent;
+}
+.ts-workspace > aside > button.active {
+  background: #263b50;
+  border-color: #385574;
+}
+.ts-aside-note {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #93a3b6;
+  margin: 32px 8px;
+}
+.ts-workspace > main {
+  padding: 26px;
+  min-width: 0;
+}
+.ts-toolbar,
+.ts-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.ts-toolbar h1 {
+  margin-right: auto;
+}
+.ts-progress {
+  color: #a2c7ed;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.ts-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+  gap: 15px;
+  align-content: start;
+}
+.ts-cards > button,
+.ts-cards > article {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 120px;
+  padding: 20px;
+  border: 1px solid #303d4b;
+  border-radius: 12px;
+  background: #1b2632;
+  min-width: 0;
+}
+.ts-cards strong,
+.ts-cards span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ts-cards span {
+  font-size: 12px;
+  color: #9fb1c4;
+}
+.ts-cards svg {
+  color: #89b1d9;
+}
+.ts-cards > .selected {
+  border-color: #74a2d1;
+  background: #26384c;
+}
+.ts-empty {
+  grid-column: 1/-1;
+  padding: 35px;
+  background: #1b2530;
+  border-radius: 12px;
+}
+.ts-breadcrumb {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.ts-breadcrumb button {
+  border: 0;
+  background: transparent;
+  padding: 3px 0;
+}
+.ts-content {
+  display: flex;
+  gap: 22px;
+}
+.ts-content > .ts-cards {
+  flex: 1;
+}
+.ts-details {
+  width: 260px;
+  background: #1b2632;
+  padding: 20px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+.ts-details > button {
+  float: right;
+}
+.ts-details dt {
+  font-size: 12px;
+  color: #94a9bf;
+  margin-top: 18px;
+}
+.ts-details dd {
+  margin: 5px 0;
+  word-break: break-word;
+}
+.ts-details small {
+  display: block;
+  margin-top: 25px;
+}
+.team-service table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 16px 0;
+}
+.team-service td,
+.team-service th {
+  text-align: left;
+  padding: 12px 10px;
+  border-bottom: 1px solid #303d4b;
+  vertical-align: middle;
+}
+.team-service th {
+  color: #9fb1c4;
+  font-weight: 500;
+}
+.ts-context {
+  position: fixed;
+  z-index: 80;
+  display: grid;
+  min-width: 200px;
+  padding: 6px;
+  background: #243140;
+  border: 1px solid #42566d;
+  box-shadow: 0 12px 36px #0008;
+  border-radius: 10px;
+}
+.ts-context button {
+  background: transparent;
+  border: 0;
+  justify-content: flex-start;
+}
+.ts-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: #080d16ac;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 25px;
+  backdrop-filter: blur(3px);
+}
+.team-service .ts-running-logout {
+  position: fixed;
+  z-index: 110;
+  right: 24px;
+  bottom: 20px;
+  box-shadow: 0 5px 20px #0008;
+  background: #293c52;
+}
+.ts-dialog {
+  position: relative;
+  background: #202b38;
+  border: 1px solid #3c4c60;
+  border-radius: 15px;
+  padding: 28px;
+  width: 460px;
+  max-height: 88vh;
+  overflow: auto;
+  box-shadow: 0 18px 65px #0008;
+}
+.ts-dialog.ts-wide {
+  width: 720px;
+}
+.ts-dialog > button {
+  margin: 12px 8px 0 0;
+}
+.ts-dialog .ts-close {
+  position: absolute;
+  right: 12px;
+  top: 8px;
+  background: transparent;
+  border: 0;
+}
+.ts-permissions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 1100px) {
+  .ts-workspace {
+    grid-template-columns: 195px 1fr;
+  }
+  .ts-content {
+    flex-direction: column;
+  }
+  .ts-details {
+    width: auto;
+  }
+  .ts-workspace > main {
+    padding: 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .team-service
+    :is(
+      .ts-dialog,
+      .ts-login,
+      .ts-context,
+      .ts-actions,
+      .ts-toolbar,
+      .ts-admin-nav,
+      .ts-cards,
+      .ts-breadcrumb
+    )
+    button {
+    transition: none;
+  }
+}
+.team-service .ts-decision-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 14px;
+}
+.team-service .ts-actions {
+  display: flex;
+  gap: 12px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+.team-service .ts-decisions td {
+  max-width: 240px;
+  overflow-wrap: anywhere;
+}
+.team-service .ts-terminals nav {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 8px 16px;
+}
+.team-service .ts-terminals nav > div {
+  display: flex;
+  flex-shrink: 0;
+}
+.team-service .ts-terminals nav .active {
+  border-bottom: 2px solid #75b5fa;
+}
+.team-service .ts-terminal-panel {
+  height: calc(100vh - 134px);
+  min-height: 250px;
+}
+.team-service .ts-terminal-panel > .terminal-pane {
+  flex: 1;
+  min-width: 0;
+}
+.team-service .terminal-header label {
+  display: flex;
+  margin: 0;
+}
+.team-service .terminal-header input[type="checkbox"] {
+  width: auto;
+}
+.team-service .terminal-stats-toggle {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  white-space: nowrap;
+}
+.team-service .terminal-stats-toggle input[type="checkbox"] {
+  width: auto;
+  padding: 0;
+}
+.team-service .ts-history {
+  width: min(900px, 94vw);
+}
+.team-service .ts-history-table {
+  overflow: auto;
+  max-height: 42vh;
+}
+.team-service .ts-history-table td {
+  max-width: 300px;
+  overflow-wrap: anywhere;
+}
+.team-service .ts-history-table tr[data-changed="true"] {
+  background: #58a6ff12;
+}
+.team-service .ts-history-return {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.team-service.ts-desktop {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+}
+.ts-desktop .ts-tabs-mount {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+}
+.ts-desktop .ts-tabs-mount .top-tabs {
+  width: 100%;
+}
+.ts-desktop .ts-terminals {
+  display: contents;
+}
+.ts-desktop .ts-workspace {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+.ts-desktop .ts-workspace > aside.sidebar {
+  width: 216px;
+  padding: 17px 10px 0;
+  background: var(--bg);
+  border-color: var(--border);
+}
+.ts-desktop .ts-workspace > main {
+  padding: 0;
+  min-height: 0;
+}
+.ts-desktop .ts-workspace .vault-selector {
+  margin: 0 0 14px;
+  padding: 0 6px;
+  background: none;
+  border: 0;
+}
+.ts-desktop .ts-workspace .vault-selector span {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+.ts-desktop .ts-workspace .vault-selector strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ts-desktop .sidebar-bottom {
+  margin-top: auto;
+  padding-bottom: 14px;
+}
+.ts-desktop .sidebar-bottom > small {
+  display: block;
+  padding: 8px 12px;
+  color: var(--muted);
+}
+.ts-desktop .ts-workspace .main-nav button {
+  margin: 0;
+}
+.ts-desktop .ts-admin-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.ts-desktop .ts-admin-nav button.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+.ts-desktop .ts-terminal-mount {
+  height: 100%;
+  flex-direction: column;
+  min-height: 0;
+}
+.ts-desktop .ts-terminal-mount .ts-terminal-panel {
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+}
+.ts-desktop .team-hosts {
+  flex: 1;
+  min-width: 0;
+}
+.ts-desktop .team-hosts .card-title h3 {
+  margin: 0;
+}
+.ts-desktop .team-hosts .group-main {
+  text-align: left;
+}
+.ts-desktop .ts-details {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.ts-desktop .ts-browse {
+  padding: 24px 32px;
+}
+.ts-desktop .ts-browse[data-view="sftp"] {
+  padding: 0;
+}
+.team-service .ts-dialog .ts-check {
+  display: flex;
+  align-items: center;
+}
+.team-service .ts-dialog .ts-check input {
+  width: auto;
+}
+
+.ts-dialog input[type="checkbox"] {
+  width: auto;
+}
+
+.ts-documents {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.ts-document-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+.ts-document-list > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 16px;
+  border-radius: 10px;
+}
+.ts-document-list > button span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ts-document-list > button.active {
+  border-color: var(--accent);
+}
+.ts-document-details {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.ts-documents pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 240px;
+  overflow: auto;
+  background: var(--bg);
+  padding: 12px;
+}
+.ts-document-editor {
+  max-height: 85vh;
+  overflow: auto;
+  width: min(760px, 90vw);
+}
+.ts-document-editor textarea {
+  min-height: 100px;
+  font-family: monospace;
+}
+.ts-document-editor fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 10px 0;
+}
+.ts-desktop .ts-terminal-grid {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: repeat(var(--team-cols, 1), minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 4px;
+}
+.ts-desktop .ts-terminal-grid .ts-terminal-panel {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ts-documents > .search-field {
+  min-height: 38px;
+  padding: 0 12px;
+  max-width: 620px;
+}
+.ts-document-list > button {
+  border: 1px solid var(--border);
+  background: #1c2530;
+}
+.ts-document-list > button:hover {
+  background: #253343;
+}
+.ts-document-details > button {
+  padding: 9px 14px;
+  border: 1px solid #42698e;
+  background: #233c55;
+  border-radius: 8px;
+}
+.ts-document-details > button:disabled {
+  opacity: 0.5;
+}
+
+.ts-migration { padding: 20px; max-width: 1100px; overflow: auto; }
+.ts-migration form { display: grid; gap: 12px; max-width: 640px; margin: 18px 0; }
+.ts-migration label { display: grid; gap: 6px; }
+.ts-migration-file { display: flex; gap: 8px; }
+.ts-migration-file input { flex: 1; min-width: 0; }
+.ts-migration small { display: block; overflow-wrap: anywhere; color: var(--muted); }
+.ts-migration table { width: 100%; margin: 12px 0; border-collapse: collapse; }
+.ts-migration th, .ts-migration td { padding: 8px; text-align: left; border-bottom: 1px solid var(--border); }
+.ts-migration [role="alert"] { color: #f08888; }
+
+.team-identity-layout { display:flex; gap:20px; align-items:flex-start; }
+.team-identity-layout > .records-grid { flex:1; min-width:0; }
+.team-identity-details { width:300px; flex:none; padding:16px; background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+.team-identity-details header { display:flex; align-items:center; gap:8px; }
+.team-identity-details h2 { flex:1; min-width:0; overflow-wrap:anywhere; font-size:16px; }
+.team-identity-details dd { margin:0; }
+.team-identities .toolbar-right { flex-wrap:wrap; }
+@media (max-width:1100px) {
+  .team-identity-layout { flex-direction:column-reverse; }
+  .team-identity-layout > .records-grid, .team-identity-details { width:100%; }
+}
+
+.ts-desktop .ts-terminal-tools { display:flex; flex:none; flex-wrap:wrap; gap:8px; padding:8px 12px; border-bottom:1px solid var(--border); }
+.ts-terminal-tools button { padding:6px 10px; border-radius:8px; }
+.ts-terminal-tools button[aria-pressed="true"] { background:var(--accent-bg); color:var(--accent); }
+.ts-terminal-tools [role="status"] { color:var(--warning); align-self:center; }
+.ts-desktop .ts-terminal-grid { flex:1; height:auto; }
+
+.team-identities .toolbar-right select { width:auto; min-width:150px; }
+
+.ts-dialog .ts-proxy { border: 1px solid #3c4c60; border-radius: 10px; padding: 12px; margin: 0; min-width: 0; }
+.ts-proxy legend { color: #b8c7d8; padding: 0 5px; }
+
+.ts-host-form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ts-host-form > * { grid-column: 1 / -1; }
+.team-service .ts-host-form label { margin: 0; }
+.ts-host-form > label:nth-of-type(3), .ts-host-form > label:nth-of-type(4) { grid-column: auto; }
+.ts-host-form .ts-proxy { display: grid; gap: 12px; }
+.team-service .ts-host-form .ts-proxy-auth { display: flex; align-items: center; gap: 8px; }
+.team-service .ts-host-form .ts-proxy-auth input { width: 16px; height: 16px; padding: 0; flex-shrink: 0; appearance: auto; }
+.ts-host-form > .ts-primary { justify-self: start; }

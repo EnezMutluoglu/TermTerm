@@ -35,7 +35,6 @@ import {
   newEntity,
   type SyncProfile,
   type Vault,
-  type Entity,
 } from "./types";
 
 export default function Settings({

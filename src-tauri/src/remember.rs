@@ -101,7 +101,11 @@ pub fn save(root: &Path, vault: &Path, password: &str, enabled: bool) -> Result<
         return Ok(());
     }
     std::fs::create_dir_all(path.parent().unwrap())?;
-    std::fs::write(path, &*transform(password.as_bytes(), true)?)?;
+    use std::io::Write;
+    let mut temp = tempfile::NamedTempFile::new_in(path.parent().unwrap())?;
+    temp.write_all(&transform(password.as_bytes(), true)?)?;
+    temp.as_file().sync_all()?;
+    temp.persist(path)?;
     Ok(())
 }
 #[cfg(windows)]

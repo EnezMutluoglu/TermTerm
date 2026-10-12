@@ -1,0 +1,29 @@
+[Unit]
+Description=TermTerm Team API (development qualification pending)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=termterm-team
+Group=termterm-team
+ExecStart=/opt/termterm-team/termterm-team-service /etc/termterm-team/service.json
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

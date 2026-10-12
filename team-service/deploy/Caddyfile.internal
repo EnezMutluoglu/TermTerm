@@ -1,0 +1,15 @@
+{
+    admin localhost:2019
+}
+{$TERMTERM_DOMAIN} {
+    tls internal
+    reverse_proxy 127.0.0.1:41841
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        Cache-Control "no-store"
+    }
+    request_body {
+        max_size 256KB
+    }
+}

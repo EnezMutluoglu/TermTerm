@@ -2,7 +2,6 @@ use crate::{connections, state::Shared};
 use anyhow::{ensure, Result};
 use russh::keys::{
     agent::client::{AgentClient, AgentStream},
-    HashAlg,
 };
 use serde_json::{json, Value};
 use tauri::AppHandle;
@@ -28,10 +27,12 @@ pub async fn agent(kind: &str) -> Result<AgentClient<Box<dyn AgentStream + Send 
 }
 pub async fn identities(kind: &str) -> Result<Vec<Value>> {
     let mut agent = agent(kind).await?;
-    Ok(agent.request_identities().await?.into_iter().map(|identity| {
+    let identities=tokio::time::timeout(std::time::Duration::from_secs(10),agent.request_identities()).await.map_err(|_|anyhow::anyhow!("SSH agent did not respond"))??;
+    identities.into_iter().map(|identity| {
         let public=identity.public_key();
-        json!({"agent":kind,"agentKey":public.fingerprint(HashAlg::Sha256).to_string(),"publicKey":public.to_openssh().unwrap_or_default(),"label":identity.comment(),"portable":false})
-    }).collect())
+        Ok(json!({"agent":kind,"agentKey":crate::ssh_compat::agent_identity_id(&identity)?,"publicKey":public.to_openssh().unwrap_or_default(),"label":identity.comment(),"certificate":matches!(identity,russh::keys::agent::AgentIdentity::Certificate{..}),"portable":false}))
+    }).collect()
+
 }
 pub fn known_address_matches(saved: &str, address: &str) -> bool {
     if !saved.starts_with("|1|") {

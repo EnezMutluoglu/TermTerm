@@ -31,6 +31,8 @@ import ContextMenu, {
   type MenuAction,
 } from "./ContextMenu";
 import { copyText } from "./clipboard";
+import SftpHostPicker from "./SftpHostPicker";
+import "./sftp-host-picker.css";
 type Pane = {
   endpoint: Endpoint;
   entries: FileEntry[];
@@ -71,12 +73,14 @@ function Sftp({
   notify,
   visible = true,
   openRequest,
+  connectRemote,
 }: {
   visible?: boolean;
   records: Entity[];
   home: string;
   notify: (s: string) => void;
   openRequest?: { hostId: string; key: number } | null;
+  connectRemote?: (id: string, hostId: string) => Promise<string>;
 }) {
   const [panes, setPanes] = useState<Pane[]>([
     {
@@ -96,6 +100,7 @@ function Sftp({
   ]);
   const [paths, setPaths] = useState([home, ""]);
   const [hosts, setHosts] = useState(["local", ""]);
+  const [recentHosts, setRecentHosts] = useState<string[]>([]);
   const [queue, setQueue] = useState<Transfer[]>([]);
   const [edits, setEdits] = useState<
     { id: string; path: string; name: string }[]
@@ -131,12 +136,17 @@ function Sftp({
   visibleRef.current = visible;
   const paneRef = useRef(panes);
   paneRef.current = panes;
-  const patch = (i: number, p: Partial<Pane>) =>
-    setPanes((a) => a.map((old, n) => (n === i ? { ...old, ...p } : old)));
+  const patch = (i: number, p: Partial<Pane>) => {
+    paneRef.current = paneRef.current.map((old, n) =>
+      n === i ? { ...old, ...p } : old,
+    );
+    setPanes(paneRef.current);
+  };
   async function load(i: number, endpoint = paneRef.current[i].endpoint) {
     if (!endpoint.connection || !live.current) return;
     const epoch = ++epochs.current[i];
-    patch(i, { loading: true, error: "", endpoint, selected: [] });
+    patch(i, { loading: true, error: "", endpoint, entries: [], selected: [] });
+    setContext(null);
     setPaths((a) => a.map((p, n) => (n === i ? endpoint.path : p)));
     try {
       const entries = await call<FileEntry[]>("file_list", { endpoint });
@@ -173,6 +183,32 @@ function Sftp({
             () => {},
           );
     };
+  }, []);
+  useEffect(() => {
+    if (!desktop) return;
+    const un = listen<{ id: string }>("sftp-closed", ({ payload }) => {
+      if (!live.current || !payload.id || payload.id === "local") return;
+      const message = tr("SFTP connection closed. Reconnect to continue.");
+      paneRef.current.forEach((p, i) => {
+        if (p.endpoint.connection !== payload.id) return;
+        ++epochs.current[i];
+        patch(i, {endpoint:{connection:"",path:""},entries:[],selected:[],loading:false,error:message});
+        setPaths(values => values.map((value,n) => n === i ? "" : value));
+        setContext(null);
+        setAction(null);
+      });
+      for (const transfer of queueRef.current) {
+        if ((transfer.source.connection === payload.id || transfer.dest.connection === payload.id) &&
+            !["done","error","cancelled"].includes(transfer.state)) {
+          cancelled.current.add(transfer.id);
+          if (active.current.has(transfer.id))
+            void call("transfer_control",{id:transfer.id,action:"cancel"}).catch(()=>{});
+        }
+      }
+      setQueue(rows => rows.map(row => cancelled.current.has(row.id) && !["done","error","cancelled"].includes(row.state)
+        ? {...row,state:"cancelled",error:message} : row));
+    });
+    return () => { void un.then(stop => stop()); };
   }, []);
   useEffect(() => {
     if (!desktop) return;
@@ -230,6 +266,16 @@ function Sftp({
     }
     const epoch = ++epochs.current[i];
     setHosts((a) => a.map((h, n) => (i === n ? hostId : h)));
+    // Clear the old endpoint immediately. A failed or pending new connection
+    // must never leave old files/actions targeting a disconnected server.
+    patch(i, {
+      endpoint: { connection: "", path: "" },
+      entries: [],
+      selected: [],
+      error: "",
+      loading: false,
+    });
+    setPaths((a) => a.map((p, n) => (i === n ? "" : p)));
     if (previous && previous !== "local")
       void call("sftp_disconnect", { id: previous }).catch((e) =>
         notify(errorText(e)),
@@ -245,11 +291,16 @@ function Sftp({
     patch(i, { loading: true, error: "" });
     const id = crypto.randomUUID();
     try {
-      const path = await call<string>("sftp_connect", { id, hostId });
+      const path = connectRemote
+        ? await connectRemote(id, hostId)
+        : await call<string>("sftp_connect", { id, hostId });
       if (!live.current || epochs.current[i] !== epoch) {
         await call("sftp_disconnect", { id });
         return;
       }
+      setRecentHosts((old) =>
+        [hostId, ...old.filter((id) => id !== hostId)].slice(0, 50),
+      );
       await load(i, { connection: id, path });
     } catch (e) {
       if (live.current && epochs.current[i] === epoch)
@@ -328,6 +379,10 @@ function Sftp({
       notify(tr("Connect the destination panel first."));
       return;
     }
+    if (source.loading || source.error || dest.loading || dest.error) {
+      notify(tr("Wait for both directories to load successfully."));
+      return;
+    }
     const selected =
       entries ?? source.entries.filter((e) => source.selected.includes(e.path));
     const transfers: Transfer[] = selected
@@ -359,9 +414,14 @@ function Sftp({
       await load(1 - i);
   }
   dropRef.current = async (i, paths) => {
-    const endpoint = { ...paneRef.current[i].endpoint };
+    const pane = paneRef.current[i];
+    const endpoint = { ...pane.endpoint };
     if (!endpoint.connection) {
       notify(tr("Connect the destination panel first."));
+      return;
+    }
+    if (pane.loading || pane.error) {
+      notify(tr("Wait for both directories to load successfully."));
       return;
     }
     const transfers: Transfer[] = paths.map((path) => ({
@@ -399,8 +459,10 @@ function Sftp({
     }
     actionBusy.current = true;
     setActionPending(true);
-    const pane = panes[action.pane];
+    const pane = paneRef.current[action.pane];
     try {
+      if (!pane.endpoint.connection || pane.loading || pane.error)
+        throw Error(tr("Wait for both directories to load successfully."));
       if (
         action.endpoint &&
         (pane.endpoint.connection !== action.endpoint.connection ||
@@ -482,7 +544,7 @@ function Sftp({
     e.preventDefault();
     e.stopPropagation();
     const pane = paneRef.current[i];
-    if (!pane.endpoint.connection || pane.loading) return;
+    if (!pane.endpoint.connection || pane.loading || pane.error) return;
     const selected = entry
       ? pane.selected.includes(entry.path)
         ? pane.selected
@@ -533,7 +595,10 @@ function Sftp({
         id: "transfer",
         label: tr("Copy to target directory"),
         icon: i ? <ArrowLeft size={15} /> : <ArrowRight size={15} />,
-        disabled: !paneRef.current[1 - i].endpoint.connection,
+        disabled:
+          !paneRef.current[1 - i].endpoint.connection ||
+          paneRef.current[1 - i].loading ||
+          !!paneRef.current[1 - i].error,
         run: () => transfer(i, entries),
       });
       actions.push({
@@ -698,25 +763,14 @@ function Sftp({
               ) : (
                 <Server size={17} />
               )}
-              <select
-                aria-label={i ? tr("Right connection") : tr("Left connection")}
+              <SftpHostPicker
+                label={i ? tr("Right connection") : tr("Left connection")}
                 value={hosts[i]}
-                onChange={(e) => void connect(i, e.target.value)}
-              >
-                <option value="">{tr("Select a connection…")}</option>
-                <option value="local">{tr("Local computer")}</option>
-                {records
-                  .filter(
-                    (r) =>
-                      r.kind === "host" &&
-                      (!r.data.protocol || r.data.protocol === "ssh"),
-                  )
-                  .map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.data.label}
-                    </option>
-                  ))}
-              </select>
+                records={records}
+                recent={recentHosts}
+                visible={visible}
+                onSelect={(id) => void connect(i, id)}
+              />
               <button
                 className="icon-btn"
                 title={tr("Refresh directory")}
@@ -786,7 +840,7 @@ function Sftp({
             <div className="file-actions">
               <button
                 className="text-btn"
-                disabled={!p.endpoint.connection}
+                disabled={!p.endpoint.connection || p.loading || !!p.error}
                 onClick={() => {
                   setAction({
                     pane: i,

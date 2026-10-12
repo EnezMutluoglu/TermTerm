@@ -41,7 +41,7 @@ fn approved_download(version: &str, url: &url::Url, raw: &Value) -> bool {
 }
 
 #[tauri::command]
-pub async fn update_check(app: AppHandle, state: State<'_, UpdateState>) -> Result<Value, String> {
+pub async fn update_check(app: AppHandle, state: State<'_, UpdateState>, minimum_version: Option<String>) -> Result<Value, String> {
     if channel() != "stable" {
         return Err("Development builds do not receive stable updates.".into());
     }
@@ -67,6 +67,11 @@ pub async fn update_check(app: AppHandle, state: State<'_, UpdateState>) -> Resu
                 );
             }
             let result = json!({"available":true,"version":update.version,"notes":update.body});
+            if let Some(minimum) = &minimum_version {
+                if !termterm_team_client::compatibility::satisfies_minimum(&update.version, minimum).map_err(|e|e.to_string())? {
+                    return Err("Team için gereken sürüm onaylı güncelleme kaynağında henüz yok. Yöneticinizle iletişime geçin.".into());
+                }
+            }
             *state.pending.lock().map_err(|_| "Update lock")? = Some(update);
             Ok(result)
         }
@@ -80,6 +85,7 @@ pub async fn update_install(
     updates: State<'_, UpdateState>,
     state: State<'_, Shared>,
     version: String,
+    minimum_version: Option<String>,
 ) -> Result<(), String> {
     if channel() != "stable" {
         return Err("Development builds cannot install updates.".into());
@@ -103,6 +109,11 @@ pub async fn update_install(
         .ok_or("Check for updates first")?;
     if update.version != version {
         return Err("The selected update has changed. Check again.".into());
+    }
+    if let Some(minimum) = &minimum_version {
+        if !termterm_team_client::compatibility::satisfies_minimum(&update.version, minimum).map_err(|e|e.to_string())? {
+            return Err("Seçilen güncelleme Team için gereken asgari sürümü karşılamıyor.".into());
+        }
     }
     if !state
         .operations
@@ -152,6 +163,10 @@ pub async fn update_install(
         return Err("An operation started during download. Finish it and retry.".into());
     }
     crate::commands::close_connections(&state).await?;
+    // Also wake Team connection watchers before installing/restarting. This
+    // drops only session state, never the persistent encrypted offline queue.
+    use tauri::Manager;
+    app.state::<termterm_team_client::desktop::DesktopState>().logout().map_err(|e|e.to_string())?;
     *state.vault.lock().map_err(|_| "Vault lock")? = None;
     let _ = app.emit("update-progress", json!({"phase":"installing"}));
     let result = tauri::async_runtime::spawn_blocking(move || update.install(bytes))

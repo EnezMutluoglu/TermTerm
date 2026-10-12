@@ -1,0 +1,11 @@
+{
+  "listen": "127.0.0.1:41841",
+  "database": {
+    "host": "postgres.company.example",
+    "port": 5432,
+    "database": "termterm_team",
+    "username": "termterm_team_service",
+    "password": "REPLACE_IN_PRIVATE_CONFIG",
+    "caPath": "/etc/termterm-team/postgres-ca.crt"
+  }
+}

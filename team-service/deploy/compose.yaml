@@ -1,0 +1,28 @@
+# Existing TLS PostgreSQL. Linux host networking keeps upstream HTTP loopback-only.
+services:
+  team:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    network_mode: host
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    volumes:
+      - ${TERMTERM_CONFIG_DIR:?Set private config directory}:/etc/termterm-team:ro
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+  https:
+    image: caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
+    network_mode: host
+    environment:
+      TERMTERM_DOMAIN: ${TERMTERM_DOMAIN:?Set the HTTPS DNS name}
+    volumes:
+      - ${TERMTERM_CADDY_FILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+volumes:
+  caddy_data:
+  caddy_config:

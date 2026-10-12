@@ -1,4 +1,4 @@
-param()
+param([switch]$SkipBuild)
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
 Set-Location -LiteralPath $project
@@ -11,10 +11,12 @@ if ($config.identifier -ne 'local.termterm.desktop.teamdev' -or $config.bundle.a
 $env:PATH = "$env:USERPROFILE/.cargo/bin;$env:PATH"
 $env:TERMTERM_RELEASE_CHANNEL = 'development'
 Remove-Item Env:VITE_E2E -ErrorAction SilentlyContinue
-pnpm.cmd team:build
-if ($LASTEXITCODE -ne 0) { throw 'Development application build failed.' }
+if (!$SkipBuild) {
+  pnpm.cmd exec tauri build --bundles nsis --config src-tauri/tauri.team-dev.conf.json --config src-tauri/tauri.team-package.conf.json
+  if ($LASTEXITCODE -ne 0) { throw 'Development application build failed.' }
+}
 $target = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { Join-Path $project 'src-tauri/target' }
-$binary = Join-Path $target 'debug/termterm.exe'
+$binary = Join-Path $target 'release/termterm-team-dev.exe'
 if (!(Test-Path -LiteralPath $binary)) { throw 'Development executable was not produced.' }
 $dependencies = cargo tree --manifest-path src-tauri/Cargo.toml --edges normal --prefix none
 if ($LASTEXITCODE -ne 0 -or ($dependencies -match 'tauri-plugin-wdio')) { throw 'A test driver must not be in the development package.' }
@@ -23,6 +25,7 @@ if (Get-ChildItem -LiteralPath 'dist/assets' -Filter '*.js' | Select-String -Pat
 }
 $output = Join-Path $project "artifacts/team-$version"
 $portable = Join-Path $output 'TermTerm-Team-Dev-windows-x64'
+if (Test-Path -LiteralPath $portable) { throw 'Portable staging directory exists; inspect it before replacing a previous delivery.' }
 New-Item -ItemType Directory -Force -Path $portable | Out-Null
 Copy-Item -LiteralPath $binary -Destination (Join-Path $portable 'TermTerm-Team-Dev.exe') -Force
 foreach ($pair in @(@('src-tauri/resources/mosh', 'mosh'), @('docs/licenses', 'licenses'))) {
@@ -31,7 +34,7 @@ foreach ($pair in @(@('src-tauri/resources/mosh', 'mosh'), @('docs/licenses', 'l
   New-Item -ItemType Directory -Force -Path $destination | Out-Null
   Get-ChildItem -LiteralPath $source -Force | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $destination -Recurse -Force }
 }
-foreach ($file in @('TEAM_GUIDE_TR.md', 'VALIDATION_TEAM_0.4.0-dev.1.md', 'THIRD_PARTY.md')) {
+foreach ($file in @('TEAM_041_GUIDE_TR.md', 'TEAM_041_STATUS.md', 'TEAM_041_RELEASE_CHECKLIST.md', 'TEAM_SERVICE_INSTALL_TR.md', 'TEAM_UPGRADES_TR.md', 'THIRD_PARTY.md')) {
   Copy-Item -LiteralPath (Join-Path $project "docs/$file") -Destination $portable -Force
 }
 $webview = Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'tauri') -Filter '*WebView2*X64*.exe' -Recurse -File |
@@ -47,19 +50,23 @@ Klasörün tamamını çıkarın, TermTerm-Team-Dev.exe dosyasını açın.
 WebView2 bulunmayan Windows'ta prerequisites içindeki çevrimdışı kurucuyu çalıştırın.
 Mosh ve licenses klasörlerini executable yanında tutun.
 
-Team hesabı için PostgreSQL, TLS CA ve şirket profili gereklidir.
-Bu bilgisayardaki özel test giriş bilgileri kaynak projenin .lab/TEAM_DEMO_LOCAL.txt dosyasındadır.
+Team hesabı için HTTPS Team Service adresi, takım kimliği ve gerekiyorsa public şirket CA sertifikası gerekir.
+Masaüstüne PostgreSQL kullanıcı adı veya parolası verilmez. Hesabınızı takım lideri oluşturur.
 Bu paket test hesabı, özel anahtar, PostgreSQL parolası veya kullanıcı kasası içermez.
 Kişisel kasa sunucusuz açılabilir. Team için önce çevrimiçi hesap girişi gerekir.
 
 Ayrı uygulama kimliği: local.termterm.desktop.teamdev
 Kurulu kararlı uygulamanın kasalarını kullanmaz. Otomatik güncelleme yayını yoktur.
 İmzasız geliştirme executable'ıdır; üretim/kararlı sürüm değildir.
-Kullanım için TEAM_GUIDE_TR.md, sonuçlar için VALIDATION_TEAM_0.4.0-dev.1.md okuyun.
+Kullanım için TEAM_041_GUIDE_TR.md, sonuçlar ve kalan işler için TEAM_041_STATUS.md okuyun.
 '@ | Set-Content -LiteralPath (Join-Path $portable 'BASLANGIC.txt') -Encoding utf8
 $zip = Join-Path $output "TermTerm-Team-$version-windows-x64-portable.zip"
 Compress-Archive -LiteralPath $portable -DestinationPath $zip -Force
-Get-FileHash -LiteralPath $zip, (Join-Path $portable 'TermTerm-Team-Dev.exe') -Algorithm SHA256 |
+$installer = Join-Path $target "release/bundle/nsis/TermTerm Team Dev_${version}_x64-setup.exe"
+if (!(Test-Path -LiteralPath $installer)) { throw 'Expected isolated Team development installer missing.' }
+$installedCopy = Join-Path $output ([IO.Path]::GetFileName($installer))
+Copy-Item -LiteralPath $installer -Destination $installedCopy
+Get-FileHash -LiteralPath $zip, $installedCopy, (Join-Path $portable 'TermTerm-Team-Dev.exe') -Algorithm SHA256 |
   ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetRelativePath($output, $_.Path).Replace('\','/'))" } |
   Set-Content -LiteralPath (Join-Path $output 'SHA256SUMS.txt') -Encoding utf8
 Get-Item -LiteralPath $zip | Select-Object Name, Length

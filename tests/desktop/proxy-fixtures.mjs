@@ -7,7 +7,7 @@ async function read(socket, count) {
     await once(socket, "readable");
   }
 }
-export async function proxy(kind) {
+export async function proxy(kind, targetPort = 22222, targetHost = "127.0.0.1") {
   const sockets = new Set();
   const server = net.createServer((socket) => {
     sockets.add(socket);
@@ -44,7 +44,7 @@ export async function proxy(kind) {
         await read(socket, head[4] + 2);
         socket.write(Buffer.from([5, 0, 0, 1, 127, 0, 0, 1, 0, 0]));
       }
-      const target = net.connect(22222, "127.0.0.1");
+      const target = net.connect(targetPort, targetHost);
       sockets.add(target);
       target.on("error", () => socket.destroy());
       target.on("close", () => sockets.delete(target));

@@ -9,6 +9,7 @@ export default defineConfig({
     watch: {
       ignored: [
         "**/src-tauri/**",
+        "**/target/**",
         "**/.tools/**",
         "**/.lab/**",
         "**/artifacts/**",

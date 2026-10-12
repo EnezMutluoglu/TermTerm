@@ -1,3 +1,4 @@
+import TeamMigration from "./TeamMigration";
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -1333,6 +1334,7 @@ export default function Team({
         {tab === "policy" && (
           <>
             <h2>Bağlantı ve politika</h2>
+            {owner && status?.online && <TeamMigration key={teamId} sourceTeamId={teamId} />}
             <div className="team-policy-grid">
               <article>
                 <Database />

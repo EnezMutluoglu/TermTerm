@@ -1,5 +1,6 @@
 //! PostgreSQL-only Team accounts. Tokens and connection material stay in Rust.
 pub mod cache;
+pub mod migration;
 pub mod crypto;
 pub mod terminal;
 #[cfg(test)]

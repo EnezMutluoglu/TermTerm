@@ -255,7 +255,8 @@ describe("Native context actions persist to the vault and filesystem", () => {
     expect(await fs.readFile(path.join(source, "Notlar.txt"), "utf8")).toBe(
       content,
     );
-    await selectValue($('select[aria-label="Right connection"]'), "local");
+    await $('button[aria-label="Right connection"]').click();
+    await $('.sftp-host-popover').$('button=Local computer').click();
     await pathInput("Right", target);
     await browser.waitUntil(
       async () =>
