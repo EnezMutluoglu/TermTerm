@@ -1,6 +1,6 @@
 # TermTerm Team 0.4.1 kullanım ve yönetim kılavuzu
 
-Bu belge **0.4.1** sürümü içindir. Kurulum için `TEAM_SERVICE_INSTALL_TR.md`, sonraki sürümlere geçiş için `TEAM_UPGRADES_TR.md` belgesini kullanın. Doğrulama ve ertelenen ortamlar `VALIDATION_0.4.1.md` içinde açıklanır.
+Bu belge **0.4.1–0.4.2** Team kullanımını kapsar. 0.4.2 aynı sunucu/IP kurulumu için [soket ve yerel HTTPS kılavuzu](TEAM_SOCKET_KURULUM_TR.md), diğer kurulumlar için `TEAM_SERVICE_INSTALL_TR.md`, yükseltme için `TEAM_UPGRADES_TR.md` kullanılır. Güncel doğrulama `VALIDATION_0.4.2.md` içindedir; önceki sürüm kanıtları ayrıca korunur.
 
 ## Okuma sırası ve ilk kurulum
 

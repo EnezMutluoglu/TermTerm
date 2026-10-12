@@ -13,7 +13,14 @@
 
 ## Son paket doğrulaması
 
-Paket ve yükseltme kontrolleri sürüyor; bu bölüm tamamlanmadan yayın yapılmaz.
+- Windows x64 NSIS üretildi. Gerçek 0.4.1 → 0.4.2 kurulumunda kasa/sır/font ayarı, DPAPI otomatik açılış, Mosh yardımcısı ve kaldırma geçti. Kurulu masaüstünden soketli DB arkasındaki IP/HTTPS servisine aktivasyon, ortak kasa, giriş hatırlama, çıkış/yeniden giriş ve sürüm politikası geçti.
+- Windows Rust: 63 geçti / 8 ortam gerektiren test normal koşuda atlandı. Updater imza + bozma testleri Windows NSIS ve Linux AppImage için ayrıca geçti.
+- Linux x64 DEB/AppImage/RPM üretildi. DEB ve AppImage gerçek X11 penceresi, kurulum/kaldırma, test hook'u/listener olmaması geçti. RPM paket bütünlüğü/metadata doğrulandı; ayrı RPM dağıtımında çalıştırılmadı.
+- Son Debian 13 servis imajı ile Unix soketi, loopback SCRAM ve eski doğrulamalı TLS akışları geçti. İmaj save/load SHA256, binary/kimlik, nonroot kullanıcı ve Compose soket mount/CPU/RAM/pids/read-only/restart ayarları doğrulandı.
+- Soket sahibiyle aynı-şema plan → özel yedek → ayrı DB'ye restore → HTTPS confirm geçti. TLS laboratuvarında 63→64, kesinti/devam, veri/şifreli içerik korunması, eski servis reddi ve yönetici sürüm politikası geçti.
+- Uygulanmış 001–064 migration dosyaları değişmedi. Paket arşivleri kaynak parmak izi, özel dosya/sır taraması ve SHA256 ile teslim edilir. Docker runtime kaynak kimliği 7bfcc5f; sonraki değişiklikler kılavuz/test/paketleme düzeltmeleridir.
+
+İlk paralel fixture koşusunda bir soket/HTTPS hazır olma zaman aşımı görüldü; aynı son imajla bağımsız tekrar ve soket yedekli yükseltme testi geçti. Süre artırılarak gizlenmedi. İlk Linux imzalama komutunda key-path seçeneği düzeltilip imza ve bozulmuş dosya reddi yeniden doğrulandı. Paketleme WSL/Windows worktree Git yolu hatası düzeltildi; kaynak kimliği değişmeden açıkça kaydedildi.
 
 ## Sınırlar
 

@@ -12,6 +12,8 @@ Yükseltme; hesap, özel/ortak kimlik, izin, geçmiş ve sırları tekrar oluşt
 
 ## 1. Hazırlık ve salt okunur plan
 
+**0.4.2 Unix soketi kurulumu:** Aşağıdaki TLS ortamı yerine `PGHOST=/var/run/postgresql`, `PGUSER=termterm_team_owner`, `PGSSLMODE=disable` kullanın; PGHOSTADDR/PGPASSWORD/PGPASSFILE/PGSSLROOTCERT/PGSERVICE değişkenlerini kaldırın. `--service-role termterm_team_appuser` seçin. Geri açma DB'sinin sahibi de `termterm_team_owner` olmalıdır. HBA'da genel kurallardan önce yalnız bu doğrulama DB'si için `local termterm_upgrade_verify termterm_team_owner trust` satırını ekleyip reload yapın. Doğrulama sonrasında bu geçici kuralı kaldırın. Kaynak DB için mevcut dar kapsamlı soket kuralları korunur. HTTPS confirm adımındaki CA, çalışanlara dağıtılan public HTTPS CA'dır; DB sertifikası gerekmez.
+
 Eski executable/image'ı saklayın. Yeni paketi ayrı bir dizine açın; çalışan dosyaların üzerine henüz yazmayın. PostgreSQL araçları (`psql`, `pg_dump`, `pg_restore`) sunucu sürümüyle uyumlu olmalıdır. Farklı PostgreSQL major sürümüne geçiş bu aracın kapsamı değildir.
 
 Ayrı migration hesabını kullanın; parola argv'ye yazılmaz:

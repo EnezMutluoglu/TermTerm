@@ -24,19 +24,16 @@ Team, normal Windows/Linux masaüstü uygulamasından kullanılır. Sunucudaki H
 
 ### 1. Paketi indir ve hazır image'ı yükle
 
-Sunucuda Docker Engine/Compose; kurulum yönetimi için Python 3, OpenSSL ve PostgreSQL `psql` bulunmalıdır. İki indirme bağlantısındaki dosyaları aynı klasöre koyup:
+Sunucuda Docker Engine/Compose; kurulum yönetimi için Python 3, OpenSSL ve PostgreSQL `psql` bulunmalıdır. Release sayfasından servis arşivi, image arşivi ve SHA256SUMS.txt dosyasını aynı klasöre indirip:
 
 ```bash
-sha256sum --check TermTerm-Team-Docker-0.4.1-debian13-linux-x64.tar.gz.sha256
-tar -xzf TermTerm-Team-Docker-0.4.1-debian13-linux-x64.tar.gz
-cd termterm-team-docker-0.4.1
-sha256sum --check SHA256SUMS.txt
-sudo docker load --input TermTerm-Team-Image-0.4.1-linux-x64.tar.gz
-tar -xzf TermTerm-Team-Service-0.4.1-linux-x64.tar.gz
+sha256sum --check --ignore-missing SHA256SUMS.txt
+sudo docker load --input TermTerm-Team-Image-0.4.2-linux-x64.tar.gz
+tar -xzf TermTerm-Team-Service-0.4.2-linux-x64.tar.gz
 cd team-service-linux-x64
 ```
 
-Bu paket image, servis/Compose dosyaları, SQL ve Türkçe kılavuzları birlikte içerir. Image etiketi `termterm/team-service:0.4.1` olur. Ayrı eski servis arşivini ayrıca indirmeniz gerekmez.
+İmaj etiketi `termterm/team-service:0.4.2` olur. Servis arşivi Compose/SQL/Türkçe kılavuzları içerir. **Unix soketi ve IP üzerinden yerel HTTPS için buradan [soket kurulumuna](docs/TEAM_SOCKET_KURULUM_TR.md) devam edin.** Aşağıdaki kalan adımlar TLS/parolalı DB alternatifidir.
 
 ### 2. PostgreSQL'i ve iki sunucu hesabını hazırla
 

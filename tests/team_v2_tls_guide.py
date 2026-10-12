@@ -72,7 +72,7 @@ try:
     if local_db:
         sql("ALTER SYSTEM SET ssl='off';")
         hba=f'host termterm_team {owner},{service} 127.0.0.1/32 scram-sha-256\nhost all all 0.0.0.0/0 reject\nhost all all ::/0 reject'
-    socket_hba=f'local termterm_team {owner},{service} trust\n' if socket_db else ''
+    socket_hba=f'local termterm_team {owner},{service} trust\nlocal termterm_upgrade_verify {owner} trust\n' if socket_db else ''
     (cluster/'pg_hba.conf').write_text(socket_hba+'local all all peer\n'+hba+'\n')
     assert sql('SELECT count(*) FROM pg_hba_file_rules WHERE error IS NOT NULL;')=='0'
     assert sql('SELECT count(*) FROM pg_file_settings WHERE error IS NOT NULL;')=='0'
@@ -128,6 +128,13 @@ ROLLBACK;"""
     run(['python3',tool,'bootstrap','--team','TLS guide lab','--username','leader','--display-name','Leader',
          '--output',str(private/'leader.json')],env=env)
     assert len(json.loads((private/'leader.json').read_text())['temporaryPassword'])==21
+    if socket_db:
+        sql(f'CREATE DATABASE termterm_upgrade_verify OWNER {owner}; REVOKE ALL ON DATABASE termterm_upgrade_verify FROM PUBLIC;')
+        upgrade=str(ROOT/'team-service/deploy/upgrade.py')
+        plan=private/'upgrade-plan.json';state=private/'upgrade-state'
+        run(['python3',upgrade,'plan','--service-role',service,'--output',str(plan)],env=env)
+        run(['python3',upgrade,'apply','--plan',str(plan),'--state-directory',str(state),
+             '--verification-database','termterm_upgrade_verify','--service-stopped'],env=env)
     cfg={'listen':f'127.0.0.1:{apiport}','database':{'host':host,'port':pgport,'database':'termterm_team',
          'username':service,'password':service_password,'caPath':'/etc/termterm-team/postgres-ca.crt'}}
     if local_db:
@@ -161,6 +168,11 @@ ROLLBACK;"""
         time.sleep(.25)
     else:raise AssertionError('HTTPS with separate company CA did not become ready')
     assert json.loads(result.stdout)['schemaVersion']==64
+    if socket_db:
+        run(['python3',upgrade,'confirm','--state-directory',str(state),'--url',f'https://{https_host}:{httpsport}',
+             '--ca-file',str(httpsca)],env=env)
+        assert json.loads((state/'state.json').read_text())['phase']=='ready'
+        print('PASS: socket owner plan/apply, private backup/restore database, preserved leader and IP HTTPS confirmation',flush=True)
     if owner_template:
         print('PASS: owner/appuser template, en_US.UTF-8 libc, inherited CONNECT, isolated owner, no direct current/future Team table grants, repeat migration and real service readiness.')
     if local_db:

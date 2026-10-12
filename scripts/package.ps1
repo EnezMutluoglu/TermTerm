@@ -20,7 +20,7 @@ Get-ChildItem -LiteralPath $runtime -Force | ForEach-Object { Copy-Item -Literal
 Copy-Item -LiteralPath (Join-Path $project 'docs/USER_GUIDE_TR.md') -Destination $portable -Force
 Copy-Item -LiteralPath (Join-Path $project 'docs/STATUS.md') -Destination $portable -Force
 Copy-Item -LiteralPath (Join-Path $project 'docs/THIRD_PARTY.md') -Destination $portable -Force
-foreach($guide in @('TEAM_041_GUIDE_TR.md','TEAM_SERVICE_INSTALL_TR.md','TEAM_UPGRADES_TR.md','PASSWORD_BOARD_TR.md')) { Copy-Item -LiteralPath (Join-Path $project ('docs/'+$guide)) -Destination $portable -Force }
+foreach($guide in @('TEAM_041_GUIDE_TR.md','TEAM_SERVICE_INSTALL_TR.md','TEAM_SOCKET_KURULUM_TR.md','TEAM_DB_OWNER_TEMPLATE_TR.md','TEAM_UPGRADES_TR.md','PASSWORD_BOARD_TR.md')) { Copy-Item -LiteralPath (Join-Path $project ('docs/'+$guide)) -Destination $portable -Force }
 Copy-Item -LiteralPath (Join-Path $project ('docs/VALIDATION_'+$version+'.md')) -Destination $portable -Force
 $licenseDestination=Join-Path $portable 'licenses'
 New-Item -ItemType Directory -Force -Path $licenseDestination | Out-Null
