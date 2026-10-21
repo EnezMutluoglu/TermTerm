@@ -1,6 +1,6 @@
 use anyhow::{bail, ensure, Result};
 use serde::{Deserialize, Serialize};
-use std::{net::IpAddr, str::FromStr};
+use std::{collections::HashMap, net::IpAddr, str::FromStr};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -60,6 +60,20 @@ pub fn check_conflicts(next: &NetworkPlan, active: &[NetworkPlan], split_dns: bo
         next.routes.len() <= 1024 && next.dns_servers.len() <= 8 && next.dns_domains.len() <= 64,
         "Ağ planı çok büyük"
     );
+    for domain in &next.dns_domains {
+        let domain = domain.trim_end_matches('.');
+        ensure!(
+            domain.len() <= 253
+                && domain.split('.').all(|label| !label.is_empty()
+                    && label.len() <= 63
+                    && !label.starts_with('-')
+                    && !label.ends_with('-')
+                    && label
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'-')),
+            "Geçersiz DNS alanı"
+        );
+    }
     let routes: Vec<_> = next
         .routes
         .iter()
@@ -94,6 +108,52 @@ pub fn check_conflicts(next: &NetworkPlan, active: &[NetworkPlan], split_dns: bo
         }
     }
     Ok(())
+}
+
+/// Pending reservations count as active: simultaneous handshakes cannot both
+/// approve overlapping routes. Release only after the OS cleanup has completed.
+#[derive(Default)]
+pub struct Reservations {
+    entries: HashMap<String, (u64, NetworkPlan)>,
+}
+impl Reservations {
+    pub fn reserve(
+        &mut self,
+        id: &str,
+        generation: u64,
+        plan: NetworkPlan,
+        split_dns: bool,
+    ) -> Result<()> {
+        ensure!(
+            !id.is_empty() && id.len() <= 128 && generation > 0,
+            "Geçersiz VPN oturumu"
+        );
+        ensure!(
+            !self.entries.contains_key(id),
+            "VPN zaten bağlanıyor veya bağlı"
+        );
+        ensure!(self.entries.len() < 16, "Aynı anda en çok 16 VPN");
+        let active: Vec<_> = self
+            .entries
+            .values()
+            .map(|(_, plan)| plan.clone())
+            .collect();
+        check_conflicts(&plan, &active, split_dns)?;
+        self.entries.insert(id.into(), (generation, plan));
+        Ok(())
+    }
+    pub fn release(&mut self, id: &str, generation: u64) -> bool {
+        if self
+            .entries
+            .get(id)
+            .is_some_and(|(current, _)| *current == generation)
+        {
+            self.entries.remove(id);
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[cfg(test)]
@@ -146,5 +206,67 @@ mod tests {
             assert!(check_conflicts(&plan(&[conflict]), &active, false).is_err());
         }
         assert_eq!(serde_json::to_value(&active).unwrap(), before);
+    }
+    #[test]
+    fn reservations_cover_handshakes_and_stale_disconnects() {
+        let mut registry = Reservations::default();
+        registry
+            .reserve("one", 1, plan(&["10.1.0.0/16"]), false)
+            .unwrap();
+        assert!(registry
+            .reserve("two", 1, plan(&["10.1.2.0/24"]), false)
+            .is_err());
+        registry
+            .reserve("two", 1, plan(&["10.2.0.0/16"]), false)
+            .unwrap();
+        registry
+            .reserve("three", 1, plan(&["10.3.0.0/16"]), false)
+            .unwrap();
+        assert!(!registry.release("one", 2));
+        assert!(registry.release("one", 1));
+        registry
+            .reserve("one", 2, plan(&["10.1.0.0/16"]), false)
+            .unwrap();
+        assert!(!registry.release("one", 1));
+        assert!(registry
+            .reserve("four", 1, plan(&["10.1.0.0/16"]), false)
+            .is_err());
+        assert_eq!(registry.entries.len(), 3);
+    }
+    #[test]
+    fn malformed_dns_is_rejected_even_for_the_first_vpn() {
+        for domain in ["", ".", "-corp.example", "a..b", "corp example", "~."] {
+            let mut p = plan(&[]);
+            p.dns_domains.push(domain.into());
+            assert!(check_conflicts(&p, &[], true).is_err());
+        }
+    }
+    #[test]
+    fn simultaneous_handshakes_reserve_a_network_exactly_once() {
+        use std::sync::{Arc, Barrier, Mutex};
+        let registry = Arc::new(Mutex::new(Reservations::default()));
+        let start = Arc::new(Barrier::new(3));
+        let handles: Vec<_> = (1..=3)
+            .map(|id| {
+                let registry = registry.clone();
+                let start = start.clone();
+                std::thread::spawn(move || {
+                    start.wait();
+                    registry
+                        .lock()
+                        .unwrap()
+                        .reserve(&id.to_string(), 1, plan(&["10.7.0.0/16"]), false)
+                        .is_ok()
+                })
+            })
+            .collect();
+        assert_eq!(
+            handles
+                .into_iter()
+                .filter_map(|h| h.join().ok())
+                .filter(|ok| *ok)
+                .count(),
+            1
+        );
     }
 }

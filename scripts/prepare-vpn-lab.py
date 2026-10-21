@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess as sp
 
@@ -70,6 +71,11 @@ def main():
     run("cmake", "-S", ROOT / "vpn-engine", "-B", build / "engine", "-G", "Ninja",
         "-DOPENVPN_CORE=" + str(build / "openvpn3"), "-DCMAKE_BUILD_TYPE=Release")
     run("cmake", "--build", build / "engine", "-j2")
+    cargo = shutil.which("cargo") or str(Path.home() / ".cargo/bin/cargo")
+    if not Path(cargo).is_file():
+        raise RuntimeError("Install the project Rust toolchain before building the VPN policy helper")
+    run(cargo, "build", "--locked", "--manifest-path", ROOT / "vpn-core/Cargo.toml",
+        "--target-dir", build / "policy-target")
     print("Lab helpers ready. No VPN connection, desktop installer or global route change was performed.")
 
 
