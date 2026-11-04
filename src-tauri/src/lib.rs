@@ -1,7 +1,12 @@
+pub mod keepass_import;
 pub mod archive;
 pub mod commands;
 pub mod connections;
 pub mod crypto;
+pub mod database;
+mod database_library;
+pub mod database_history;
+mod database_snapshots;
 pub mod files;
 #[cfg(test)]
 mod import_compatibility_tests;
@@ -41,6 +46,8 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            database::database_request,
+            database::database_file,
             passwords::password_board,
             team::team_auth,
             team::team_offline,

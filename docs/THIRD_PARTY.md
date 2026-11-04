@@ -20,3 +20,5 @@ Primary reference material:
 - [Mosh](https://mosh.org/), [Cygwin licensing](https://cygwin.com/licensing.html)
 - [AWS describe-instances](https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-instances.html)
 - [DigitalOcean Droplets API](https://docs.digitalocean.com/reference/api/reference/droplets/)
+
+KeePass KDBX import uses the MIT-licensed `keepass` Rust crate 0.15.0. Its upstream license and transitive dependency notices are retained in `licenses/THIRD_PARTY_LICENSES.txt` with the exact Cargo.lock inventory. This reader does not incorporate the KeePass desktop executable or UI.

@@ -114,6 +114,10 @@ const labels: Record<string, string> = {
   reveal: "Sırları görüntüle",
   export: "Dışa aktar",
   manage: "Erişim ver",
+  sql_run: "SQL çalıştır (DB hesabının yetkileriyle)",
+  sql_monitor: "SQL sabit kontrollerini izle",
+  sql_manage: "SQL önizlemeli yönetim",
+  sql_export: "SQL sonuçlarını dışa aktar",
 };
 const roles: Record<string, string> = {
   observer: "Gözlemci",
@@ -1101,6 +1105,10 @@ export default function Team({
                               "edit",
                               "reveal",
                               "export",
+                              "sql_run",
+                              "sql_monitor",
+                              "sql_manage",
+                              "sql_export",
                             ],
                           });
                           setMessage(

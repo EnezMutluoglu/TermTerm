@@ -42,7 +42,7 @@ pub fn portable_records(
                 if !selected.contains(&record.id) {
                     continue;
                 }
-                for key in ["groupId", "credentialId", "hostId"] {
+                for key in ["groupId", "credentialId", "hostId", "sshHostId", "connectionId"] {
                     if let Some(id) = record.data[key].as_str() {
                         selected.insert(id.into());
                     }
@@ -238,5 +238,23 @@ mod tests {
         )
         .unwrap();
         assert_eq!(included.len(), 4);
+    }
+    #[test]
+    fn database_backup_preserves_and_remaps_dependencies() {
+        let group=Record::new("group",json!({"label":"Databases"}));
+        let key=Record::new("credential",json!({"label":"SSH identity"}));
+        let jump=Record::new("host",json!({"label":"Jump","credentialId":key.id,"port":22}));
+        let connection=Record::new("databaseConnection",json!({"label":"Orders","groupId":group.id,"sshHostId":jump.id,"engine":"postgresql","host":"db.internal","port":5432,"database":"orders"}));
+        let query=Record::new("savedQuery",json!({"label":"List orders","connectionId":connection.id,"sql":"SELECT 1"}));
+        let book=Record::new("databaseRunbook",json!({"label":"Check orders","connectionId":connection.id,"steps":[{"title":"Read","sql":"SELECT 1"}]}));
+        let(records,_)=portable_records(vec![group,key,jump,connection,query.clone(),book.clone()],&[query.id,book.id],false,false).unwrap();
+        assert_eq!(records.len(),6);
+        let merged=crate::imports::merge(&[],&records,"copy").unwrap();
+        crate::imports::validate(&[],&merged).unwrap();
+        let query=merged.iter().find(|r|r.kind=="savedQuery").unwrap();
+        let connection=merged.iter().find(|r|r.kind=="databaseConnection").unwrap();
+        assert_eq!(query.data["connectionId"],connection.id);
+        assert_eq!(merged.iter().find(|r|r.kind=="databaseRunbook").unwrap().data["connectionId"],connection.id);
+        assert!(merged.iter().any(|r|r.kind=="host"&&r.id==connection.data["sshHostId"]));
     }
 }

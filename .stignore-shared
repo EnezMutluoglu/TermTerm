@@ -20,3 +20,9 @@ node_modules
 /.stversions
 __pycache__
 *.pyc
+/database-helper/runtime
+/database-helper/runtime-unpack
+/database-helper/runtime.zip
+/database-helper/runtime.tar.gz
+/database-helper/lib
+/database-helper/out

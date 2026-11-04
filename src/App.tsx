@@ -1,5 +1,5 @@
 import { tr } from "./i18n";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   Terminal,
@@ -106,7 +106,9 @@ import DataTools, { type DataMode } from "./DataTools";
 import { t } from "./i18n";
 import SharedTerminal from "./SharedTerminal";
 import PasswordBoard from "./PasswordBoard";
+const DatabaseWorkspace = lazy(() => import("./database/DatabaseWorkspace"));
 type Nav =
+  | "database"
   | "team"
   | "hosts"
   | "sftp"
@@ -119,6 +121,7 @@ type Nav =
   | "settings"
   | "terminal";
 const navItems = [
+  { id: "database", label: "Veritabanları", icon: HardDrive },
   { id: "hosts", label: t("nav.hosts"), icon: Server },
   { id: "sftp", label: t("nav.sftp"), icon: ArrowLeftRight },
   { id: "credential", label: t("nav.keychain"), icon: KeyRound },
@@ -128,6 +131,7 @@ const navItems = [
   { id: "log", label: t("nav.logs"), icon: FileText },
 ] as const;
 const navLabels: Record<string, string> = {
+  database: "Veritabanları",
   hosts: "Hosts",
   credential: "Keychain",
   knownHost: "Known hosts",
@@ -179,6 +183,7 @@ export default function App() {
   }> | null>(null);
   const [nav, setNav] = useState<Nav>("hosts");
   const [sftpVisited, setSftpVisited] = useState(false);
+  const [databaseVisited, setDatabaseVisited] = useState(false);
   const [settingsTarget, setSettingsTarget] = useState({ tab: "sync", key: 0 });
   const topTabs = useRef<HTMLDivElement>(null);
   const [group, setGroup] = useState("");
@@ -554,6 +559,7 @@ export default function App() {
     setInfo({ home: "C:\\Users", defaultVaultPath: "", version: "0.1.0" });
   }, []);
   function navigate(n: Nav) {
+    if(n === "database") setDatabaseVisited(true);
     cancelDetailsClick();
     if (n === "sftp") setSftpVisited(true);
     setNav(n);
@@ -1631,6 +1637,7 @@ export default function App() {
               }}
             />
           )}
+          {vault && databaseVisited && <Suspense fallback={<div className="muted">SQL çalışma alanı yükleniyor…</div>}><DatabaseWorkspace key={vault.id} vault={vault} onVault={setVault} visible={nav === "database"} teamMode={teamMode} /></Suspense>}
           <div
             hidden={nav !== "sftp"}
             style={{
@@ -1793,7 +1800,7 @@ export default function App() {
               </div>
             </div>
           </div>
-          {!["terminal", "sftp", "settings", "team"].includes(nav) && (
+          {!["terminal", "sftp", "settings", "team", "database"].includes(nav) && (
             <div
               className="records-page"
               onContextMenu={(e) => {

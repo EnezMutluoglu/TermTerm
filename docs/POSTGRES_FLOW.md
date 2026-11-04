@@ -1,6 +1,8 @@
 # PostgreSQL veri yapısı ve ilk bağlantı
 
-21 Eylül 2026 — TermTerm 0.3.0.
+21 Eylül 2026 — TermTerm 0.3.0 kişisel sync modeli.
+
+0.4.0 hesap tabanlı Team, ayrı `termterm_team` şeması kullanır: [Team kılavuzu](TEAM_GUIDE_TR.md). Bu belgedeki ortak kasa üyelikleri eski kişisel senkronizasyon modelidir. 0.5 SQL DB oluşturma sihirbazı ayrı bir araçtır; sync/Team sunucusunu kendiliğinden kurmaz.
 
 ## Veri nerede tutuluyor?
 

@@ -1,6 +1,6 @@
 [package]
 name = "termterm"
-version = "0.4.0"
+version = "0.5.0-dev.12"
 description = "Local-first encrypted SSH workspace"
 edition = "2021"
 rust-version = "1.98"
@@ -49,6 +49,7 @@ portable-pty = "0.9"
 serialport = "4"
 csv = "1"
 encoding_rs = "0.8"
+keepass = "=0.15.0"
 quick-xml = { version = "0.38", features = ["serialize"] }
 serde_yaml = "0.9"
 sha2 = "0.10"
@@ -75,9 +76,10 @@ keyring = { version = "3.6", default-features = false, features = ["sync-secret-
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Security_Cryptography", "Win32_Foundation"] }
+windows-sys = { version = "0.61", features = ["Win32_Security_Cryptography", "Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading"] }
 
 [dev-dependencies]
+keepass = { version = "=0.15.0", features = ["save_kdbx4"] }
 tempfile = "3"
 minisign-verify = "0.2.5"
 

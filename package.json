@@ -1,9 +1,13 @@
 {
   "name": "termterm",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0-dev.12",
   "type": "module",
   "scripts": {
+    "db:prepare": "node scripts/prepare-database.mjs",
+    "db:catalog": "node scripts/extract-db-catalog.mjs",
+    "db:dev": "tauri dev --config src-tauri/tauri.database-dev.conf.json",
+    "db:build": "tauri build --debug --no-bundle --config src-tauri/tauri.database-dev.conf.json",
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
@@ -18,9 +22,16 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-sql": "^6.10.0",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.13",
+    "@lezer/highlight": "^1.2.5",
     "@tauri-apps/api": "^2.0.0",
-    "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tauri-apps/plugin-clipboard-manager": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-search": "^0.15.0",
     "@xterm/addon-webgl": "^0.18.0",

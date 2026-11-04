@@ -46,7 +46,7 @@ export function duplicateRecords(
     const data = structuredClone(r.data);
     const root = !included.has(data.groupId);
     if (root) data.label = `${data.label || r.kind} copy`;
-    for (const field of ["groupId", "credentialId", "hostId"])
+    for (const field of ["groupId", "credentialId", "hostId", "sshHostId", "connectionId"])
       if (remap.has(data[field])) data[field] = remap.get(data[field]);
     for (const field of ["chain", "hostIds", "inventoryGroups"])
       if (Array.isArray(data[field]))

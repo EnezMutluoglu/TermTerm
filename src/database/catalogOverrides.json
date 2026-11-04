@@ -1,0 +1,8 @@
+{
+  "MS-OPS-002": [
+    "SELECT session_id,command,status,percent_complete,estimated_completion_time AS remaining_ms,total_elapsed_time AS elapsed_ms FROM sys.dm_exec_requests WHERE session_id=:session_id AND command IN ('KILLED/ROLLBACK','ROLLBACK');"
+  ],
+  "OR-MON-037": [
+    "SELECT owner, table_name, column_id, column_name, data_type,\n       data_length, char_length, char_used, data_precision, data_scale,\n       nullable, identity_column, virtual_column, data_default\nFROM all_tab_cols\nWHERE owner = :owner_user AND table_name = :table_name\nORDER BY column_id;"
+  ]
+}

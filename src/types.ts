@@ -1,4 +1,7 @@
 export type EntityKind =
+  | "databaseConnection"
+  | "savedQuery"
+  | "databaseRunbook"
   | "host"
   | "group"
   | "credential"

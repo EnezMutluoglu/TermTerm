@@ -1,6 +1,7 @@
 //! PostgreSQL-only Team accounts. Tokens and connection material stay in Rust.
 pub mod cache;
 pub mod crypto;
+pub mod database;
 pub mod terminal;
 #[cfg(test)]
 mod tests;
@@ -471,6 +472,9 @@ async fn load_snapshot(app: &AppHandle, s: &Shared) -> Result<()> {
         .as_array()
         .ok_or_else(|| anyhow!("Invalid Team snapshot"))?
     {
+        if row["sqlRecipients"].is_array() {
+            with(s, |a| a.cache.set(&format!("sql-recipients:{v}:{}", row["id"].as_str().unwrap_or_default()), &row["sqlRecipients"]))?;
+        }
         let record = crypto::decrypt(&key, &v, row)?;
         records.push(CachedRecord {
             record,
@@ -513,6 +517,7 @@ async fn load_snapshot(app: &AppHandle, s: &Shared) -> Result<()> {
     }
     let revoked = with(s, |a| {
         a.cache.set(&format!("acl:{v}"), &response["aclRevision"])?;
+        a.cache.set(&format!("sql-recipients:{v}:"), &response["rootSqlRecipients"])?;
         if response["rootRecipients"]
             .as_array()
             .is_some_and(|users| !users.is_empty())
@@ -547,6 +552,11 @@ async fn load_snapshot(app: &AppHandle, s: &Shared) -> Result<()> {
 }
 fn links(record: &Record) -> Vec<Value> {
     let mut links = vec![];
+    if crate::database_library::is_document(&record.kind) {
+        if let Some(id) = record.data["connectionId"].as_str() {
+            links.push(json!({"targetId":id,"relation":"member"}));
+        }
+    }
     if let Some(id) = record.data["credentialId"]
         .as_str()
         .filter(|s| !s.is_empty())
@@ -565,7 +575,7 @@ fn links(record: &Record) -> Vec<Value> {
     links
 }
 async fn prepared(s: &Shared, draft: &Draft) -> Result<Value> {
-    let recipient=rpc(s,"recipients",&json!({"vaultId":draft.vault_id,"recordId":if draft.expected_revision>0{Some(&draft.record.id)}else{None},"parentId":draft.record.data["groupId"]})).await?;
+    let recipient=rpc(s,"recipients",&json!({"vaultId":draft.vault_id,"recordId":if draft.expected_revision>0{Some(&draft.record.id)}else{None},"parentId":draft.record.data["groupId"],"kind":draft.record.kind})).await?;
     let mut body = crypto::encrypt(
         &draft.vault_id,
         &draft.record,
@@ -688,9 +698,10 @@ async fn deliver_revoked(s: &Shared, v: &str) -> Result<()> {
             } else {
                 draft.record.data["groupId"].as_str().unwrap_or_default()
             };
+            let recipient_prefix = if draft.record.kind == "databaseConnection" && draft.expected_revision == 0 { "sql-recipients" } else { "recipients" };
             let recipients = a
                 .cache
-                .get::<Value>(&format!("recipients:{v}:{scope}"))?
+                .get::<Value>(&format!("{recipient_prefix}:{v}:{scope}"))?
                 .ok_or_else(|| {
                     anyhow!("Bekleyen kayıt teslimi için önceki alıcı anahtarları eksik")
                 })?;
@@ -869,6 +880,7 @@ pub async fn team_open_vault(
         if with(&state, |a| Ok(a.online))? {
             synchronize(&app, &state).await?;
         }
+        state.database_suspended.store(false, std::sync::atomic::Ordering::SeqCst);
         info(&state)
     }
     .await;
@@ -1182,8 +1194,8 @@ pub fn trust_known(s: &Shared, vault: &str, record: Record) -> Result<()> {
         a.cache.set(&format!("known:{vault}"), &records)
     })
 }
-pub fn export_records(s: &Shared, ids: &[String], secrets: bool) -> Result<Vec<Record>> {
-    with(s, |a| {
+pub async fn export_records(s: &Shared, ids: &[String], secrets: bool) -> Result<Vec<Record>> {
+    let (vault, rows, records) = with(s, |a| {
         let (v, _, _) = a
             .vault
             .as_ref()
@@ -1192,8 +1204,23 @@ pub fn export_records(s: &Shared, ids: &[String], secrets: bool) -> Result<Vec<R
             !a.cache.get::<bool>("authRejected")?.unwrap_or(false),
             "Team erişimi reddedildi"
         );
-        select_export_records(a.cache.records(v)?, ids, secrets)
-    })
+        let rows=a.cache.records(v)?;
+        Ok((v.clone(),rows.clone(),select_export_records(rows, ids, secrets)?))
+    })?;
+    for record in records.iter().filter(|r|crate::database_library::is_document(&r.kind)) {
+        let row=rpc(s,"sql_document",&json!({"vaultId":vault,"recordId":record.id,"export":true})).await?;
+        let cached=rows.iter().find(|r|r.record.id==record.id).ok_or_else(||anyhow!("SQL belgesi değişti"))?;
+        ensure!(row["revision"].as_i64()==Some(cached.revision),"SQL belgesi değişti; önce Team eşitlemesini çalıştırın");
+        ensure!(database::selected_vault(s)?==vault,"Team kasası değişti");
+    }
+    for record in records.iter().filter(|r|r.kind=="databaseConnection") {
+        let body=json!({"vaultId":vault,"recordId":record.id,"permission":"sql_export","recordExport":true,"includeSecrets":secrets});
+        let row=rpc(s,"sql_authorize",&body).await?;
+        let cached=rows.iter().find(|r|r.record.id==record.id).ok_or_else(||anyhow!("SQL kaydı değişti"))?;
+        ensure!(row["revision"].as_i64()==Some(cached.revision),"SQL kaydı değişti; önce Team eşitlemesini çalıştırın");
+        ensure!(database::selected_vault(s)?==vault,"Team kasası değişti");
+    }
+    Ok(records)
 }
 fn select_export_records(
     all: Vec<CachedRecord>,
@@ -1219,7 +1246,7 @@ fn select_export_records(
                 anyhow!("Seçilen kayıt veya yedek için gereken bağlı kayıt erişilebilir değil")
             })?
             .record;
-        let mut references: Vec<&str> = ["groupId", "credentialId", "hostId"]
+        let mut references: Vec<&str> = ["groupId", "credentialId", "hostId", "connectionId"]
             .into_iter()
             .filter_map(|k| record.data[k].as_str())
             .collect();
@@ -1253,6 +1280,9 @@ fn select_export_records(
                 "Bağlı kayıt dahil dışa aktarma yetkisi gerekli: {}",
                 r.record.data["label"]
             );
+            if r.record.kind == "databaseConnection" {
+                ensure!(r.permissions.iter().any(|p| p == "sql_export"), "SQL dışa aktarma yetkisi gerekli");
+            }
             if secrets {
                 ensure!(
                     r.permissions.iter().any(|p| p == "reveal"),

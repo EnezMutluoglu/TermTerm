@@ -30,3 +30,12 @@ node_modules/
 /.stversions/
 __pycache__/
 *.pyc
+
+# Database workspace downloaded runtime and build output
+/database-helper/runtime/
+/database-helper/lib/
+/database-helper/out/
+/database-helper/*.jar
+/database-helper/runtime-unpack/
+/database-helper/runtime.zip
+/database-helper/runtime.tar.gz

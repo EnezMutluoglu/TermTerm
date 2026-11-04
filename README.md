@@ -4,6 +4,10 @@ Tauri 2, Rust ve React ile geliştirilmiş kişisel SSH çalışma alanı. Windo
 
 **Sürüm: 0.4.0.** Terminal başına canlı CPU/RAM/disk göstergesi, terminal temaları, klasör içinde host görünümü ve geliştirilmiş import adaptörleri içerir. 0.1 kasa/yedek biçimi korunur. Termius düzeninden esinlenen bağımsız uygulamadır. Planın tamamıyla özellik eşitliği henüz sağlanmış değildir. Özellikle doğrudan Windows Hello/FIDO2 anahtar oluşturma ve bazı üreticiye özel şifreli import biçimleri tamamlanmamıştır. Ayrıntılar: [0.4.0 doğrulama raporu](docs/VALIDATION_0.4.0.md), [platform derlemeleri](docs/BUILD_PLATFORMS.md), [import kapsamı](docs/IMPORT_SUPPORT.md), [PostgreSQL tablo ve kurulum akışı](docs/POSTGRES_FLOW.md).
 
+## Database Workspace — 0.5.0-dev.1 geliştirme
+
+Bu dalda PostgreSQL, SQL Server ve Oracle için ayrı SQL çalışma alanı geliştirilir; kararlı yayın değildir. `pnpm db:prepare` ardından `pnpm db:dev` kullanın. [Çalışan kapsam ve kalan işler](docs/DATABASE_WORKSPACE_STATUS.md), [216 işlemin durumu](docs/DATABASE_CATALOG_VALIDATION.md), [test sonuçları](docs/DATABASE_TEST_RESULTS.md).
+
 ## Team ve parola panosu — 0.4.0
 
 Team hesapları, kaynak bazında yetkiler, şifreli çevrimdışı kuyruk, karar ekranı ve kayıt geçmişi içerir. Team PostgreSQL gerektirir; kişisel kasalar sunucusuz çalışır. [Team kullanım/DB kılavuzu](docs/TEAM_GUIDE_TR.md).
@@ -127,3 +131,7 @@ WebDriver yalnızca açıkça seçilen `e2e` debug derlemesinde yüklenir. Dağ�
 - `docs`: kullanım, yedekleme, mimari ve doğrulama raporu.
 
 TermTerm markası ve arayüz kaynakları bu projeye aittir; Termius kodu veya özel varlıkları kullanılmamıştır. Üçüncü taraf bağımlılıklar kendi lisanslarını korur. [Bağımlılık notları](docs/THIRD_PARTY.md).
+
+Database Workspace geliştirmesinin güncel durumu, eksikleri ve önerileri: [DATABASE_WORKSPACE_STATUS.md](docs/DATABASE_WORKSPACE_STATUS.md). Yerel sürüm `0.5.0-dev.12`; kararlı güncelleme yayını değildir.
+
+Tüm projenin kaynak/test bazlı eksik envanteri: [5 Ekim 2026 durum raporu](docs/PROJECT_STATUS_2026-10-05.md). Dev.9 üç motorda önizlemeli tek satır silmeyi ekler; geliştirme sürümüdür, release yayımlanmadı.

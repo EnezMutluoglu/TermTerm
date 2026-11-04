@@ -89,6 +89,7 @@ pub async fn vault_create(
     let result = vault.info().map_err(err)?;
     close_connections(&state).await?;
     *state.vault.lock().map_err(|_| "Vault lock")? = Some(vault);
+    state.database_suspended.store(false, std::sync::atomic::Ordering::SeqCst);
     recent(&app, &result.path);
     Ok(result)
 }
@@ -104,6 +105,7 @@ pub async fn vault_open(
     let result = vault.info().map_err(err)?;
     close_connections(&state).await?;
     *state.vault.lock().map_err(|_| "Vault lock")? = Some(vault);
+    state.database_suspended.store(false, std::sync::atomic::Ordering::SeqCst);
     recent(&app, &result.path);
     Ok(result)
 }
@@ -164,6 +166,7 @@ pub async fn vault_try_open_remembered(
     let result = vault.info().map_err(err)?;
     close_connections(&state).await?;
     *state.vault.lock().map_err(|_| "Vault lock")? = Some(vault);
+    state.database_suspended.store(false, std::sync::atomic::Ordering::SeqCst);
     recent(&app, &result.path);
     Ok(Some(result))
 }
@@ -176,6 +179,7 @@ pub async fn vault_lock(state: State<'_, Shared>) -> Api<()> {
     Ok(())
 }
 pub(crate) async fn close_connections(state: &Shared) -> Api<()> {
+    crate::database::close_all(state).await;
     crate::operations::cancel_all(state);
     crate::transfers::cancel_all(state);
     crate::metrics::stop_all(state);
@@ -240,10 +244,19 @@ pub fn session_metrics_set(
 #[tauri::command]
 pub async fn records_save(state: State<'_, Shared>, mut records: Vec<Record>) -> Api<VaultInfo> {
     for r in &mut records {
+        crate::database_library::validate(r).map_err(err)?;
         r.updated_at = chrono::Utc::now().timestamp_millis();
     }
     if crate::team::active(&state) { return crate::team::save(&state,records,false).map_err(err); }
     with_vault_async(state.inner().clone(), move |v| {
+        if records.iter().any(|r| crate::database_library::is_document(&r.kind)) {
+            let existing = v.records()?;
+            for record in records.iter().filter(|r| crate::database_library::is_document(&r.kind)) {
+                let id = record.data["connectionId"].as_str().unwrap_or("");
+                let target = records.iter().find(|r| r.id == id).or_else(|| existing.iter().find(|r| r.id == id));
+                ensure!(target.is_some_and(|r| r.kind == "databaseConnection"), "SQL belgesi için aynı kasada veritabanı bağlantısı gerekli");
+            }
+        }
         v.put(&records)?;
         v.info()
     })
@@ -261,7 +274,7 @@ pub async fn records_delete(state: State<'_, Shared>, ids: Vec<String>) -> Api<V
             if ids.contains(&r.id) {
                 continue;
             }
-            for k in ["groupId", "credentialId", "hostId"] {
+            for k in ["groupId", "credentialId", "hostId", "sshHostId", "connectionId"] {
                 ensure!(
                     !r.data[k]
                         .as_str()
@@ -308,9 +321,9 @@ pub async fn backup_create(
 ) -> Api<()> {
     let s = state.inner().clone();
     if crate::team::active(&s) {
+        let info=crate::team::info(&s).map_err(err)?;
+        let records=crate::team::export_records(&s,&ids,true).await.map_err(err)?;
         return blocking(move || {
-            let info=crate::team::info(&s)?;
-            let records=crate::team::export_records(&s,&ids,true)?;
             vault::write_backup(&PathBuf::from(path),&password,&vault::Backup{version:1,vaults:vec![vault::BackupVault{name:info.name,records}]})
         }).await;
     }
@@ -354,6 +367,7 @@ pub async fn backup_restore(
     let info = v.info().map_err(err)?;
     close_connections(&state).await?;
     *state.vault.lock().map_err(|_| "Vault lock")? = Some(v);
+    state.database_suspended.store(false, std::sync::atomic::Ordering::SeqCst);
     recent(&app, &info.path);
     Ok(info)
 }
@@ -364,6 +378,7 @@ pub async fn import_preview(
     path: String,
     format: String,
     password: Option<String>,
+    key_file: Option<String>,
     mapping: Option<std::collections::HashMap<String, String>>,
     encoding: Option<String>,
     operation_id: Option<String>,
@@ -374,6 +389,11 @@ pub async fn import_preview(
     let result = blocking(move || {
         worker.check()?;
         worker.progress("reading", 0, 0);
+        if crate::keepass_import::is_kdbx(PathBuf::from(&path).as_path(), &format) {
+            worker.progress("decrypting-keepass", 0, 0);
+            let value=crate::keepass_import::preview(PathBuf::from(&path).as_path(), password, key_file, || worker.check())?;
+            worker.check()?;return Ok(value);
+        }
         let preview = crate::archive::preview_encoded(
             &PathBuf::from(path),
             &format,
@@ -404,9 +424,9 @@ pub async fn backup_bundle(
 ) -> Api<crate::archive::Report> {
     let state = state.inner().clone();
     if crate::team::active(&state) {
+        let info=crate::team::info(&state).map_err(err)?;
+        let records=crate::team::export_records(&state,&ids,true).await.map_err(err)?;
         return blocking(move||{
-            let info=crate::team::info(&state)?;
-            let records=crate::team::export_records(&state,&ids,true)?;
             ensure!(sources.is_empty(),"Team yedeği ayrı üretilir; kişisel kaynakları ayrı yedekleyin");
             let (records,mut warnings)=crate::archive::portable_records(records,&[],false,include_files)?;
             let count=records.len();
@@ -506,7 +526,7 @@ pub async fn import_apply(
 #[tauri::command]
 pub async fn export_preview(state: State<'_, Shared>, format: String, secrets: bool) -> Api<Value> {
     if crate::team::active(&state) {
-        let records=crate::team::export_records(&state,&[],secrets).map_err(err)?;
+        let records=crate::team::export_records(&state,&[],secrets).await.map_err(err)?;
         let(text,warnings)=imports::export(&records,&format,secrets).map_err(err)?;
         return Ok(json!({"text":text,"warnings":warnings}));
     }
@@ -524,7 +544,7 @@ pub async fn export_write(
     secrets: bool,
 ) -> Api<()> {
     if crate::team::active(&state) {
-        let records=crate::team::export_records(&state,&[],secrets).map_err(err)?;
+        let records=crate::team::export_records(&state,&[],secrets).await.map_err(err)?;
         return blocking(move||{use std::io::Write;let(text,_)=imports::export(&records,&format,secrets)?;let mut f=std::fs::OpenOptions::new().create_new(true).write(true).open(path)?;f.write_all(text.as_bytes())?;f.sync_all()?;Ok(())}).await;
     }
     with_vault_async(state.inner().clone(), move |v| {
@@ -765,6 +785,7 @@ pub async fn sync_download(
     let info = v.info().map_err(err)?;
     close_connections(&state).await?;
     *state.vault.lock().map_err(|_| "Vault lock")? = Some(v);
+    state.database_suspended.store(false, std::sync::atomic::Ordering::SeqCst);
     recent(&app, &info.path);
     Ok(info)
 }

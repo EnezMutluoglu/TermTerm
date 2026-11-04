@@ -1,0 +1,69 @@
+{
+  "date": "2026-10-05T08:57:50.571Z",
+  "actions": {
+    "PG-OPS-004": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "status": "maintenance-passed",
+      "tests": [
+        "metadata-statistic-options",
+        "explicit-target-sql-baseline-preview",
+        "hash-sql-and-action-tampering-rejected",
+        "invalid-identifier-target-rejected",
+        "plan-bound-to-session",
+        "real-statistics-updated-and-postread",
+        "same-plan-cannot-run-twice",
+        "concurrent-ddl-invalidates-plan",
+        "discard-invalidates-plan",
+        "new-preview-invalidates-previous",
+        "maintenance-does-not-commit-editor",
+        "select-only-user-cannot-maintain",
+        "revoked-permission-rechecked-before-apply",
+        "closed-session-rejected"
+      ]
+    },
+    "MS-OPS-003": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "status": "maintenance-passed",
+      "tests": [
+        "metadata-statistic-options",
+        "explicit-target-sql-baseline-preview",
+        "hash-sql-and-action-tampering-rejected",
+        "invalid-identifier-target-rejected",
+        "plan-bound-to-session",
+        "real-statistics-updated-and-postread",
+        "same-plan-cannot-run-twice",
+        "concurrent-ddl-invalidates-plan",
+        "discard-invalidates-plan",
+        "new-preview-invalidates-previous",
+        "maintenance-does-not-commit-editor",
+        "select-only-user-cannot-maintain",
+        "revoked-permission-rechecked-before-apply",
+        "closed-session-rejected"
+      ]
+    },
+    "OR-OPS-003": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "status": "maintenance-passed",
+      "tests": [
+        "metadata-statistic-options",
+        "explicit-target-sql-baseline-preview",
+        "hash-sql-and-action-tampering-rejected",
+        "invalid-identifier-target-rejected",
+        "plan-bound-to-session",
+        "real-statistics-updated-and-postread",
+        "same-plan-cannot-run-twice",
+        "concurrent-ddl-invalidates-plan",
+        "discard-invalidates-plan",
+        "new-preview-invalidates-previous",
+        "locked-oracle-statistics-rejected",
+        "maintenance-does-not-commit-editor",
+        "select-only-user-cannot-maintain",
+        "revoked-permission-rechecked-before-apply",
+        "closed-session-rejected"
+      ]
+    }
+  }
+}

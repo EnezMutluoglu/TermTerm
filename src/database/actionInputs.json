@@ -1,0 +1,3031 @@
+{
+  "PG-PROV-001": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "current_user": "value",
+      "rolsuper": "value",
+      "rolcreatedb": "value",
+      "rolcreaterole": "value",
+      "rolname": "value",
+      "rolcanlogin": "value",
+      "rolreplication": "value",
+      "rolbypassrls": "value",
+      "datname": "value",
+      "owner": "value",
+      "encoding": "value",
+      "datcollate": "value",
+      "datctype": "value",
+      "datallowconn": "value"
+    },
+    "parameters": {
+      "requested_roles": {
+        "type": "textArray",
+        "default": [],
+        "maxItems": 100
+      },
+      "db_name": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-PROV-009": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "datname": "value",
+      "owner": "value",
+      "app_connect": "value",
+      "reader_connect": "value",
+      "app_can_create_schema": "value",
+      "nspname": "value",
+      "relname": "value",
+      "app_select": "value",
+      "app_insert": "value",
+      "app_truncate": "value",
+      "reader_select": "value",
+      "reader_insert": "value",
+      "reader_update": "value",
+      "reader_delete": "value"
+    },
+    "parameters": {
+      "app_user": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "reader_user": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "app_schema": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-001": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "sampled_at": "value",
+      "database_name": "value",
+      "current_user": "value",
+      "session_user": "value",
+      "server_address": "value",
+      "server_port": "value",
+      "server_version_num": "value",
+      "server_version": "value",
+      "instance_start": "value",
+      "is_replica": "value",
+      "transaction_read_only": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-002": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "oid": "value",
+      "datname": "value",
+      "owner": "value",
+      "encoding": "value",
+      "datcollate": "value",
+      "datctype": "value",
+      "datallowconn": "value",
+      "datconnlimit": "value",
+      "can_connect": "value",
+      "size_bytes": "bytes"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-003": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "name": "value",
+      "setting": "value",
+      "unit": "value",
+      "context": "value",
+      "source": "value",
+      "pending_restart": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-004": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "datname": "value",
+      "usename": "value",
+      "application_name": "value",
+      "state": "value",
+      "backend_type": "value",
+      "sessions": "value",
+      "client_sessions": "value",
+      "max_connections": "value",
+      "superuser_reserved": "value",
+      "reserved_connections": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-005": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "pid": "value",
+      "backend_start": "value",
+      "datname": "value",
+      "usename": "value",
+      "application_name": "value",
+      "client_addr": "value",
+      "state": "value",
+      "wait_event_type": "value",
+      "wait_event": "value",
+      "query_start": "value",
+      "xact_start": "value",
+      "query_age": "value",
+      "transaction_age": "value",
+      "query_text": "value"
+    },
+    "parameters": {
+      "database_name": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": true
+      },
+      "min_seconds": {
+        "type": "integer",
+        "min": 1,
+        "max": 2147483647,
+        "default": 30
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-006": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "pid": "value",
+      "backend_start": "value",
+      "datname": "value",
+      "usename": "value",
+      "application_name": "value",
+      "state": "value",
+      "xact_start": "value",
+      "state_change": "value",
+      "transaction_age": "value",
+      "state_age": "value",
+      "xid_age": "value",
+      "xmin_age": "value",
+      "last_query": "value"
+    },
+    "parameters": {
+      "min_seconds": {
+        "type": "integer",
+        "min": 1,
+        "max": 2147483647,
+        "default": 30
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-007": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "pid": "value",
+      "backend_start": "value",
+      "datname": "value",
+      "usename": "value",
+      "wait_event_type": "value",
+      "wait_event": "value",
+      "query_age": "value",
+      "blockers": "value",
+      "query_text": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-008": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "pid": "value",
+      "locktype": "value",
+      "mode": "value",
+      "granted": "value",
+      "waitstart": "value",
+      "database": "value",
+      "relation": "value",
+      "page": "value",
+      "tuple": "value",
+      "virtualxid": "value",
+      "transactionid": "value",
+      "fastpath": "value"
+    },
+    "parameters": {
+      "pid": {
+        "type": "integer",
+        "min": 1,
+        "max": 2147483647,
+        "default": 1
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-009": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "pid": "value",
+      "application_name": "value",
+      "client_addr": "value",
+      "state": "value",
+      "sync_state": "value",
+      "sent_lsn": "value",
+      "write_lsn": "value",
+      "flush_lsn": "value",
+      "replay_lsn": "value",
+      "not_sent_bytes": "bytes",
+      "replay_distance_bytes": "bytes",
+      "write_lag": "value",
+      "flush_lag": "value",
+      "replay_lag": "value",
+      "reply_time": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-010": {
+    "catalogVersion": 2,
+    "resultUnits": {},
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-011": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "pid": "value",
+      "status": "value",
+      "received_or_flushed_lsn": "value",
+      "written_lsn": "value",
+      "received_tli": "value",
+      "last_message_at": "value",
+      "latest_end_lsn": "value",
+      "slot_name": "value",
+      "sender_host": "value",
+      "sender_port": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-012": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "slot_name": "value",
+      "slot_type": "value",
+      "plugin": "value",
+      "database": "value",
+      "active": "value",
+      "active_pid": "value",
+      "restart_lsn": "value",
+      "confirmed_flush_lsn": "value",
+      "wal_status": "value",
+      "safe_wal_size": "value",
+      "retention_distance_bytes": "bytes",
+      "logical_ack_distance_bytes": "bytes",
+      "xmin_age": "value",
+      "catalog_xmin_age": "value",
+      "invalidation_reason": "value",
+      "inactive_since": "value",
+      "failover": "value",
+      "synced": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-013": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "sampled_at": "value",
+      "wal_records": "value",
+      "wal_fpi": "value",
+      "wal_bytes": "bytes",
+      "wal_buffers_full": "value",
+      "stats_reset": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-014": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "archived_count": "value",
+      "last_archived_wal": "value",
+      "last_archived_time": "value",
+      "failed_count": "value",
+      "last_failed_wal": "value",
+      "last_failed_time": "value",
+      "stats_reset": "value",
+      "archive_mode": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-015": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "file_count": "value",
+      "wal_directory_bytes": "bytes",
+      "oldest_file_mtime": "value",
+      "newest_file_mtime": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-016": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "transaction": "value",
+      "gid": "value",
+      "prepared": "value",
+      "owner": "value",
+      "database": "value",
+      "prepared_age": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-017": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "datname": "value",
+      "xid_age": "value",
+      "multixact_age": "value",
+      "autovacuum_freeze_max_age": "value",
+      "pct_of_autovacuum_freeze_threshold": "%"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-018": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "nspname": "value",
+      "relname": "value",
+      "relkind": "value",
+      "xid_age": "value",
+      "multixact_age": "value",
+      "total_bytes": "bytes"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-019": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "schemaname": "value",
+      "relname": "value",
+      "n_live_tup": "value",
+      "n_dead_tup": "value",
+      "estimated_dead_pct": "%",
+      "n_mod_since_analyze": "value",
+      "n_ins_since_vacuum": "value",
+      "last_vacuum": "value",
+      "last_autovacuum": "value",
+      "last_analyze": "value",
+      "last_autoanalyze": "value",
+      "vacuum_count": "value",
+      "autovacuum_count": "value",
+      "analyze_count": "value",
+      "autoanalyze_count": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-020": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "pid": "value",
+      "datname": "value",
+      "relid": "value",
+      "phase": "value",
+      "heap_blks_total": "blocks",
+      "heap_blks_scanned": "blocks",
+      "heap_blks_vacuumed": "blocks",
+      "index_vacuum_count": "value",
+      "index_relid": "value",
+      "command": "value",
+      "lockers_total": "value",
+      "lockers_done": "value",
+      "current_locker_pid": "value",
+      "blocks_total": "blocks",
+      "blocks_done": "blocks",
+      "tuples_total": "value",
+      "tuples_done": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-021": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "nspname": "value",
+      "relname": "value",
+      "relkind": "value",
+      "main_fork_bytes": "bytes",
+      "table_including_toast_aux_bytes": "bytes",
+      "index_bytes": "bytes",
+      "total_bytes": "bytes",
+      "estimated_rows": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-022": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "relid": "value",
+      "parentrelid": "value",
+      "isleaf": "value",
+      "level": "value",
+      "nspname": "value",
+      "relname": "value",
+      "leaf_total_bytes": "bytes"
+    },
+    "parameters": {
+      "parent_table": {
+        "type": "tableReference",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-023": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "schemaname": "value",
+      "relname": "value",
+      "indexrelname": "value",
+      "idx_scan": "value",
+      "idx_tup_read": "value",
+      "idx_tup_fetch": "value",
+      "index_bytes": "bytes",
+      "indisprimary": "value",
+      "indisunique": "value",
+      "indisvalid": "value",
+      "indisready": "value",
+      "definition": "value",
+      "backs_constraint": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-024": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "nspname": "value",
+      "index_name": "value",
+      "table_name": "value",
+      "indisvalid": "value",
+      "indisready": "value",
+      "indislive": "value",
+      "definition": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-025": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "schemaname": "value",
+      "relname": "value",
+      "seq_scan": "value",
+      "seq_tup_read": "value",
+      "idx_scan": "value",
+      "n_live_tup": "value",
+      "table_bytes": "bytes"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-026": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "userid": "value",
+      "dbid": "value",
+      "queryid": "value",
+      "calls": "value",
+      "total_exec_time": "ms",
+      "mean_exec_time": "ms",
+      "max_exec_time": "ms",
+      "rows": "value",
+      "shared_blks_hit": "blocks",
+      "shared_blks_read": "blocks",
+      "temp_blks_read": "blocks",
+      "temp_blks_written": "blocks",
+      "wal_bytes": "bytes",
+      "query_text": "value"
+    },
+    "parameters": {
+      "pg_stat_statements_view": {
+        "type": "object",
+        "default": {
+          "schema": "",
+          "table": ""
+        }
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-027": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "sampled_at": "value",
+      "datid": "value",
+      "datname": "value",
+      "numbackends": "value",
+      "xact_commit": "value",
+      "xact_rollback": "value",
+      "blks_read": "blocks",
+      "blks_hit": "blocks",
+      "tup_returned": "value",
+      "tup_fetched": "value",
+      "tup_inserted": "value",
+      "tup_updated": "value",
+      "tup_deleted": "value",
+      "conflicts": "value",
+      "temp_files": "value",
+      "temp_bytes": "bytes",
+      "deadlocks": "value",
+      "blk_read_time": "value",
+      "blk_write_time": "value",
+      "stats_reset": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-028": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "backend_type": "value",
+      "object": "value",
+      "context": "value",
+      "reads": "value",
+      "read_time_ms": "ms",
+      "writes": "value",
+      "write_time_ms": "ms",
+      "hits": "value",
+      "evictions": "value",
+      "fsyncs": "value",
+      "op_bytes": "bytes",
+      "read_bytes": "bytes",
+      "write_bytes": "bytes",
+      "stats_reset": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-029": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "bgwriter_counters": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-030": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "checkpointer_counters": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-031": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "rolname": "value",
+      "rolcanlogin": "value",
+      "rolsuper": "value",
+      "rolcreatedb": "value",
+      "rolcreaterole": "value",
+      "rolreplication": "value",
+      "rolbypassrls": "value",
+      "rolinherit": "value",
+      "rolconnlimit": "value",
+      "rolvaliduntil": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-032": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "granted_role": "value",
+      "member_role": "value",
+      "granted_by": "value",
+      "admin_option": "value",
+      "inherit_option": "value",
+      "set_option": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-033": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "nspname": "value",
+      "can_use": "value",
+      "can_create": "value",
+      "relname": "value",
+      "can_select": "value",
+      "can_insert": "value",
+      "can_update": "value",
+      "can_delete": "value",
+      "can_truncate": "value"
+    },
+    "parameters": {
+      "role_name": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "schema_name": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-034": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "creator_role": "value",
+      "schema_scope": "value",
+      "defaclobjtype": "value",
+      "grantee": "value",
+      "privilege_type": "value",
+      "is_grantable": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-035": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "schemaname": "value",
+      "tablename": "value",
+      "policyname": "value",
+      "permissive": "value",
+      "roles": "value",
+      "cmd": "value",
+      "qual": "value",
+      "with_check": "value",
+      "nspname": "value",
+      "proname": "value",
+      "args": "value",
+      "owner": "value",
+      "prosecdef": "value",
+      "proconfig": "value"
+    },
+    "parameters": {
+      "schema_name": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-036": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "pid": "value",
+      "datname": "value",
+      "usename": "value",
+      "application_name": "value",
+      "client_addr": "value",
+      "ssl": "value",
+      "version": "value",
+      "cipher": "value",
+      "bits": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-037": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "pubname": "value",
+      "puballtables": "value",
+      "pubinsert": "value",
+      "pubupdate": "value",
+      "pubdelete": "value",
+      "pubtruncate": "value",
+      "pubviaroot": "value",
+      "schemaname": "value",
+      "tablename": "value"
+    },
+    "parameters": {
+      "publication_name": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": true
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-038": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "subid": "value",
+      "subname": "value",
+      "pid": "value",
+      "relid": "value",
+      "received_lsn": "value",
+      "last_msg_send_time": "value",
+      "last_msg_receipt_time": "value",
+      "latest_end_lsn": "value",
+      "latest_end_time": "value",
+      "table_name": "value",
+      "srsubstate": "value",
+      "srsublsn": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-039": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "pid": "value",
+      "datname": "value",
+      "relid": "value",
+      "command": "value",
+      "type": "value",
+      "bytes_processed": "bytes",
+      "bytes_total": "bytes",
+      "tuples_processed": "value",
+      "tuples_excluded": "value",
+      "phase": "value",
+      "sample_blks_total": "blocks",
+      "sample_blks_scanned": "blocks"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-040": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "extname": "value",
+      "extversion": "value",
+      "extension_schema": "value",
+      "nspname": "value",
+      "relname": "value",
+      "attname": "value",
+      "data_type": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-041": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "attnum": "value",
+      "attname": "value",
+      "data_type": "value",
+      "attnotnull": "value",
+      "attidentity": "value",
+      "attgenerated": "value",
+      "default_expression": "value",
+      "comment": "value"
+    },
+    "parameters": {
+      "table_name": {
+        "type": "tableReference",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-042": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "conname": "value",
+      "contype": "value",
+      "source_table": "value",
+      "referenced_table": "value",
+      "convalidated": "value",
+      "condeferrable": "value",
+      "condeferred": "value",
+      "definition": "value"
+    },
+    "parameters": {
+      "table_name": {
+        "type": "tableReference",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-043": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "id": "value",
+      "label": "value"
+    },
+    "parameters": {
+      "selection": {
+        "type": "columns",
+        "default": []
+      },
+      "table": {
+        "type": "object",
+        "default": {
+          "schema": "",
+          "table": ""
+        }
+      },
+      "unique_key": {
+        "type": "column",
+        "default": ""
+      },
+      "page_size": {
+        "type": "integer",
+        "min": 1,
+        "max": 1000,
+        "default": 100
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-046": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "datname": "value",
+      "confl_tablespace": "value",
+      "confl_lock": "value",
+      "confl_snapshot": "value",
+      "confl_bufferpin": "value",
+      "confl_deadlock": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-047": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "nspname": "value",
+      "relname": "value",
+      "relpersistence": "value",
+      "reloptions": "value"
+    },
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "PG-MON-048": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "object_kind": "value",
+      "nspname": "value",
+      "object_name": "value",
+      "object_oid": "value",
+      "identity_arguments": "value",
+      "owner": "value"
+    },
+    "parameters": {
+      "schema_name": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "expected_owner": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "MS-PROV-001": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "product_version": "value",
+      "major_version": "value",
+      "engine_edition": "value",
+      "edition": "value",
+      "original_login": "value",
+      "login_name": "value",
+      "database_name": "value",
+      "database_user": "value",
+      "name": "value",
+      "state_desc": "value",
+      "collation_name": "value",
+      "compatibility_level": "value",
+      "database_owner": "value",
+      "type_desc": "value",
+      "is_disabled": "value"
+    },
+    "parameters": {
+      "db_name": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "owner_login": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "app_login": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "reader_login": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "migrator_login": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-PROV-012": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "login_name": "value",
+      "db_user": "value",
+      "db_name": "value",
+      "permission_name": "value"
+    },
+    "parameters": {
+      "schema_name": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "qualified_table": {
+        "type": "tableReference",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-001": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "sampled_at_utc": "value",
+      "reported_server_name": "value",
+      "product_version": "value",
+      "major_version": "value",
+      "edition": "value",
+      "engine_edition": "value",
+      "database_name": "value",
+      "original_login": "value",
+      "effective_login": "value",
+      "database_user": "value",
+      "updateability": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-002": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "name": "value",
+      "state_desc": "value",
+      "user_access_desc": "value",
+      "recovery_model_desc": "value",
+      "log_reuse_wait_desc": "value",
+      "compatibility_level": "value",
+      "collation_name": "value",
+      "is_read_only": "value",
+      "is_auto_close_on": "value",
+      "is_auto_shrink_on": "value",
+      "is_read_committed_snapshot_on": "value",
+      "snapshot_isolation_state_desc": "value",
+      "page_verify_option_desc": "value",
+      "is_trustworthy_on": "value",
+      "is_db_chaining_on": "value",
+      "database_owner": "value"
+    },
+    "parameters": {
+      "database_name": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": true
+      }
+    },
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-003": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "login_name": "value",
+      "host_name": "value",
+      "program_name": "value",
+      "status": "value",
+      "session_count": "value",
+      "open_transactions": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-004": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "session_id": "value",
+      "login_time": "value",
+      "request_id": "value",
+      "start_time": "value",
+      "database_name": "value",
+      "login_name": "value",
+      "host_name": "value",
+      "program_name": "value",
+      "status": "value",
+      "command": "value",
+      "cpu_time": "value",
+      "total_elapsed_time": "value",
+      "logical_reads": "value",
+      "reads": "value",
+      "writes": "value",
+      "wait_type": "value",
+      "wait_time": "value",
+      "blocking_session_id": "value",
+      "wait_resource": "value",
+      "open_transaction_count": "value",
+      "statement_text": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-005": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "blocked_session": "value",
+      "blocking_session_id": "value",
+      "wait_type": "value",
+      "wait_time": "value",
+      "wait_resource": "value",
+      "database_name": "value",
+      "blocker_login_time": "value",
+      "blocker_login": "value",
+      "blocker_host": "value",
+      "blocker_program": "value",
+      "blocker_status": "value",
+      "blocker_open_transactions": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-006": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "session_id": "value",
+      "login_time": "value",
+      "login_name": "value",
+      "status": "value",
+      "transaction_id": "value",
+      "transaction_begin_time": "value",
+      "age_seconds": "s",
+      "database_id": "value",
+      "database_name": "value",
+      "database_transaction_log_bytes_used": "bytes",
+      "database_transaction_log_bytes_reserved": "bytes"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-007": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "wait_type": "value",
+      "waiting_tasks_count": "value",
+      "wait_time_ms": "ms",
+      "signal_wait_time_ms": "ms",
+      "max_wait_time_ms": "ms"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-008": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "session_id": "value",
+      "exec_context_id": "value",
+      "wait_duration_ms": "ms",
+      "wait_type": "value",
+      "blocking_session_id": "value",
+      "resource_description": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-009": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "database_id": "value",
+      "total_log_size_in_bytes": "bytes",
+      "used_log_space_in_bytes": "bytes",
+      "used_log_space_in_percent": "%",
+      "log_space_in_bytes_since_last_backup": "bytes"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-010": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "file_id": "value",
+      "name": "value",
+      "type_desc": "value",
+      "physical_name": "value",
+      "size_bytes": "bytes",
+      "data_used_bytes": "bytes",
+      "max_size": "value",
+      "is_percent_growth": "%",
+      "growth": "value",
+      "growth_bytes": "bytes"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-011": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "file_id": "value",
+      "name": "value",
+      "type_desc": "value",
+      "num_of_reads": "value",
+      "num_of_bytes_read": "bytes",
+      "io_stall_read_ms": "ms",
+      "num_of_writes": "value",
+      "num_of_bytes_written": "bytes",
+      "io_stall_write_ms": "ms",
+      "size_on_disk_bytes": "bytes"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-012": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "volume_mount_point": "value",
+      "logical_volume_name": "value",
+      "total_bytes": "bytes",
+      "available_bytes": "bytes"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-013": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "file_id": "value",
+      "total_bytes": "bytes",
+      "unallocated_bytes": "bytes",
+      "user_object_bytes": "bytes",
+      "internal_object_bytes": "bytes",
+      "version_store_bytes": "bytes"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-014": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "session_id": "value",
+      "login_time": "value",
+      "login_name": "value",
+      "program_name": "value",
+      "user_bytes": "bytes",
+      "internal_bytes": "bytes"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-015": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "session_id": "value",
+      "request_id": "value",
+      "request_time": "value",
+      "grant_time": "value",
+      "wait_time_ms": "ms",
+      "requested_memory_kb": "value",
+      "granted_memory_kb": "value",
+      "required_memory_kb": "value",
+      "used_memory_kb": "value",
+      "max_used_memory_kb": "value",
+      "queue_id": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-016": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "physical_memory_in_use_kb": "value",
+      "locked_page_allocations_kb": "value",
+      "large_page_allocations_kb": "value",
+      "memory_utilization_percentage": "%",
+      "process_physical_memory_low": "value",
+      "process_virtual_memory_low": "value",
+      "total_physical_memory_kb": "value",
+      "available_physical_memory_kb": "value",
+      "system_memory_state_desc": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-017": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "scheduler_id": "value",
+      "status": "value",
+      "runnable_tasks_count": "value",
+      "current_tasks_count": "value",
+      "active_workers_count": "value",
+      "work_queue_count": "value",
+      "pending_disk_io_count": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-018": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "query_hash": "value",
+      "execution_count": "value",
+      "creation_time": "value",
+      "last_execution_time": "value",
+      "total_worker_time": "value",
+      "total_elapsed_time": "value",
+      "total_logical_reads": "value",
+      "total_logical_writes": "value",
+      "total_physical_reads": "value",
+      "statement_text": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-019": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "actual_state_desc": "value",
+      "desired_state_desc": "value",
+      "readonly_reason": "value",
+      "current_storage_size_mb": "MiB",
+      "max_storage_size_mb": "MiB",
+      "query_capture_mode_desc": "value",
+      "size_based_cleanup_mode_desc": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-020": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "query_id": "value",
+      "query_text": "value",
+      "executions": "value",
+      "total_duration_ms": "ms",
+      "total_cpu_ms": "ms",
+      "weighted_avg_duration_ms": "ms"
+    },
+    "parameters": {
+      "from_time": {
+        "type": "datetime",
+        "default": "",
+        "maxLength": 40
+      },
+      "to_time": {
+        "type": "datetime",
+        "default": "",
+        "maxLength": 40
+      }
+    },
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-021": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "schema_name": "value",
+      "table_name": "value",
+      "approximate_rows": "value",
+      "reserved_bytes": "bytes",
+      "used_bytes": "bytes"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-022": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "schema_name": "value",
+      "table_name": "value",
+      "index_name": "value",
+      "index_id": "value",
+      "type_desc": "value",
+      "is_unique": "value",
+      "is_primary_key": "value",
+      "is_unique_constraint": "value",
+      "is_disabled": "value",
+      "has_filter": "value",
+      "filter_definition": "value",
+      "user_seeks": "value",
+      "user_scans": "value",
+      "user_lookups": "value",
+      "user_updates": "value",
+      "last_user_seek": "value",
+      "last_user_scan": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-024": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "object_id": "value",
+      "schema_name": "value",
+      "table_name": "value",
+      "equality_columns": "value",
+      "inequality_columns": "value",
+      "included_columns": "value",
+      "user_seeks": "value",
+      "user_scans": "value",
+      "avg_total_user_cost": "value",
+      "avg_user_impact": "value",
+      "last_user_seek": "value",
+      "last_user_scan": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-025": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "schema_name": "value",
+      "object_name": "value",
+      "stats_name": "value",
+      "auto_created": "value",
+      "user_created": "value",
+      "no_recompute": "value",
+      "last_updated": "value",
+      "rows": "value",
+      "rows_sampled": "value",
+      "modification_counter": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-026": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "database_name": "value",
+      "last_regular_full": "value",
+      "last_copy_only_full": "value",
+      "last_diff": "value",
+      "last_log": "value",
+      "backup_set_id": "value",
+      "type": "value",
+      "backup_start_date": "value",
+      "backup_finish_date": "value",
+      "backup_size": "value",
+      "compressed_backup_size": "value",
+      "is_copy_only": "value",
+      "has_backup_checksums": "value",
+      "is_damaged": "value",
+      "first_lsn": "value",
+      "last_lsn": "value",
+      "database_backup_lsn": "value"
+    },
+    "parameters": {
+      "database_name": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": true
+      }
+    },
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-027": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "job_id": "value",
+      "name": "value",
+      "enabled": "value",
+      "run_status": "value",
+      "run_date": "value",
+      "run_time": "value",
+      "run_duration": "value",
+      "last_message": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-028": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "availability_group": "value",
+      "replica_server_name": "value",
+      "database_name": "value",
+      "is_local": "value",
+      "is_primary_replica": "value",
+      "synchronization_state_desc": "value",
+      "synchronization_health_desc": "value",
+      "database_state_desc": "value",
+      "is_suspended": "value",
+      "suspend_reason_desc": "value",
+      "log_send_queue_size": "value",
+      "log_send_rate": "value",
+      "redo_queue_size": "value",
+      "redo_rate": "value",
+      "last_commit_time": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-029": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "name": "value",
+      "type_desc": "value",
+      "is_disabled": "value",
+      "default_database_name": "value",
+      "role_name": "value",
+      "member_name": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-030": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "grantee": "value",
+      "grantor": "value",
+      "class_desc": "value",
+      "major_id": "value",
+      "minor_id": "value",
+      "permission_name": "value",
+      "state_desc": "value",
+      "schema_name": "value",
+      "object_name": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-031": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "name": "value",
+      "type_desc": "value",
+      "authentication_type_desc": "value",
+      "sid": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-032": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "session_id": "value",
+      "login_name": "value",
+      "program_name": "value",
+      "net_transport": "value",
+      "encrypt_option": "value",
+      "auth_scheme": "value",
+      "client_net_address": "value",
+      "connect_time": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-033": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "column_id": "value",
+      "name": "value",
+      "data_type": "value",
+      "max_length": "value",
+      "precision": "value",
+      "scale": "value",
+      "is_nullable": "value",
+      "is_identity": "value",
+      "is_computed": "value",
+      "collation_name": "value",
+      "default_definition": "value",
+      "computed_definition": "value"
+    },
+    "parameters": {
+      "object_id": {
+        "type": "integer",
+        "min": 1,
+        "max": 2147483647,
+        "default": 1
+      }
+    },
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-034": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "name": "value",
+      "type_desc": "value",
+      "unique_index_id": "value",
+      "source_schema": "value",
+      "source_table": "value",
+      "source_column": "value",
+      "target_schema": "value",
+      "target_table": "value",
+      "target_column": "value",
+      "is_disabled": "value",
+      "is_not_trusted": "value",
+      "constraint_column_id": "value"
+    },
+    "parameters": {
+      "object_id": {
+        "type": "integer",
+        "min": 1,
+        "max": 2147483647,
+        "default": 1
+      }
+    },
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-035": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "id": "value",
+      "label": "value"
+    },
+    "parameters": {
+      "page_size": {
+        "type": "integer",
+        "min": 1,
+        "max": 1000,
+        "default": 100
+      },
+      "selection": {
+        "type": "columns",
+        "default": []
+      },
+      "table": {
+        "type": "object",
+        "default": {
+          "schema": "",
+          "table": ""
+        }
+      },
+      "unique_key": {
+        "type": "column",
+        "default": ""
+      }
+    },
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-036": {
+    "catalogVersion": 2,
+    "resultUnits": {},
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-037": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "session_id": "value",
+      "command": "value",
+      "status": "value",
+      "percent_complete": "%",
+      "start_time": "value",
+      "total_elapsed_time": "value",
+      "wait_type": "value",
+      "blocking_session_id": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-038": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "schema_name": "value",
+      "table_name": "value",
+      "name": "value",
+      "type_desc": "value",
+      "constraint_type": "value",
+      "is_disabled": "value",
+      "is_not_trusted": "value"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-039": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "database_id": "value",
+      "recovery_model": "value",
+      "log_min_lsn": "value",
+      "log_end_lsn": "value",
+      "total_vlf_count": "value",
+      "active_vlf_count": "value",
+      "total_log_size_mb": "MiB",
+      "active_log_size_mb": "MiB",
+      "log_truncation_holdup_reason": "value",
+      "log_backup_time": "value",
+      "log_since_last_log_backup_mb": "MiB"
+    },
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-MON-040": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "name": "value",
+      "startup_state": "value",
+      "target_name": "value",
+      "target_metadata": "value"
+    },
+    "parameters": {
+      "approved_session_name": {
+        "type": "enum",
+        "values": [
+          "system_health"
+        ],
+        "default": "system_health"
+      }
+    },
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-OPS-002": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "session_id": "value",
+      "command": "value",
+      "status": "value",
+      "percent_complete": "%",
+      "remaining_ms": "ms",
+      "elapsed_ms": "ms"
+    },
+    "parameters": {
+      "session_id": {
+        "type": "integer",
+        "min": 1,
+        "max": 2147483647,
+        "default": 1
+      }
+    },
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "OR-PROV-001": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "DB_NAME": "value",
+      "CON_NAME": "value",
+      "CON_ID": "value",
+      "SERVICE_NAME": "value",
+      "SESSION_USER": "value",
+      "CURRENT_SCHEMA": "value",
+      "PROXY_USER": "value",
+      "PRODUCT": "value",
+      "VERSION": "value",
+      "STATUS": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-PROV-009": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "OWNER": "value",
+      "TABLE_NAME": "value",
+      "GRANTEE": "value",
+      "PRIVILEGE": "value",
+      "GRANTABLE": "value"
+    },
+    "parameters": {
+      "owner_user": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "rw_role": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "ro_role": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-PROV-011": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "SESSION_USER": "value",
+      "PROXY_USER": "value",
+      "CURRENT_SCHEMA": "value",
+      "PRIVILEGE": "value",
+      "ROLE": "value",
+      "OWNER": "value",
+      "TABLE_NAME": "value",
+      "GRANTABLE": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-001": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "INSTANCE_NAME": "value",
+      "HOST_NAME": "value",
+      "VERSION": "value",
+      "STARTUP_TIME": "value",
+      "STATUS": "value",
+      "DATABASE_STATUS": "value",
+      "INSTANCE_ROLE": "value",
+      "DBID": "value",
+      "NAME": "value",
+      "DB_UNIQUE_NAME": "value",
+      "CDB": "value",
+      "OPEN_MODE": "value",
+      "DATABASE_ROLE": "value",
+      "LOG_MODE": "value",
+      "FORCE_LOGGING": "value",
+      "PROTECTION_MODE": "value",
+      "PROTECTION_LEVEL": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-002": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "CON_ID": "value",
+      "NAME": "value",
+      "OPEN_MODE": "value",
+      "RESTRICTED": "value",
+      "TOTAL_SIZE": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-003": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "RESOURCE_NAME": "value",
+      "CURRENT_UTILIZATION": "value",
+      "MAX_UTILIZATION": "value",
+      "INITIAL_ALLOCATION": "value",
+      "LIMIT_VALUE": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-004": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "INST_ID": "value",
+      "CON_ID": "value",
+      "SID": "value",
+      "SERIAL#": "value",
+      "USERNAME": "value",
+      "STATUS": "value",
+      "SERVICE_NAME": "value",
+      "MACHINE": "value",
+      "PROGRAM": "value",
+      "MODULE": "value",
+      "ACTION": "value",
+      "LOGON_TIME": "value",
+      "SQL_ID": "value",
+      "SQL_CHILD_NUMBER": "value",
+      "SQL_EXEC_START": "value",
+      "EVENT": "value",
+      "WAIT_CLASS": "value",
+      "STATE": "value",
+      "SECONDS_IN_WAIT": "s",
+      "BLOCKING_INSTANCE": "value",
+      "BLOCKING_SESSION": "value"
+    },
+    "parameters": {
+      "row_limit": {
+        "type": "integer",
+        "min": 1,
+        "max": 1000,
+        "default": 100
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-005": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "INST_ID": "value",
+      "CON_ID": "value",
+      "SID": "value",
+      "SERIAL#": "value",
+      "USERNAME": "value",
+      "SQL_ID": "value",
+      "BLOCKING_SESSION_STATUS": "value",
+      "BLOCKING_INSTANCE": "value",
+      "BLOCKING_SESSION": "value",
+      "FINAL_BLOCKING_SESSION_STATUS": "value",
+      "FINAL_BLOCKING_INSTANCE": "value",
+      "FINAL_BLOCKING_SESSION": "value",
+      "EVENT": "value",
+      "WAIT_CLASS": "value",
+      "SECONDS_IN_WAIT": "s"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-006": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "INST_ID": "value",
+      "CON_ID": "value",
+      "SID": "value",
+      "SERIAL#": "value",
+      "USERNAME": "value",
+      "SQL_ID": "value",
+      "SQL_EXEC_START": "value",
+      "ELAPSED_SECONDS": "s",
+      "EVENT": "value",
+      "WAIT_CLASS": "value",
+      "STATE": "value",
+      "MODULE": "value"
+    },
+    "parameters": {
+      "min_seconds": {
+        "type": "integer",
+        "min": 1,
+        "max": 2147483647,
+        "default": 30
+      },
+      "row_limit": {
+        "type": "integer",
+        "min": 1,
+        "max": 1000,
+        "default": 100
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-007": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "INST_ID": "value",
+      "CON_ID": "value",
+      "SID": "value",
+      "SERIAL#": "value",
+      "USERNAME": "value",
+      "STATUS": "value",
+      "SQL_ID": "value",
+      "LOGON_TIME": "value",
+      "START_TIME": "value",
+      "USED_UBLK": "value",
+      "USED_UREC": "value",
+      "XIDUSN": "value",
+      "XIDSLOT": "value",
+      "XIDSQN": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-008": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "INST_ID": "value",
+      "CON_ID": "value",
+      "SID": "value",
+      "TYPE": "value",
+      "ID1": "value",
+      "ID2": "value",
+      "LMODE": "value",
+      "REQUEST": "value",
+      "CTIME": "value",
+      "BLOCK": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-009": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "INST_ID": "value",
+      "CON_ID": "value",
+      "SID": "value",
+      "SERIAL#": "value",
+      "OPNAME": "value",
+      "TARGET": "value",
+      "SOFAR": "value",
+      "TOTALWORK": "value",
+      "UNITS": "value",
+      "START_TIME": "value",
+      "ELAPSED_SECONDS": "s",
+      "TIME_REMAINING": "value",
+      "SQL_ID": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-010": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "INST_ID": "value",
+      "CON_ID": "value",
+      "EVENT": "value",
+      "WAIT_CLASS": "value",
+      "TOTAL_WAITS": "value",
+      "TIME_WAITED_MICRO": "value",
+      "TOTAL_TIMEOUTS": "value"
+    },
+    "parameters": {
+      "row_limit": {
+        "type": "integer",
+        "min": 1,
+        "max": 500,
+        "default": 100
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-011": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "INST_ID": "value",
+      "CON_ID": "value",
+      "NAME": "value",
+      "VALUE": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-012": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "BEGIN_TIME": "value",
+      "END_TIME": "value",
+      "INTSIZE_CSEC": "value",
+      "GROUP_ID": "value",
+      "METRIC_NAME": "value",
+      "VALUE": "value",
+      "METRIC_UNIT": "value",
+      "CON_ID": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-013": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "INST_ID": "value",
+      "CON_ID": "value",
+      "SQL_ID": "value",
+      "PLAN_HASH_VALUE": "value",
+      "EXECUTIONS": "value",
+      "ELAPSED_TIME": "µs",
+      "CPU_TIME": "µs",
+      "BUFFER_GETS": "value",
+      "DISK_READS": "value",
+      "ROWS_PROCESSED": "value",
+      "AVG_ELAPSED_S": "s",
+      "SQL_TEXT_PREVIEW": "value"
+    },
+    "parameters": {
+      "min_executions": {
+        "type": "integer",
+        "min": 0,
+        "max": 2147483647,
+        "default": 1
+      },
+      "row_limit": {
+        "type": "integer",
+        "min": 1,
+        "max": 100,
+        "default": 100
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-014": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "INST_ID": "value",
+      "CON_ID": "value",
+      "SQL_ID": "value",
+      "CHILD_NUMBER": "value",
+      "PLAN_HASH_VALUE": "value",
+      "EXECUTIONS": "value",
+      "ELAPSED_TIME": "µs",
+      "CPU_TIME": "µs",
+      "BUFFER_GETS": "value",
+      "DISK_READS": "value",
+      "INVALIDATIONS": "value",
+      "LOADS": "value",
+      "LAST_ACTIVE_TIME": "value",
+      "IS_BIND_SENSITIVE": "value",
+      "IS_BIND_AWARE": "value"
+    },
+    "parameters": {
+      "sql_id": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false,
+        "pattern": "^[0-9a-z]{13}$"
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-015": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "PLAN_TABLE_OUTPUT": "value"
+    },
+    "parameters": {
+      "sql_id": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false,
+        "pattern": "^[0-9a-z]{13}$"
+      },
+      "child_number": {
+        "type": "integer",
+        "min": 0,
+        "max": 2147483647,
+        "default": 1
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-016": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "TABLESPACE_NAME": "value",
+      "CONTENTS": "value",
+      "STATUS": "value",
+      "BLOCK_SIZE": "value",
+      "USED_BYTES": "bytes",
+      "EFFECTIVE_CAPACITY_BYTES": "bytes",
+      "USED_PERCENT": "%"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-017": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "TABLESPACE_NAME": "value",
+      "FILE_ID": "value",
+      "FILE_NAME": "value",
+      "BYTES": "bytes",
+      "AUTOEXTENSIBLE": "value",
+      "MAXBYTES": "bytes",
+      "INCREMENT_BY": "value",
+      "STATUS": "value",
+      "ONLINE_STATUS": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-018": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "TABLESPACE_NAME": "value",
+      "TABLESPACE_SIZE": "value",
+      "ALLOCATED_SPACE": "value",
+      "FREE_SPACE": "value",
+      "SHARED": "value",
+      "INST_ID": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-019": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "INST_ID": "value",
+      "CON_ID": "value",
+      "SID": "value",
+      "SERIAL#": "value",
+      "USERNAME": "value",
+      "SQL_ID": "value",
+      "TABLESPACE": "value",
+      "SEGTYPE": "value",
+      "ALLOCATED_BLOCKS": "blocks"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-020": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "BEGIN_TIME": "value",
+      "END_TIME": "value",
+      "UNDOBLKS": "blocks",
+      "TXNCOUNT": "value",
+      "MAXQUERYLEN": "value",
+      "MAXCONCURRENCY": "value",
+      "UNXPSTEALCNT": "value",
+      "SSOLDERRCNT": "value",
+      "NOSPACEERRCNT": "value",
+      "TUNED_UNDORETENTION": "value"
+    },
+    "parameters": {
+      "lookback_hours": {
+        "type": "integer",
+        "min": 1,
+        "max": 48,
+        "default": 24
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-021": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "NAME": "value",
+      "SPACE_LIMIT": "bytes",
+      "SPACE_USED": "bytes",
+      "SPACE_RECLAIMABLE": "bytes",
+      "NUMBER_OF_FILES": "value",
+      "CON_ID": "value",
+      "FILE_TYPE": "value",
+      "PERCENT_SPACE_USED": "bytes",
+      "PERCENT_SPACE_RECLAIMABLE": "bytes"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-022": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "DEST_ID": "value",
+      "DEST_NAME": "value",
+      "STATUS": "value",
+      "TYPE": "value",
+      "DATABASE_MODE": "value",
+      "RECOVERY_MODE": "value",
+      "DESTINATION": "value",
+      "ERROR": "value",
+      "ARCHIVED_THREAD#": "value",
+      "ARCHIVED_SEQ#": "value",
+      "APPLIED_THREAD#": "value",
+      "APPLIED_SEQ#": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-023": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "NAME": "value",
+      "VALUE": "value",
+      "UNIT": "value",
+      "TIME_COMPUTED": "value",
+      "DATUM_TIME": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-024": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "THREAD#": "value",
+      "LOW_SEQUENCE#": "value",
+      "HIGH_SEQUENCE#": "value",
+      "NAME": "value",
+      "ROLE": "value",
+      "ACTION": "value",
+      "CLIENT_ROLE": "value",
+      "SEQUENCE#": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-025": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "SESSION_KEY": "value",
+      "INPUT_TYPE": "value",
+      "STATUS": "value",
+      "START_TIME": "value",
+      "END_TIME": "value",
+      "ELAPSED_SECONDS": "s",
+      "INPUT_BYTES": "bytes",
+      "OUTPUT_BYTES": "bytes",
+      "COMPRESSION_RATIO": "value",
+      "OUTPUT_DEVICE_TYPE": "value"
+    },
+    "parameters": {
+      "lookback_days": {
+        "type": "integer",
+        "min": 1,
+        "max": 90,
+        "default": 7
+      },
+      "row_limit": {
+        "type": "integer",
+        "min": 1,
+        "max": 500,
+        "default": 100
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-026": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "FILE#": "value",
+      "BLOCK#": "value",
+      "BLOCKS": "blocks",
+      "CORRUPTION_CHANGE#": "value",
+      "CORRUPTION_TYPE": "value",
+      "CON_ID": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-027": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "ORIGINATING_TIMESTAMP": "value",
+      "MESSAGE_TYPE": "value",
+      "MESSAGE_LEVEL": "value",
+      "COMPONENT_ID": "value",
+      "PROBLEM_KEY": "value",
+      "MESSAGE_TEXT": "value"
+    },
+    "parameters": {
+      "lookback_minutes": {
+        "type": "integer",
+        "min": 1,
+        "max": 1440,
+        "default": 60
+      },
+      "row_limit": {
+        "type": "integer",
+        "min": 1,
+        "max": 500,
+        "default": 100
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-028": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "OWNER": "value",
+      "OBJECT_NAME": "value",
+      "OBJECT_TYPE": "value",
+      "STATUS": "value",
+      "LAST_DDL_TIME": "value",
+      "NAME": "value",
+      "TYPE": "value",
+      "SEQUENCE": "value",
+      "LINE": "value",
+      "POSITION": "value",
+      "TEXT": "value"
+    },
+    "parameters": {
+      "owner_user": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-029": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "OWNER": "value",
+      "INDEX_NAME": "value",
+      "TABLE_OWNER": "value",
+      "TABLE_NAME": "value",
+      "INDEX_TYPE": "value",
+      "STATUS": "value",
+      "PARTITIONED": "value",
+      "VISIBILITY": "value",
+      "INDEX_OWNER": "value",
+      "PARTITION_NAME": "value",
+      "SUBPARTITION_NAME": "value"
+    },
+    "parameters": {
+      "owner_user": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-030": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "OWNER": "value",
+      "TABLE_NAME": "value",
+      "PARTITION_NAME": "value",
+      "SUBPARTITION_NAME": "value",
+      "NUM_ROWS": "value",
+      "BLOCKS": "blocks",
+      "SAMPLE_SIZE": "value",
+      "LAST_ANALYZED": "value",
+      "STALE_STATS": "value",
+      "STATTYPE_LOCKED": "value"
+    },
+    "parameters": {
+      "owner_user": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-031": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "OWNER": "value",
+      "SEGMENT_NAME": "value",
+      "PARTITION_NAME": "value",
+      "SEGMENT_TYPE": "value",
+      "TABLESPACE_NAME": "value",
+      "BYTES": "bytes",
+      "BLOCKS": "blocks",
+      "EXTENTS": "value"
+    },
+    "parameters": {
+      "owner_user": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "row_limit": {
+        "type": "integer",
+        "min": 1,
+        "max": 1000,
+        "default": 100
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-032": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "OWNER": "value",
+      "JOB_NAME": "value",
+      "ENABLED": "value",
+      "STATE": "value",
+      "FAILURE_COUNT": "value",
+      "LAST_START_DATE": "value",
+      "LAST_RUN_DURATION": "value",
+      "NEXT_RUN_DATE": "value",
+      "STATUS": "value",
+      "ERROR#": "value",
+      "ACTUAL_START_DATE": "value",
+      "RUN_DURATION": "value",
+      "ADDITIONAL_INFO": "value"
+    },
+    "parameters": {
+      "owner_user": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "lookback_days": {
+        "type": "integer",
+        "min": 1,
+        "max": 30,
+        "default": 7
+      },
+      "row_limit": {
+        "type": "integer",
+        "min": 1,
+        "max": 500,
+        "default": 100
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-033": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "USERNAME": "value",
+      "ACCOUNT_STATUS": "value",
+      "LOCK_DATE": "value",
+      "EXPIRY_DATE": "value",
+      "DEFAULT_TABLESPACE": "value",
+      "TEMPORARY_TABLESPACE": "value",
+      "PROFILE": "value",
+      "AUTHENTICATION_TYPE": "value",
+      "COMMON": "value",
+      "ORACLE_MAINTAINED": "value",
+      "CREATED": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-034": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "GRANTEE": "value",
+      "GRANTED_ROLE": "value",
+      "ADMIN_OPTION": "value",
+      "DEFAULT_ROLE": "value",
+      "COMMON": "value",
+      "PRIVILEGE": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-035": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "OWNER": "value",
+      "TABLE_NAME": "value",
+      "GRANTEE": "value",
+      "GRANTOR": "value",
+      "PRIVILEGE": "value",
+      "GRANTABLE": "value",
+      "TYPE": "value",
+      "COLUMN_NAME": "value"
+    },
+    "parameters": {
+      "owner_user": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-036": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "USERNAME": "value",
+      "TABLESPACE_NAME": "value",
+      "BYTES": "bytes",
+      "MAX_BYTES": "bytes",
+      "BLOCKS": "blocks",
+      "MAX_BLOCKS": "blocks"
+    },
+    "parameters": {
+      "owner_user": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-037": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "OWNER": "value",
+      "TABLE_NAME": "value",
+      "COLUMN_ID": "value",
+      "COLUMN_NAME": "value",
+      "DATA_TYPE": "value",
+      "DATA_LENGTH": "value",
+      "CHAR_LENGTH": "value",
+      "CHAR_USED": "value",
+      "DATA_PRECISION": "value",
+      "DATA_SCALE": "value",
+      "NULLABLE": "value",
+      "IDENTITY_COLUMN": "value",
+      "VIRTUAL_COLUMN": "value",
+      "DATA_DEFAULT": "value"
+    },
+    "parameters": {
+      "owner_user": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "table_name": {
+        "type": "tableName",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-038": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "OWNER": "value",
+      "TABLE_NAME": "value",
+      "CONSTRAINT_NAME": "value",
+      "CONSTRAINT_TYPE": "value",
+      "STATUS": "value",
+      "VALIDATED": "value",
+      "DEFERRABLE": "value",
+      "DEFERRED": "value",
+      "DELETE_RULE": "value",
+      "R_OWNER": "value",
+      "R_CONSTRAINT_NAME": "value",
+      "COLUMN_NAME": "value",
+      "POSITION": "value"
+    },
+    "parameters": {
+      "owner_user": {
+        "type": "schema",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      },
+      "table_name": {
+        "type": "tableName",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-039": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "ID": "value",
+      "LABEL": "value"
+    },
+    "parameters": {
+      "selection": {
+        "type": "columns",
+        "default": []
+      },
+      "table": {
+        "type": "object",
+        "default": {
+          "schema": "",
+          "table": ""
+        }
+      },
+      "page_size": {
+        "type": "integer",
+        "min": 1,
+        "max": 1000,
+        "default": 100
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-040": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "NAME": "value",
+      "NETWORK_NAME": "value",
+      "CON_ID": "value",
+      "VALUE": "value",
+      "ISDEFAULT": "value",
+      "ISSYS_MODIFIABLE": "value",
+      "ISPDB_MODIFIABLE": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-041": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "NAME": "value",
+      "VALUE": "value",
+      "UNIT": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-042": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "GROUP#": "value",
+      "THREAD#": "value",
+      "SEQUENCE#": "value",
+      "BYTES": "bytes",
+      "MEMBERS": "value",
+      "ARCHIVED": "value",
+      "STATUS": "value",
+      "TYPE": "value",
+      "MEMBER": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-043": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "LOCAL_TRAN_ID": "value",
+      "GLOBAL_TRAN_ID": "value",
+      "STATE": "value",
+      "MIXED": "value",
+      "ADVICE": "value",
+      "FAIL_TIME": "value",
+      "FORCE_TIME": "value",
+      "RETRY_TIME": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-044": {
+    "catalogVersion": 2,
+    "resultUnits": {
+      "PROXY": "value",
+      "CLIENT": "value",
+      "AUTHENTICATION": "value",
+      "FLAGS": "value"
+    },
+    "parameters": {},
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": null
+  },
+  "OR-MON-045": {
+    "catalogVersion": 2,
+    "resultUnits": {},
+    "parameters": {
+      "lookback_minutes": {
+        "type": "integer",
+        "min": 1,
+        "max": 1440,
+        "default": 60
+      },
+      "row_limit": {
+        "type": "integer",
+        "min": 1,
+        "max": 1000,
+        "default": 100
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": "disabled"
+  },
+  "OR-MON-046": {
+    "catalogVersion": 2,
+    "resultUnits": {},
+    "parameters": {
+      "row_limit": {
+        "type": "integer",
+        "min": 1,
+        "max": 1000,
+        "default": 100
+      }
+    },
+    "minMajor": 19,
+    "maxMajor": 26,
+    "license": "disabled"
+  },
+  "PG-CLOUD-002": {
+    "catalogVersion": 2,
+    "resultUnits": {},
+    "parameters": {},
+    "minMajor": 14,
+    "maxMajor": 18,
+    "license": null
+  },
+  "MS-CLOUD-002": {
+    "catalogVersion": 2,
+    "resultUnits": {},
+    "parameters": {},
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  },
+  "MS-CLOUD-003": {
+    "catalogVersion": 2,
+    "resultUnits": {},
+    "parameters": {
+      "db_name": {
+        "type": "text",
+        "default": "",
+        "maxLength": 256,
+        "nullable": false
+      }
+    },
+    "minMajor": 15,
+    "maxMajor": 17,
+    "license": null
+  }
+}

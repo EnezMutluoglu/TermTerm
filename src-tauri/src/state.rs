@@ -12,6 +12,9 @@ pub enum SessionInput {
 }
 #[derive(Default)]
 pub struct AppState {
+    pub database: tokio::sync::Mutex<Option<Arc<crate::database::Bridge>>>,
+    pub database_suspended: std::sync::atomic::AtomicBool,
+    pub database_epoch: std::sync::atomic::AtomicU64,
     pub team: Mutex<Option<crate::team::Account>>,
     pub team_gate: tokio::sync::Mutex<()>,
     pub team_rpc_gate: tokio::sync::Mutex<()>,

@@ -2,6 +2,102 @@ use super::*;
 
 #[tokio::test]
 #[ignore = "requires isolated TERMTERM_TEAM_PROFILE PostgreSQL TLS lab"]
+async fn postgres_sql_permissions_and_secret_envelopes() -> Result<()> {
+    let path=std::env::var("TERMTERM_TEAM_PROFILE")?;
+    let mut profile:SyncProfile=serde_json::from_slice(&std::fs::read(path)?)?;
+    profile.database="termterm_team_e2e".into();
+    let client=connect_checked(&profile).await?;
+    let password="Disposable-Team-SQL-1234";
+    let mut accounts=vec![];
+    for role in ["sqlowner","sshonly","sqlmonitor"] {
+        let name=format!("{role}_{}",&Uuid::new_v4().simple().to_string()[..10]);
+        let (public,private)=crypto::identity(password)?; let device=Uuid::new_v4();
+        let response:Value=client.query_one("SELECT termterm_team.register_account($1,$2,$3,$4,$5,$6,$7)",
+            &[&name,&format!("{name}@example.invalid"),&password,&hex::decode(public)?,&hex::decode(&private)?,&device,&"SQL ACL regression"]).await?.get(0);
+        accounts.push(Auth {profile:profile.clone(),user_id:response["userId"].as_str().unwrap().into(),username:name,device_id:device.to_string(),
+            access:response["accessToken"].as_str().unwrap().into(),refresh:response["refreshToken"].as_str().unwrap().into(),delivery:response["deliveryToken"].as_str().unwrap().into(),
+            identity:crypto::unlock_identity(password,&private)?.to_vec(),expires:now()+3_600_000});
+    }
+    let owner=&accounts[0];let ssh=&accounts[1];let monitor=&accounts[2];
+    let team=raw_rpc(owner,"create_team",&json!({"name":"SQL permissions lab"})).await?["id"].clone();
+    let vault=raw_rpc(owner,"create_vault",&json!({"teamId":team,"name":"SQL encrypted lab"})).await?["id"].as_str().unwrap().to_owned();
+    for account in [ssh,monitor] {
+        raw_rpc(owner,"member_set",&json!({"teamId":team,"userId":account.user_id,"role":"operator","active":true})).await?;
+        for permission in ["read",if account.user_id==ssh.user_id {"connect"} else {"sql_monitor"}] {
+            let overview=raw_rpc(owner,"overview",&json!({})).await?;
+            raw_rpc(owner,"acl_set",&json!({"vaultId":vault,"userId":account.user_id,"permission":permission,"effect":"allow","aclRevision":overview["teams"][0]["aclRevision"]})).await?;
+        }
+    }
+    let record=Record::new("databaseConnection",json!({"label":"Paylaşılan SQL İstanbul","engine":"postgresql","host":"localhost","password":"secret-not-for-ssh"}));
+    // New records have no id on the server: the kind hint must prevent the
+    // inherited terminal connect grant from receiving this first secret key.
+    let recipients=raw_rpc(owner,"recipients",&json!({"vaultId":vault,"kind":record.kind})).await?;
+    let recipient=|id:&str|recipients["recipients"].as_array().unwrap().iter().find(|r|r["userId"]==id).unwrap();
+    assert_eq!(recipient(&ssh.user_id)["data"],true);assert_eq!(recipient(&ssh.user_id)["secret"],false);
+    assert_eq!(recipient(&monitor.user_id)["secret"],true);
+    let mut encrypted=crypto::encrypt(&vault,&record,1,&recipients["recipients"])?;
+    for(k,v) in json!({"operationId":Uuid::new_v4().to_string(),"vaultId":vault,"recordId":record.id,"kind":record.kind,"sequence":1,"expectedRevision":0,"parentId":null,"clientAt":chrono::Utc::now().to_rfc3339(),"aclRevision":recipients["aclRevision"],"deleted":false,"links":[]}).as_object().unwrap(){encrypted[k]=v.clone();}
+    // Extra encrypted envelopes are refused even if the caller holds edit.
+    let mut forged=encrypted.clone();forged["envelopes"].as_array_mut().unwrap().push(json!({"userId":ssh.user_id,"purpose":"secret","envelope":"00"}));
+    assert!(raw_rpc(owner,"apply",&forged).await.is_err());
+    assert_eq!(raw_rpc(owner,"apply",&encrypted).await?["status"],"applied");
+    let rows=raw_rpc(ssh,"records",&json!({"vaultId":vault})).await?;
+    assert!(crypto::decrypt(&*identity(ssh)?,&vault,&rows["records"][0])?.data["password"].is_null());
+    assert!(!rows.to_string().contains("secret-not-for-ssh"));
+    assert!(raw_rpc(ssh,"connection_records",&json!({"vaultId":vault,"recordId":record.id})).await.is_err());
+    for permission in ["sql_access","sql_run","sql_monitor","sql_manage","sql_export","connect","anything"] {
+        assert!(raw_rpc(ssh,"sql_authorize",&json!({"vaultId":vault,"recordId":record.id,"permission":permission,"userId":owner.user_id})).await.is_err(),"SSH actor spoofed {permission}");
+    }
+    let response=raw_rpc(monitor,"sql_authorize",&json!({"vaultId":vault,"recordId":record.id,"permission":"sql_monitor"})).await?;
+    assert_eq!(crypto::decrypt(&*identity(monitor)?,&vault,&response)?.data["password"],"secret-not-for-ssh");
+    for permission in ["sql_run","sql_manage","sql_export"] {
+        assert!(raw_rpc(monitor,"sql_authorize",&json!({"vaultId":vault,"recordId":record.id,"permission":permission})).await.is_err());
+    }
+    let overview=raw_rpc(owner,"overview",&json!({})).await?;
+    raw_rpc(owner,"acl_set",&json!({"vaultId":vault,"recordId":record.id,"userId":monitor.user_id,"permission":"sql_export","effect":"allow","aclRevision":overview["teams"][0]["aclRevision"]})).await?;
+    assert!(raw_rpc(monitor,"sql_authorize",&json!({"vaultId":vault,"recordId":record.id,"permission":"sql_export"})).await.is_ok());
+    assert!(raw_rpc(monitor,"sql_authorize",&json!({"vaultId":vault,"recordId":record.id,"permission":"sql_export","recordExport":true,"includeSecrets":false})).await.is_err());
+    assert!(client.query("SELECT * FROM termterm_team.team_records",&[]).await.is_err());
+    assert!(client.query("SELECT termterm_team.sql_use($1,$2,$3)",&[&Uuid::parse_str(&owner.user_id)?,&Uuid::parse_str(&vault)?,&Uuid::parse_str(&record.id)?]).await.is_err());
+    let overview=raw_rpc(owner,"overview",&json!({})).await?;
+    raw_rpc(owner,"acl_set",&json!({"vaultId":vault,"recordId":record.id,"userId":monitor.user_id,"permission":"sql_monitor","effect":"deny","aclRevision":overview["teams"][0]["aclRevision"]})).await?;
+    assert!(raw_rpc(monitor,"sql_authorize",&json!({"vaultId":vault,"recordId":record.id,"permission":"sql_access"})).await.is_err());
+    let revoked=raw_rpc(monitor,"records",&json!({"vaultId":vault})).await?;
+    assert!(crypto::decrypt(&*identity(monitor)?,&vault,&revoked["records"][0])?.data["password"].is_null());
+    // SQL documents have a single, server-checked DB link. Reading instructions
+    // neither grants SQL execution nor reveals connection secrets.
+    for (i,kind) in ["savedQuery","databaseRunbook"].iter().enumerate() {
+        let document=Record::new(kind,json!({"label":"Türkçe belge","connectionId":record.id,"sql":"SELECT 1","steps":[{"title":"Kontrol","sql":"SELECT 1","description":"Elle"}]}));
+        let recipients=raw_rpc(owner,"recipients",&json!({"vaultId":vault,"kind":kind})).await?;
+        let mut body=crypto::encrypt(&vault,&document,1,&recipients["recipients"])?;
+        for(k,v) in json!({"operationId":Uuid::new_v4().to_string(),"vaultId":vault,"recordId":document.id,"kind":kind,"sequence":2+i,"expectedRevision":0,"clientAt":chrono::Utc::now().to_rfc3339(),"aclRevision":recipients["aclRevision"],"deleted":false,"links":[]}).as_object().unwrap(){body[k]=v.clone();}
+        assert!(raw_rpc(owner,"apply",&body).await.is_err());
+        body["links"]=json!([{"targetId":record.id,"relation":"chain"}]);
+        assert!(raw_rpc(owner,"apply",&body).await.is_err());
+        body["links"]=json!([{"targetId":record.id,"relation":"member"}]);
+        let applied=raw_rpc(owner,"apply",&body).await?;assert_eq!(applied["status"],"applied");
+        assert_eq!(raw_rpc(owner,"apply",&body).await?,applied);
+        let loaded=raw_rpc(ssh,"sql_document",&json!({"vaultId":vault,"recordId":document.id})).await?;
+        assert_eq!(loaded["connectionId"],record.id);
+        assert_eq!(crypto::decrypt(&*identity(ssh)?,&vault,&loaded)?,document);
+        assert!(raw_rpc(ssh,"sql_document",&json!({"vaultId":vault,"recordId":document.id,"export":true})).await.is_err());
+        assert!(raw_rpc(ssh,"sql_authorize",&json!({"vaultId":vault,"recordId":record.id,"permission":"sql_run"})).await.is_err());
+        let overview=raw_rpc(owner,"overview",&json!({})).await?;
+        raw_rpc(owner,"acl_set",&json!({"vaultId":vault,"recordId":document.id,"userId":ssh.user_id,"permission":"read","effect":"deny","aclRevision":overview["teams"][0]["aclRevision"]})).await?;
+        assert!(raw_rpc(ssh,"sql_document",&json!({"vaultId":vault,"recordId":document.id})).await.is_err());
+    }
+    let recipients=raw_rpc(owner,"recipients",&json!({"vaultId":vault,"recordId":record.id,"kind":record.kind})).await?;
+    let mut deletion=crypto::encrypt(&vault,&record,2,&recipients["recipients"])?;
+    for(k,v) in json!({"operationId":Uuid::new_v4().to_string(),"vaultId":vault,"recordId":record.id,"kind":record.kind,"sequence":99,"expectedRevision":1,"clientAt":chrono::Utc::now().to_rfc3339(),"aclRevision":recipients["aclRevision"],"deleted":true,"links":[]}).as_object().unwrap(){deletion[k]=v.clone();}
+    assert!(raw_rpc(owner,"apply",&deletion).await.is_err());
+    // Existing SSH behavior must still distribute its own credentials.
+    let host=raw_rpc(owner,"recipients",&json!({"vaultId":vault,"kind":"host"})).await?;
+    assert_eq!(host["recipients"].as_array().unwrap().iter().find(|r|r["userId"]==ssh.user_id).unwrap()["secret"],true);
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires isolated TERMTERM_TEAM_PROFILE PostgreSQL TLS lab"]
 async fn postgres_encrypted_acl_and_history() -> Result<()> {
     let path = std::env::var("TERMTERM_TEAM_PROFILE")
         .context("Set TERMTERM_TEAM_PROFILE to the isolated lab JSON")?;

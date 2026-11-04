@@ -197,7 +197,7 @@ async fn request(
     match (fields[0], fields[1]) {
         ("GET", "/v1/hosts") => {
             let records = if crate::team::active(state) {
-                crate::team::export_records(state,&[],false)?
+                crate::team::export_records(state,&[],false).await?
             } else {
                 state.vault.lock().map_err(|_|anyhow!("Vault lock"))?.as_ref().ok_or_else(||anyhow!("Vault locked"))?.records()?
             };

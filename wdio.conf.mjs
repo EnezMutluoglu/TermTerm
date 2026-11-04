@@ -57,6 +57,8 @@ export const config = {
   outputDir: process.env.TERMTERM_LOG_DIR ?? ".tools/wdio",
   afterTest: async function (test, context, { passed }) {
     if (!passed) {
+      // Provisioning credentials are one-time UI data, never diagnostic artifacts.
+      await browser.execute(() => document.querySelectorAll('[data-secret="password"]').forEach(e => { e.textContent = "[redacted]"; }));
       console.log(
         "Native events:",
         await browser.execute(() =>

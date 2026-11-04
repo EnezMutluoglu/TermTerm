@@ -1,0 +1,8 @@
+{
+  "productName": "TermTerm Database Dev",
+  "version": "0.5.0-dev.12",
+  "identifier": "local.termterm.desktop.databasedev",
+  "app": { "windows": [{ "title": "TermTerm Database · Development", "width": 1440, "height": 920, "minWidth": 1000, "minHeight": 680, "backgroundColor": "#161b22" }] },
+  "bundle": { "active": false, "createUpdaterArtifacts": false },
+  "plugins": { "updater": { "endpoints": [] } }
+}

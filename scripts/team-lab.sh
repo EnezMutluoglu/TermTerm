@@ -24,9 +24,12 @@ ready=$(runuser -u postgres -- psql -X -p "$port" -d "$database" -Atc "SELECT to
 if [ "$ready" = f ]; then
  runuser -u postgres -- psql -X -p "$port" -d "$database" -v ON_ERROR_STOP=1 -f "$root/migrations/team/001_team.sql" >/dev/null
 fi
-# Development RPC/policy migrations are repeatable; never drop the lab's records.
+# Apply forward migrations once: replaying older constraints over new record kinds is unsafe.
 for migration in "$root"/migrations/team/0*.sql; do
  [[ "$migration" == */001_team.sql ]] && continue
+ name=$(basename "$migration"); version=$((10#${name%%_*}))
+ applied=$(runuser -u postgres -- psql -X -p "$port" -d "$database" -Atc "SELECT count(*) FROM termterm_team.schema_version WHERE version=$version")
+ [[ "$applied" == 1 ]] && continue
  runuser -u postgres -- psql -X -p "$port" -d "$database" -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
 done
 runuser -u postgres -- psql -X -p "$port" -d "$database" -v ON_ERROR_STOP=1 -v app_role=termterm_team_app -f "$root/migrations/team/grant_app.sql" >/dev/null

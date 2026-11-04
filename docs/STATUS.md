@@ -1,3 +1,11 @@
+# Güncel proje durumu
+
+5 Ekim 2026: [Tüm proje envanteri ve eksikler](PROJECT_STATUS_2026-10-05.md). Kararlı 0.4.0 için [doğrulama raporu](VALIDATION_0.4.0.md); geliştirme 0.5.0-dev.12 için [SQL durumu](DATABASE_WORKSPACE_STATUS.md) ve [testler](DATABASE_TEST_RESULTS.md). Bu çalışma kararlı yayın değildir.
+
+Aşağıdaki 0.3 notları tarihsel kayıttır; özellikle Team ve Türkçe arayüz maddeleri için güncel envanteri esas alın.
+
+---
+
 # TermTerm 0.3.0 teslimat durumu
 
 21 Eylül 2026. Windows x64 ve Ubuntu 22.04 tabanlı Linux x64 paketleri için çalışma sürümü. macOS Intel/Apple Silicon derlemesi kullanıcı isteğiyle bekletildi; kaynak, hazırlık betikleri ve CI matrisi hazırdır.

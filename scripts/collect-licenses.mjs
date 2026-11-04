@@ -96,6 +96,6 @@ await fs.writeFile(
 );
 await fs.writeFile(
   path.join(dest, "THIRD_PARTY_LICENSES.txt"),
-  notices.join("\n"),
+  notices.join("\n").replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, ""),
 );
 console.log(`Collected notices for ${inventory.length} dependencies.`);

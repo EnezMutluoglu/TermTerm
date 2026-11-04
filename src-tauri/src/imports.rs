@@ -162,6 +162,7 @@ pub fn detect<'a>(path: &Path, text: &str) -> &'a str {
     if lower.starts_with("windows registry editor") || lower.contains("\\putty\\sessions\\") {
         return "putty";
     }
+    if lower.contains("<keepassfile") { return "keepass"; }
     if lower.starts_with("<?xml") || lower.starts_with("<key") || ext == "xml" {
         return "securecrt";
     }
@@ -295,13 +296,14 @@ pub fn merge_report(existing: &[Record], incoming: &[Record], policy: &str) -> R
             r.kind,
             r.data["label"],
             paths.get(r.data["groupId"].as_str().unwrap_or("")),
-            r.data["address"],
-            if r.kind == "host" {
+            if r.kind=="databaseConnection" {r.data["host"].clone()} else {r.data["address"].clone()},
+            if r.kind == "host" || r.kind=="databaseConnection" {
                 r.data["port"].as_u64().unwrap_or(22)
             } else {
                 0
             },
             r.data["username"].as_str().unwrap_or(""),
+            if r.kind=="databaseConnection" {json!([r.data["engine"],r.data["database"]])} else {Value::Null},
             if r.kind == "knownHost" {
                 r.data["publicKey"].clone()
             } else {
@@ -374,7 +376,7 @@ pub fn merge_report(existing: &[Record], incoming: &[Record], policy: &str) -> R
         }
         let mut r = r.clone();
         r.id = mapping[&r.id].clone();
-        for key in ["groupId", "credentialId", "hostId"] {
+        for key in ["groupId", "credentialId", "hostId", "sshHostId", "connectionId"] {
             if let Some(id) = r.data[key].as_str().and_then(|id| mapping.get(id)) {
                 r.data[key] = id.clone().into();
             }
@@ -414,7 +416,7 @@ pub fn validate(existing: &[Record], incoming: &[Record]) -> Result<()> {
     for r in incoming {
         ensure!(r.data.is_object(), "Record data must be an object");
         let label = r.data["label"].as_str().unwrap_or(&r.kind);
-        if r.kind == "host" {
+        if r.kind == "host" || r.kind=="databaseConnection" {
             if let Some(port) = r.data.get("port") {
                 ensure!(
                     port.as_u64().is_some_and(|p| p > 0 && p <= 65535),
@@ -426,6 +428,8 @@ pub fn validate(existing: &[Record], incoming: &[Record]) -> Result<()> {
             ("groupId", "group"),
             ("credentialId", "credential"),
             ("hostId", "host"),
+            ("sshHostId", "host"),
+            ("connectionId", "databaseConnection"),
         ] {
             if let Some(id) = r.data[field].as_str().filter(|s| !s.is_empty()) {
                 ensure!(
@@ -467,6 +471,7 @@ pub fn parse_text(text: &str, format: &str) -> Result<ImportPreview> {
         "putty" => parse_putty(text, &mut p),
         "mobaxterm" => parse_moba(text, &mut p),
         "securecrt" => parse_securecrt(text, &mut p)?,
+        "keepass" => crate::keepass_import::xml(text, &mut p)?,
         "ansible" => ansible::parse(text, &mut p)?,
         _ => anyhow::bail!("Unsupported import format"),
     }

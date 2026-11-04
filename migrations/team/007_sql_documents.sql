@@ -1,0 +1,264 @@
+-- Team SQL documents v7. Documents never grant access to target connection secrets.
+BEGIN;
+SET search_path=termterm_team,public;
+ALTER TABLE team_records DROP CONSTRAINT IF EXISTS team_records_kind_check;
+ALTER TABLE team_records ADD CONSTRAINT team_records_kind_check CHECK(kind IN ('host','group','credential','snippet','workspace','tunnel','knownHost','databaseConnection','savedQuery','databaseRunbook'));
+CREATE OR REPLACE FUNCTION apply_change(b jsonb,delivery boolean DEFAULT false) RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE u uuid=actor(); d uuid=current_setting('termterm.device')::uuid; v uuid=(b->>'vaultId')::uuid; r uuid=(b->>'recordId')::uuid; o uuid=(b->>'operationId')::uuid;
+ t uuid; head team_records; rev bigint; response jsonb; permitted boolean; prior change_operations; parent uuid=nullif(b->>'parentId','')::uuid; e jsonb; target uuid; reason text; c uuid; old_links uuid[];
+BEGIN
+ SELECT team_id INTO t FROM team_vaults WHERE id=v;
+ IF t IS NULL THEN RAISE EXCEPTION 'Unknown vault'; END IF;
+ -- Serialize ACL changes and record mutations within each team, before CAS.
+ PERFORM 1 FROM teams WHERE id=t FOR UPDATE;
+ SELECT * INTO prior FROM change_operations WHERE id=o;
+ IF prior.id IS NOT NULL THEN
+   IF prior.user_id<>u OR prior.device_id<>d OR prior.record_id<>r THEN RAISE EXCEPTION 'Operation identity mismatch'; END IF;
+   RETURN prior.result;
+ END IF;
+ IF EXISTS(SELECT FROM change_operations WHERE device_id=d AND sequence=(b->>'sequence')::bigint) THEN RAISE EXCEPTION 'Device sequence already belongs to another operation'; END IF;
+ IF octet_length(b::text)>4194304 THEN RAISE EXCEPTION 'Record too large'; END IF;
+ SELECT * INTO head FROM team_records WHERE id=r FOR UPDATE;
+ IF head.id IS NOT NULL AND head.vault_id<>v THEN RAISE EXCEPTION 'Record identity belongs to another vault'; END IF;
+ permitted=NOT delivery AND allowed(u,v,coalesce(head.id,parent),'edit');
+ IF NOT EXISTS(SELECT FROM team_members WHERE team_id=t AND user_id=u) THEN RAISE EXCEPTION 'No previous membership'; END IF;
+ rev=coalesce(head.revision,0);
+ IF NOT permitted OR rev<>(b->>'expectedRevision')::bigint THEN
+   reason=CASE WHEN NOT permitted THEN 'permission' ELSE 'revision' END;
+   response=jsonb_build_object('status','conflict','reason',reason,'operationId',o);
+   INSERT INTO change_operations VALUES(o,u,d,(b->>'sequence')::bigint,r,v,(b->>'expectedRevision')::bigint,(b->>'clientAt')::timestamptz,now(),response);
+   INSERT INTO conflicts(operation_id,record_id,vault_id,author_id,candidate,reason) VALUES(o,r,v,u,b,reason) RETURNING id INTO c;
+   response=response||jsonb_build_object('conflictId',c);
+   UPDATE change_operations SET result=response WHERE id=o;
+   PERFORM audit(t,r,'decision.requested',jsonb_build_object('reason',reason,'conflictId',c));
+   RETURN response;
+ END IF;
+ IF (b->>'aclRevision')::bigint<>(SELECT acl_revision FROM teams WHERE id=t) THEN RAISE EXCEPTION 'TEAM_ACL_CHANGED: refresh recipients before encrypting' USING ERRCODE='40001'; END IF;
+ IF head.id IS NOT NULL AND head.kind<>b->>'kind' THEN RAISE EXCEPTION 'Record kind is immutable'; END IF;
+ IF parent IS NOT NULL THEN
+   IF NOT EXISTS(SELECT FROM team_records WHERE id=parent AND vault_id=v AND kind='group' AND NOT deleted) OR parent=r OR r IN (SELECT ancestors(v,parent)) THEN RAISE EXCEPTION 'Invalid folder relationship'; END IF;
+   IF head.id IS NULL OR head.parent_id IS DISTINCT FROM parent THEN PERFORM require_permission(v,parent,'edit'); END IF;
+ END IF;
+ IF head.id IS NOT NULL AND head.parent_id IS DISTINCT FROM parent THEN
+   PERFORM require_permission(v,r,'manage'); PERFORM require_permission(v,parent,'manage');
+   IF coalesce((b->>'movePreviewRevision')::bigint,-1)<>(SELECT acl_revision FROM teams WHERE id=t) THEN RAISE EXCEPTION 'Online move preview required'; END IF;
+   UPDATE team_records SET parent_id=parent WHERE id=r;
+ END IF;
+ IF coalesce((b->>'deleted')::boolean,false) AND (EXISTS(SELECT FROM team_records WHERE parent_id=r AND NOT deleted) OR EXISTS(SELECT FROM record_links l JOIN team_records tr ON tr.id=l.record_id WHERE l.target_id=r AND tr.id<>r AND NOT tr.deleted)) THEN RAISE EXCEPTION 'Record still has dependent records'; END IF;
+ -- Reject unknown, extra or missing recipients, not merely invalid encryption.
+ IF EXISTS(
+   SELECT x->>'userId',p FROM jsonb_array_elements(sql_recipients(v,head.id,parent,b->>'kind')) x CROSS JOIN unnest(ARRAY['data','secret']) p WHERE (x->>p)::boolean
+   EXCEPT SELECT x->>'userId',x->>'purpose' FROM jsonb_array_elements(b->'envelopes') x
+ ) OR EXISTS(
+   SELECT x->>'userId',x->>'purpose' FROM jsonb_array_elements(b->'envelopes') x
+   EXCEPT SELECT x->>'userId',p FROM jsonb_array_elements(sql_recipients(v,head.id,parent,b->>'kind')) x CROSS JOIN unnest(ARRAY['data','secret']) p WHERE (x->>p)::boolean
+ ) THEN RAISE EXCEPTION 'Recipient set does not match current permissions'; END IF;
+ IF b->>'kind' IN ('savedQuery','databaseRunbook') AND NOT coalesce((b->>'deleted')::boolean,false) THEN
+   IF jsonb_array_length(coalesce(b->'links','[]'))<>1 THEN RAISE EXCEPTION 'SQL document requires exactly one connection link'; END IF;
+   target=(b->'links'->0->>'targetId')::uuid;
+   IF b->'links'->0->>'relation'<>'member' OR NOT EXISTS(SELECT FROM team_records WHERE id=target AND vault_id=v AND kind='databaseConnection' AND NOT deleted) THEN RAISE EXCEPTION 'Invalid SQL document connection'; END IF;
+   PERFORM require_permission(v,target,'read');
+ END IF;
+ rev=rev+1;
+ INSERT INTO team_records(id,vault_id,kind,parent_id,revision,payload,secrets,deleted,updated_by) VALUES(r,v,b->>'kind',parent,rev,decode(b->>'payload','hex'),decode(b->>'secrets','hex'),coalesce((b->>'deleted')::boolean,false),u)
+ ON CONFLICT(id) DO UPDATE SET parent_id=excluded.parent_id,revision=excluded.revision,payload=excluded.payload,secrets=excluded.secrets,deleted=excluded.deleted,updated_by=u,updated_at=now();
+ SELECT coalesce(array_agg(target_id),ARRAY[]::uuid[]) INTO old_links FROM record_links WHERE record_id=r;
+ DELETE FROM record_links WHERE record_id=r;
+ FOR e IN SELECT * FROM jsonb_array_elements(coalesce(b->'links','[]')) LOOP
+   target=(e->>'targetId')::uuid;
+   IF target=r OR NOT EXISTS(SELECT FROM team_records WHERE id=target AND vault_id=v AND NOT deleted) THEN RAISE EXCEPTION 'Invalid dependency'; END IF;
+   IF NOT target=ANY(old_links) THEN
+     PERFORM require_permission(v,target,'read');
+     IF e->>'relation' IN ('identity','chain') THEN PERFORM require_permission(v,target,'manage'); END IF;
+   END IF;
+   IF EXISTS(WITH RECURSIVE deps(id,seen) AS (SELECT target,ARRAY[target] UNION ALL SELECT l.target_id,d.seen||l.target_id FROM deps d JOIN record_links l ON l.record_id=d.id WHERE NOT l.target_id=ANY(d.seen)) SELECT FROM deps WHERE id=r) THEN RAISE EXCEPTION 'Dependency cycle'; END IF;
+   INSERT INTO record_links VALUES(r,target,e->>'relation');
+ END LOOP;
+ INSERT INTO record_versions VALUES(r,rev,rev-1,decode(b->>'payload','hex'),decode(b->>'secrets','hex'),coalesce((b->>'deleted')::boolean,false),parent,b->>'kind',u,d,(b->>'clientAt')::timestamptz,now(),nullif(b->>'restoreFrom','')::bigint);
+ FOR e IN SELECT * FROM jsonb_array_elements(b->'envelopes') LOOP
+   INSERT INTO record_key_envelopes VALUES(r,rev,(e->>'userId')::uuid,e->>'purpose',decode(e->>'envelope','hex'));
+ END LOOP;
+ -- Refresh dependency key recipients when a host acquires/removes a shared
+ -- identity, inherited settings or a jump chain, as well as on folder moves.
+ DELETE FROM record_key_envelopes k USING team_records tr WHERE tr.id=k.record_id AND tr.vault_id=v AND NOT EXISTS(SELECT FROM jsonb_array_elements(recipients(v,tr.id,NULL)) x WHERE x->>'userId'=k.user_id::text AND (x->>k.purpose)::boolean);
+ FOR e IN SELECT * FROM jsonb_array_elements(coalesce(b->'rewrap','[]')) LOOP
+   IF NOT EXISTS(SELECT FROM team_records tr WHERE tr.id=(e->>'recordId')::uuid AND tr.vault_id=v AND (allowed(u,v,tr.id,'edit') OR allowed(u,v,tr.id,'manage'))) OR NOT EXISTS(SELECT FROM jsonb_array_elements(recipients(v,(e->>'recordId')::uuid,NULL)) x WHERE x->>'userId'=e->>'userId' AND (x->>(e->>'purpose'))::boolean) THEN RAISE EXCEPTION 'Invalid dependency key distribution'; END IF;
+   INSERT INTO record_key_envelopes VALUES((e->>'recordId')::uuid,(e->>'revision')::bigint,(e->>'userId')::uuid,e->>'purpose',decode(e->>'envelope','hex')) ON CONFLICT(record_id,revision,user_id,purpose) DO UPDATE SET envelope=excluded.envelope;
+ END LOOP;
+ IF head.id IS NOT NULL AND head.parent_id IS DISTINCT FROM parent THEN UPDATE teams SET acl_revision=acl_revision+1 WHERE id=t; END IF;
+ IF b->>'restoreFrom' IS NOT NULL AND head.id IS NOT NULL THEN
+   INSERT INTO revision_pins VALUES(r,head.revision,u,'return') ON CONFLICT(record_id,user_id,purpose) DO UPDATE SET revision=excluded.revision;
+ END IF;
+ response=jsonb_build_object('status','applied','revision',rev,'operationId',o);
+ INSERT INTO change_operations VALUES(o,u,d,(b->>'sequence')::bigint,r,v,(b->>'expectedRevision')::bigint,(b->>'clientAt')::timestamptz,now(),response);
+ UPDATE team_vaults SET revision=revision+1 WHERE id=v;
+ PERFORM audit(t,r,CASE WHEN b->>'restoreFrom' IS NOT NULL THEN 'record.restored' WHEN (b->>'deleted')::boolean THEN 'record.deleted' ELSE 'record.saved' END,jsonb_build_object('revision',rev));
+ PERFORM prune_versions(r);
+ PERFORM pg_notify('termterm_team_changes',t::text);
+ RETURN response;
+END $$;
+
+CREATE OR REPLACE FUNCTION rpc(token text,action text,b jsonb DEFAULT '{}') RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=termterm_team,public,pg_temp AS $$
+DECLARE s auth_sessions; u uuid; t uuid=nullif(b->>'teamId','')::uuid; v uuid=nullif(b->>'vaultId','')::uuid; r uuid=nullif(b->>'recordId','')::uuid;
+ target uuid=nullif(b->>'userId','')::uuid; p text; effect text; response jsonb; c conflicts; ev jsonb; old_team uuid;
+BEGIN
+ -- Clear caller-controlled state before ANY authorization. Never accept a user ID as identity.
+ PERFORM set_config('termterm.actor','',true); PERFORM set_config('termterm.device','',true);
+ SELECT * INTO s FROM auth_sessions WHERE access_hash=digest(token,'sha256') AND revoked_at IS NULL AND access_expires>now();
+ IF s.id IS NULL OR NOT EXISTS(SELECT FROM users WHERE id=s.user_id AND active) THEN RAISE EXCEPTION 'TEAM_AUTH_EXPIRED' USING ERRCODE='28000'; END IF;
+ u=s.user_id; PERFORM set_config('termterm.actor',u::text,true); PERFORM set_config('termterm.device',s.device_id::text,true);
+ IF v IS NOT NULL THEN SELECT team_id INTO old_team FROM team_vaults WHERE id=v; IF t IS NOT NULL AND t IS DISTINCT FROM old_team THEN RAISE EXCEPTION 'Team/vault mismatch'; END IF; t=old_team; END IF;
+ IF r IS NOT NULL AND EXISTS(SELECT FROM team_records WHERE id=r AND vault_id IS DISTINCT FROM v) THEN RAISE EXCEPTION 'Record/vault mismatch'; END IF;
+ IF action LIKE 'terminal_%' THEN RETURN terminal_rpc(action,b); END IF;
+ CASE action
+ WHEN 'sql_document' THEN
+   PERFORM require_permission(v,r,'read');
+   IF coalesce((b->>'export')::boolean,false) THEN PERFORM require_permission(v,r,'export'); END IF;
+   IF NOT EXISTS(SELECT FROM team_records tr JOIN record_links l ON l.record_id=tr.id JOIN team_records db ON db.id=l.target_id
+       WHERE tr.id=r AND tr.vault_id=v AND tr.kind IN ('savedQuery','databaseRunbook') AND NOT tr.deleted
+       AND l.relation='member' AND db.vault_id=v AND db.kind='databaseConnection' AND NOT db.deleted AND allowed(u,v,db.id,'read')) THEN
+     RAISE EXCEPTION 'SQL document or connection unavailable' USING ERRCODE='42501'; END IF;
+   RETURN (SELECT jsonb_build_object('id',tr.id,'kind',tr.kind,'revision',tr.revision,'aclRevision',(SELECT acl_revision FROM teams WHERE id=t),
+     'connectionId',(SELECT target_id FROM record_links WHERE record_id=r AND relation='member'),
+     'payload',encode(tr.payload,'hex'),'secrets',NULL,'envelopes',
+     (SELECT coalesce(jsonb_agg(jsonb_build_object('purpose',k.purpose,'envelope',encode(k.envelope,'hex'))),'[]') FROM record_key_envelopes k WHERE k.record_id=r AND k.revision=tr.revision AND k.user_id=u AND k.purpose='data')) FROM team_records tr WHERE tr.id=r);
+ WHEN 'sql_authorize' THEN
+   PERFORM require_permission(v,r,'read');
+   IF NOT EXISTS(SELECT FROM team_records WHERE id=r AND vault_id=v AND kind='databaseConnection' AND NOT deleted) THEN RAISE EXCEPTION 'SQL connection unavailable' USING ERRCODE='42501'; END IF;
+   p=b->>'permission';
+   IF p='sql_access' THEN
+     IF NOT sql_use(u,v,r) THEN RAISE EXCEPTION 'SQL permission required' USING ERRCODE='42501'; END IF;
+   ELSIF p IN ('sql_run','sql_monitor','sql_manage','sql_export') THEN PERFORM require_permission(v,r,p);
+   ELSE RAISE EXCEPTION 'Invalid SQL permission' USING ERRCODE='42501'; END IF;
+   IF coalesce((b->>'recordExport')::boolean,false) THEN
+     PERFORM require_permission(v,r,'export');
+     IF coalesce((b->>'includeSecrets')::boolean,false) THEN PERFORM require_permission(v,r,'reveal'); END IF;
+   END IF;
+   -- No query text, parameters, profile names or result data in the audit.
+   IF b->>'auditId' IS NOT NULL THEN
+     PERFORM audit(t,r,'sql.authorized',jsonb_build_object('operationId',(b->>'auditId')::uuid,'permission',p,'clientAt',b->>'clientAt'));
+   END IF;
+   RETURN (SELECT jsonb_build_object('id',tr.id,'kind',tr.kind,'revision',tr.revision,'aclRevision',(SELECT acl_revision FROM teams WHERE id=t),'payload',encode(tr.payload,'hex'),'secrets',CASE WHEN record_secret(u,v,r) THEN encode(tr.secrets,'hex') ELSE NULL END,'envelopes',(SELECT coalesce(jsonb_agg(jsonb_build_object('purpose',k.purpose,'envelope',encode(k.envelope,'hex'))),'[]') FROM record_key_envelopes k WHERE k.record_id=r AND k.revision=tr.revision AND k.user_id=u)) FROM team_records tr WHERE tr.id=r);
+ WHEN 'overview' THEN
+   RETURN jsonb_build_object('user',jsonb_build_object('id',u,'username',(SELECT username FROM users WHERE id=u)), 'serverTime',now(),'teams',coalesce((SELECT jsonb_agg(jsonb_build_object('id',tm.id,'name',tm.name,'ownerId',tm.owner_id,'role',m.role,'aclRevision',tm.acl_revision,'offlineHours',tm.offline_hours,'auditDays',tm.audit_days)) FROM teams tm JOIN team_members m ON m.team_id=tm.id WHERE m.user_id=u AND m.active),'[]'));
+ WHEN 'logout' THEN UPDATE auth_sessions SET revoked_at=now() WHERE id=s.id; RETURN '{}';
+ WHEN 'create_team' THEN
+   INSERT INTO teams(name,owner_id) VALUES(b->>'name',u) RETURNING id INTO t;
+   INSERT INTO team_members VALUES(t,u,'owner',true); PERFORM audit(t,NULL,'team.created'); RETURN jsonb_build_object('id',t);
+ WHEN 'create_vault' THEN
+   IF NOT is_owner(t,u) THEN RAISE EXCEPTION 'Owner required' USING ERRCODE='42501'; END IF;
+   INSERT INTO team_vaults(team_id,name) VALUES(t,b->>'name') RETURNING id INTO v; PERFORM audit(t,NULL,'vault.created'); RETURN jsonb_build_object('id',v);
+ WHEN 'vaults' THEN
+   RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('id',tv.id,'name',tv.name,'revision',tv.revision)) FROM team_vaults tv WHERE tv.team_id=t AND is_member(t,u) AND (is_owner(t,u) OR EXISTS(SELECT FROM acl_entries a WHERE a.vault_id=tv.id AND a.user_id=u AND a.effect='allow'))),'[]');
+ WHEN 'search_users' THEN
+   IF NOT is_owner(t,u) THEN RAISE EXCEPTION 'Owner required' USING ERRCODE='42501'; END IF;
+   IF length(b->>'query')<3 THEN RETURN '[]'; END IF;
+   RETURN coalesce((SELECT jsonb_agg(x) FROM (SELECT id,username,email FROM users WHERE active AND (strpos(lower(username),lower(b->>'query'))>0 OR lower(email)=lower(b->>'query')) ORDER BY username LIMIT 25)x),'[]');
+ WHEN 'members' THEN
+   IF NOT is_member(t,u) THEN RAISE EXCEPTION 'Membership required' USING ERRCODE='42501'; END IF;
+   RETURN jsonb_build_object('members',coalesce((SELECT jsonb_agg(jsonb_build_object('userId',m.user_id,'username',us.username,'role',m.role,'active',m.active,'publicKey',encode(us.public_key,'hex'))) FROM team_members m JOIN users us ON us.id=m.user_id WHERE m.team_id=t),'[]'),'acl',coalesce((SELECT jsonb_agg(to_jsonb(a)) FROM acl_entries a WHERE a.team_id=t AND (is_owner(t,u) OR a.user_id=u OR allowed(u,a.vault_id,a.resource_id,'manage'))),'[]'),'delegations',coalesce((SELECT jsonb_agg(to_jsonb(a)) FROM acl_delegations a WHERE a.team_id=t AND (is_owner(t,u) OR a.user_id=u)),'[]'));
+ WHEN 'member_set' THEN
+   PERFORM 1 FROM teams WHERE id=t FOR UPDATE;
+   IF NOT is_owner(t,u) OR target=u OR b->>'role'='owner' THEN RAISE EXCEPTION 'Only owner can assign/remove members, not self' USING ERRCODE='42501'; END IF;
+   INSERT INTO team_members VALUES(t,target,b->>'role',coalesce((b->>'active')::boolean,true)) ON CONFLICT(team_id,user_id) DO UPDATE SET role=excluded.role,active=excluded.active;
+   IF NOT coalesce((b->>'active')::boolean,true) THEN
+     DELETE FROM record_key_envelopes k USING team_records tr,team_vaults tv WHERE k.record_id=tr.id AND tr.vault_id=tv.id AND tv.team_id=t AND k.user_id=target;
+     DELETE FROM acl_entries WHERE team_id=t AND user_id=target;
+     DELETE FROM acl_delegations WHERE team_id=t AND user_id=target;
+   END IF;
+   UPDATE teams SET acl_revision=acl_revision+1 WHERE id=t; PERFORM audit(t,NULL,'member.changed',jsonb_build_object('userId',target,'role',b->>'role','active',b->'active')); RETURN '{}';
+ WHEN 'delegate' THEN
+   PERFORM 1 FROM teams WHERE id=t FOR UPDATE;
+   IF NOT is_owner(t,u) OR target=u OR NOT is_member(t,target) THEN RAISE EXCEPTION 'Owner required' USING ERRCODE='42501'; END IF;
+   INSERT INTO acl_delegations VALUES(t,target,v,r,ARRAY(SELECT jsonb_array_elements_text(b->'permissions'))) ON CONFLICT(user_id,vault_id,resource_id) DO UPDATE SET permissions=excluded.permissions;
+   UPDATE teams SET acl_revision=acl_revision+1 WHERE id=t; PERFORM audit(t,r,'delegation.changed',jsonb_build_object('userId',target)); RETURN '{}';
+ WHEN 'acl_set' THEN
+   PERFORM 1 FROM teams WHERE id=t FOR UPDATE;
+   p=b->>'permission'; effect=b->>'effect';
+   IF NOT is_member(t,target) OR target=(SELECT owner_id FROM teams WHERE id=t) THEN RAISE EXCEPTION 'Invalid ACL target'; END IF;
+   IF NOT is_owner(t,u) THEN
+     IF target=u OR p='manage' OR NOT allowed(u,v,r,'manage') OR NOT allowed(u,v,r,p) OR NOT EXISTS(SELECT FROM acl_delegations a WHERE a.user_id=u AND a.vault_id=v AND p=ANY(a.permissions) AND (a.resource_id IS NULL OR a.resource_id IN(SELECT ancestors(v,r)))) THEN RAISE EXCEPTION 'Outside delegated scope' USING ERRCODE='42501'; END IF;
+   END IF;
+   IF (b->>'aclRevision')::bigint<>(SELECT acl_revision FROM teams WHERE id=t) THEN RAISE EXCEPTION 'TEAM_ACL_CHANGED' USING ERRCODE='40001'; END IF;
+   IF effect='inherit' THEN DELETE FROM acl_entries WHERE user_id=target AND vault_id=v AND resource_id IS NOT DISTINCT FROM r AND permission=p;
+   ELSE INSERT INTO acl_entries VALUES(t,target,v,r,p,effect,u) ON CONFLICT(user_id,vault_id,resource_id,permission) DO UPDATE SET effect=excluded.effect,granted_by=u; END IF;
+   -- Remove revoked envelopes immediately. New envelopes are provided by an authorized
+   -- client after re-reading permissions; a missing envelope denies decryption.
+   DELETE FROM record_key_envelopes k USING team_records tr WHERE k.record_id=tr.id AND tr.vault_id=v AND (NOT is_member(t,k.user_id) OR (k.purpose='data' AND NOT (allowed(k.user_id,v,tr.id,'read') OR connection_dependency(k.user_id,v,tr.id))) OR (k.purpose='secret' AND NOT (record_secret(k.user_id,v,tr.id))));
+   UPDATE teams SET acl_revision=acl_revision+1 WHERE id=t;
+   FOR ev IN SELECT * FROM jsonb_array_elements(coalesce(b->'rewrap','[]')) LOOP
+     IF NOT EXISTS(SELECT FROM team_records tr WHERE tr.id=(ev->>'recordId')::uuid AND tr.vault_id=v AND (allowed(u,v,tr.id,'edit') OR allowed(u,v,tr.id,'manage'))) OR NOT EXISTS(SELECT FROM jsonb_array_elements(recipients(v,(ev->>'recordId')::uuid,NULL)) x WHERE x->>'userId'=ev->>'userId' AND (x->>(ev->>'purpose'))::boolean) THEN RAISE EXCEPTION 'Invalid key distribution'; END IF;
+     INSERT INTO record_key_envelopes VALUES((ev->>'recordId')::uuid,(ev->>'revision')::bigint,(ev->>'userId')::uuid,ev->>'purpose',decode(ev->>'envelope','hex')) ON CONFLICT(record_id,revision,user_id,purpose) DO UPDATE SET envelope=excluded.envelope;
+   END LOOP;
+   PERFORM audit(t,r,'permission.changed',jsonb_build_object('userId',target,'permission',p,'effect',effect)); RETURN '{}';
+ WHEN 'acl_preview' THEN RETURN preview_acl(token,b);
+ WHEN 'move_preview' THEN RETURN preview_move(v,r,nullif(b->>'parentId','')::uuid);
+ WHEN 'connection_records' THEN
+   IF NOT EXISTS(SELECT FROM team_records WHERE id=r AND vault_id=v AND kind='host' AND NOT deleted) THEN RAISE EXCEPTION 'Terminal host required' USING ERRCODE='42501'; END IF;
+   PERFORM require_permission(v,r,'connect');
+   RETURN coalesce((WITH RECURSIVE deps(id,seen) AS (
+      SELECT r,ARRAY[r] UNION ALL SELECT targets.link_target,seen||targets.link_target FROM deps d JOIN LATERAL (
+       SELECT l.target_id link_target FROM record_links l WHERE l.record_id=d.id AND l.relation IN ('identity','chain')
+       UNION SELECT tr.parent_id FROM team_records tr WHERE tr.id=d.id AND tr.parent_id IS NOT NULL
+      ) targets ON NOT targets.link_target=ANY(d.seen))
+     SELECT jsonb_agg(jsonb_build_object('id',tr.id,'kind',tr.kind,'revision',tr.revision,'payload',encode(tr.payload,'hex'),'secrets',encode(tr.secrets,'hex'),'envelopes',(SELECT coalesce(jsonb_agg(jsonb_build_object('purpose',k.purpose,'envelope',encode(k.envelope,'hex'))),'[]') FROM record_key_envelopes k WHERE k.record_id=tr.id AND k.revision=tr.revision AND k.user_id=u))) FROM team_records tr WHERE tr.id IN(SELECT id FROM deps) AND tr.vault_id=v AND NOT tr.deleted),'[]');
+ WHEN 'dependency_cache' THEN
+   IF NOT is_member(t,u) THEN RAISE EXCEPTION 'Membership revoked' USING ERRCODE='42501'; END IF;
+   RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('id',tr.id,'kind',tr.kind,'revision',tr.revision,'payload',encode(tr.payload,'hex'),'secrets',encode(tr.secrets,'hex'),'envelopes',(SELECT coalesce(jsonb_agg(jsonb_build_object('purpose',k.purpose,'envelope',encode(k.envelope,'hex'))),'[]') FROM record_key_envelopes k WHERE k.record_id=tr.id AND k.revision=tr.revision AND k.user_id=u))) FROM team_records tr WHERE tr.vault_id=v AND NOT tr.deleted AND connection_dependency(u,v,tr.id)),'[]');
+ WHEN 'records' THEN
+   IF NOT is_member(t,u) THEN RAISE EXCEPTION 'Membership revoked' USING ERRCODE='42501'; END IF;
+   RETURN jsonb_build_object('aclRevision',(SELECT acl_revision FROM teams WHERE id=t),'serverTime',now(),'rootSqlRecipients',CASE WHEN allowed(u,v,NULL,'edit') THEN sql_recipients(v,NULL,NULL,'databaseConnection') ELSE '[]'::jsonb END,'rootRecipients',CASE WHEN allowed(u,v,NULL,'edit') THEN recipients(v,NULL,NULL) ELSE '[]'::jsonb END,'records',coalesce((SELECT jsonb_agg(jsonb_build_object('id',tr.id,'kind',tr.kind,'parentId',tr.parent_id,'revision',tr.revision,'deleted',tr.deleted,'sqlRecipients',CASE WHEN tr.kind='group' AND allowed(u,v,tr.id,'edit') THEN sql_recipients(v,NULL,tr.id,'databaseConnection') ELSE '[]'::jsonb END,'recipients',CASE WHEN allowed(u,v,tr.id,'edit') THEN recipients(v,tr.id,tr.parent_id) ELSE '[]'::jsonb END,'payload',encode(tr.payload,'hex'),'secrets',CASE WHEN record_secret(u,v,tr.id) THEN encode(tr.secrets,'hex') ELSE NULL END,'permissions',(SELECT coalesce(jsonb_agg(perm.name),'[]') FROM unnest(ARRAY['read','connect','edit','reveal','export','manage','sql_run','sql_monitor','sql_manage','sql_export']) AS perm(name) WHERE allowed(u,v,tr.id,perm.name)),'envelopes',(SELECT coalesce(jsonb_agg(jsonb_build_object('purpose',k.purpose,'envelope',encode(k.envelope,'hex'))),'[]') FROM record_key_envelopes k WHERE k.record_id=tr.id AND k.revision=tr.revision AND k.user_id=u))) FROM team_records tr WHERE tr.vault_id=v AND allowed(u,v,tr.id,'read')),'[]'),'paths',coalesce((SELECT jsonb_agg(jsonb_build_object('id',tr.id,'parentId',tr.parent_id,'pathOnly',true)) FROM team_records tr WHERE tr.vault_id=v AND tr.kind='group' AND NOT tr.deleted AND NOT allowed(u,v,tr.id,'read') AND EXISTS(SELECT FROM team_records child WHERE child.vault_id=v AND allowed(u,v,child.id,'read') AND tr.id IN(SELECT ancestors(v,child.id)))),'[]'));
+ WHEN 'recipients' THEN
+   PERFORM require_permission(v,coalesce(r,nullif(b->>'parentId','')::uuid),'edit');
+   RETURN jsonb_build_object('aclRevision',(SELECT acl_revision FROM teams WHERE id=t),'recipients',sql_recipients(v,r,nullif(b->>'parentId','')::uuid,b->>'kind'));
+ WHEN 'change_preview' THEN RETURN preview_change(b);
+ WHEN 'apply' THEN RETURN apply_change(b);
+ WHEN 'history' THEN
+   PERFORM require_permission(v,r,'read');
+   RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('revision',rv.revision,'parentRevision',rv.parent_revision,'deleted',rv.deleted,'parentId',rv.parent_id,'kind',rv.kind,'actorId',rv.actor_id,'serverAt',rv.server_at,'clientAt',rv.client_at,'restoreFrom',rv.restore_from,'payload',encode(rv.payload,'hex'),'secrets',CASE WHEN record_secret(u,v,r) THEN encode(rv.secrets,'hex') ELSE NULL END,'envelopes',(SELECT coalesce(jsonb_agg(jsonb_build_object('purpose',k.purpose,'envelope',encode(k.envelope,'hex'))),'[]') FROM record_key_envelopes k WHERE k.record_id=r AND k.revision=rv.revision AND k.user_id=u),'pinned',EXISTS(SELECT FROM revision_pins p WHERE p.record_id=r AND p.revision=rv.revision),'returnPoint',EXISTS(SELECT FROM revision_pins p WHERE p.record_id=r AND p.revision=rv.revision AND p.user_id=u AND p.purpose='return'),'temporary',EXISTS(SELECT FROM revision_pins p WHERE p.record_id=r AND p.revision=rv.revision AND p.user_id=u AND p.purpose='temporary')) ORDER BY rv.revision DESC) FROM record_versions rv WHERE rv.record_id=r),'[]');
+ WHEN 'pin' THEN
+   PERFORM require_permission(v,r,'read');
+   IF b->>'purpose'<>'temporary' THEN RAISE EXCEPTION 'Only temporary pins are client-selectable'; END IF;
+   INSERT INTO revision_pins VALUES(r,(b->>'revision')::bigint,u,'temporary') ON CONFLICT(record_id,user_id,purpose) DO UPDATE SET revision=excluded.revision; RETURN '{}';
+ WHEN 'unpin' THEN
+   DELETE FROM revision_pins WHERE record_id=r AND user_id=u AND purpose=b->>'purpose'; PERFORM prune_versions(r); RETURN '{}';
+ WHEN 'conflicts' THEN
+   RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('id',cf.id,'recordId',cf.record_id,'vaultId',cf.vault_id,'authorId',cf.author_id,'reason',cf.reason,'candidate',cf.candidate,'receivedAt',op.received_at)) FROM conflicts cf JOIN change_operations op ON op.id=cf.operation_id WHERE cf.vault_id=v AND cf.status='pending' AND allowed(u,v,coalesce((SELECT id FROM team_records WHERE id=cf.record_id),nullif(cf.candidate->>'parentId','')::uuid),'edit')),'[]');
+ WHEN 'decide' THEN
+   PERFORM 1 FROM teams WHERE id=t FOR UPDATE;
+   SELECT * INTO c FROM conflicts WHERE id=(b->>'conflictId')::uuid AND vault_id=v FOR UPDATE;
+   IF c.id IS NULL THEN RAISE EXCEPTION 'Decision no longer pending'; END IF;
+   IF c.status<>'pending' THEN
+     IF c.decided_by=u AND c.status='discarded' AND b->>'choice'='server' THEN RETURN jsonb_build_object('status','discarded'); END IF;
+     SELECT op.result INTO response FROM change_operations op WHERE op.id=nullif(b->'change'->>'operationId','')::uuid AND op.user_id=u AND op.device_id=s.device_id AND op.record_id=c.record_id AND op.vault_id=v AND (op.result->>'revision')::bigint=c.decision_revision;
+     IF response IS NOT NULL THEN RETURN response; END IF;
+     RAISE EXCEPTION 'Decision no longer pending';
+   END IF;
+   PERFORM require_permission(v,coalesce((SELECT id FROM team_records WHERE id=c.record_id),nullif(c.candidate->>'parentId','')::uuid),'edit');
+   IF (b->>'currentRevision')::bigint<>coalesce((SELECT tr.revision FROM team_records tr WHERE id=c.record_id),0) THEN RAISE EXCEPTION 'TEAM_RECORD_CHANGED: compare again' USING ERRCODE='40001'; END IF;
+   IF b->>'choice'='server' THEN response=jsonb_build_object('status','discarded');
+   ELSE
+     IF b->'change'->>'recordId'<>c.record_id::text OR b->'change'->>'vaultId'<>v::text THEN RAISE EXCEPTION 'Decision record mismatch'; END IF;
+     response=apply_change(b->'change');
+     IF response->>'status'<>'applied' THEN RAISE EXCEPTION 'New comparison required' USING ERRCODE='40001'; END IF;
+   END IF;
+   UPDATE conflicts SET status=CASE WHEN b->>'choice'='server' THEN 'discarded' ELSE 'resolved' END,decided_by=u,decided_at=now(),decision_revision=(response->>'revision')::bigint WHERE id=c.id;
+   PERFORM audit(t,c.record_id,'conflict.decided',jsonb_build_object('conflictId',c.id,'choice',b->>'choice')); RETURN response;
+ WHEN 'audit' THEN
+   IF NOT is_member(t,u) THEN RAISE EXCEPTION 'Membership required' USING ERRCODE='42501'; END IF;
+   RETURN coalesce((SELECT jsonb_agg(x) FROM (SELECT a.* FROM audit_events a WHERE a.team_id=t AND (is_owner(t,u) OR (a.record_id IS NOT NULL AND EXISTS(SELECT FROM team_records tr WHERE tr.id=a.record_id AND allowed(u,tr.vault_id,tr.id,'read')))) ORDER BY a.id DESC LIMIT 200)x),'[]');
+ WHEN 'activity' THEN
+   PERFORM require_permission(v,r,'connect');
+   IF b->>'event' NOT IN ('connection.opened','connection.closed','sftp.completed','sftp.failed') THEN RAISE EXCEPTION 'Unknown event'; END IF;
+   PERFORM audit(t,r,b->>'event',jsonb_build_object('operationId',b->>'operationId','bytes',greatest(0,coalesce((b->>'bytes')::bigint,0)),'clientAt',b->>'clientAt')); RETURN '{}';
+ WHEN 'maintenance' THEN
+   IF NOT is_owner(t,u) THEN RAISE EXCEPTION 'Owner required' USING ERRCODE='42501'; END IF;
+   DELETE FROM terminal_sessions ts USING team_vaults tv WHERE ts.vault_id=tv.id AND tv.team_id=t AND ts.expires_at<now();
+   DELETE FROM audit_events WHERE id IN (SELECT a.id FROM audit_events a JOIN teams tm ON tm.id=a.team_id WHERE a.team_id=t AND a.server_at<now()-make_interval(days=>tm.audit_days) LIMIT 1000);
+   RETURN jsonb_build_object('encryptedBytes',(SELECT coalesce(sum(octet_length(rv.payload)+octet_length(rv.secrets)),0) FROM record_versions rv JOIN team_records tr ON tr.id=rv.record_id JOIN team_vaults tv ON tv.id=tr.vault_id WHERE tv.team_id=t));
+ ELSE RAISE EXCEPTION 'Unsupported Team operation';
+ END CASE;
+END $$;
+
+INSERT INTO schema_version(version) VALUES(7) ON CONFLICT DO NOTHING;
+COMMIT;

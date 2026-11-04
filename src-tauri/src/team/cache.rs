@@ -1,4 +1,4 @@
-//! Format 2 Team cache: encrypted metadata, records and append-only journal.
+//! Formats 2/3/4 Team cache (SQL connections require 3, documents require 4): encrypted metadata, records and append-only journal.
 //! Personal .ttvault/.ttbackup readers intentionally reject this format.
 use super::crypto as team_crypto;
 use crate::{
@@ -102,7 +102,7 @@ impl Cache {
                 Ok((r.get(0)?, r.get(1)?))
             })?;
         ensure!(
-            version == 2,
+            [2, 3, 4].contains(&version),
             "Desteklenmeyen Team önbelleği sürümü; dosya değiştirilmedi"
         );
         let envelope: crypto::Envelope = serde_json::from_slice(&bytes)?;
@@ -192,14 +192,17 @@ impl Cache {
     ) -> Result<bool> {
         let old = self.records(vault)?;
         let revoked = old.iter().any(|r| {
-            r.permissions.iter().any(|p| p == "connect")
-                && !records.iter().any(|n| {
-                    n.record.id == r.record.id
-                        && n.permissions.iter().any(|p| p == "connect")
-                        && !n.deleted
-                })
+            let next=records.iter().find(|n| n.record.id==r.record.id && !n.deleted);
+            !crate::database_library::is_document(&r.record.kind) && r.revision > 0 && r.permissions.iter().any(|p| ["connect","sql_run","sql_monitor","sql_manage"].contains(&p.as_str())
+                && !next.is_some_and(|n| n.permissions.contains(p)))
         });
         let tx = self.conn.transaction()?;
+        if records.iter().any(|r| crate::database_library::is_document(&r.record.kind)) {
+            tx.execute("UPDATE header SET version=4 WHERE version<4", [])?;
+        }
+        if records.iter().any(|r| r.record.kind == "databaseConnection") {
+            tx.execute("UPDATE header SET version=3 WHERE version=2", [])?;
+        }
         // Preserve drafts in the journal; unauthorized material is removed from the normal cache.
         tx.execute("DELETE FROM records WHERE vault=?1", [vault])?;
         for r in records {
@@ -227,11 +230,10 @@ impl Cache {
                 .map(|r| serde_json::from_value(r["permissions"].clone()))
                 .transpose()?
                 .unwrap_or_default();
-            let connect = permissions.iter().any(|p| p == "connect")
-                && current.is_some_and(|r| r["deleted"] != true);
-            if cached.permissions.iter().any(|p| p == "connect") && !connect {
-                revoked = true;
-            }
+            // A new journal-only record is absent from the pre-upload snapshot;
+            // that absence is not a server revocation of an existing session.
+            if !crate::database_library::is_document(&cached.record.kind) && cached.revision > 0 && cached.permissions.iter().any(|p| ["connect","sql_run","sql_monitor","sql_manage"].contains(&p.as_str())
+                && (!permissions.contains(p) || current.is_none_or(|r| r["deleted"]==true))) { revoked=true; }
             if current.is_none() {
                 tx.execute(
                     "DELETE FROM records WHERE vault=?1 AND id=?2",
@@ -241,11 +243,11 @@ impl Cache {
             }
             cached.permissions = permissions;
             cached.deleted = current.is_some_and(|r| r["deleted"] == true);
-            if !cached
-                .permissions
-                .iter()
-                .any(|p| ["connect", "reveal", "edit"].contains(&p.as_str()))
-            {
+            let can_keep_secret = cached.permissions.iter().any(|p| ["reveal","edit"].contains(&p.as_str()))
+                || if cached.record.kind == "databaseConnection" {
+                    cached.permissions.iter().any(|p|p=="read") && cached.permissions.iter().any(|p|["sql_run","sql_monitor","sql_manage"].contains(&p.as_str()))
+                } else { cached.permissions.iter().any(|p|p=="connect") };
+            if !can_keep_secret {
                 cached.record = team_crypto::split(&cached.record).0;
             }
             let payload = crypto::seal(
@@ -307,7 +309,7 @@ impl Cache {
             );
             old.permissions.clone()
         } else if owner {
-            vec!["read", "connect", "edit", "reveal", "export", "manage"]
+            vec!["read", "connect", "edit", "reveal", "export", "manage", "sql_run", "sql_monitor", "sql_manage", "sql_export"]
                 .into_iter()
                 .map(str::to_string)
                 .collect()
@@ -327,11 +329,25 @@ impl Cache {
                 "snippet",
                 "workspace",
                 "tunnel",
-                "knownHost"
+                "knownHost",
+                "databaseConnection", "savedQuery", "databaseRunbook"
             ]
             .contains(&record.kind.as_str()),
             "Bu kayıt türü Team kasasında desteklenmiyor"
         );
+        if record.kind == "databaseConnection" {
+            ensure!(record.data["caPath"].as_str().unwrap_or("").is_empty(), "Team bağlantısında yerel CA yolu yerine PEM sertifikası kullanın");
+            ensure!(record.data["sshHostId"].as_str().unwrap_or("").is_empty(), "Team SQL SSH tüneli henüz desteklenmiyor; doğrudan bağlantı kullanın");
+        }
+        if !deleted { crate::database_library::validate(&record)?; }
+        if !deleted && crate::database_library::is_document(&record.kind) {
+            if let (Some(old), Some(expected)) = (old, record.data["_teamRevision"].as_i64()) {
+                ensure!(expected == old.revision, "SQL belgesi değişti; yeniden açıp düzenlemeleri karşılaştırın");
+            }
+            let id = record.data["connectionId"].as_str().unwrap_or("");
+            let connection = self.permitted(vault, id, "read")?;
+            ensure!(connection.record.kind == "databaseConnection", "SQL belgesi bir veritabanı bağlantısına bağlı olmalı");
+        }
         if deleted {
             ensure!(
                 !self.records(vault)?.iter().any(|r| !r.deleted
@@ -366,6 +382,8 @@ impl Cache {
             record
         };
         let tx = self.conn.savepoint()?;
+        if crate::database_library::is_document(&record.kind) { tx.execute("UPDATE header SET version=4 WHERE version<4", [])?; }
+        if record.kind == "databaseConnection" { tx.execute("UPDATE header SET version=3 WHERE version=2", [])?; }
         let sequence: i64 =
             tx.query_row("SELECT coalesce(max(sequence),0)+1 FROM journal", [], |r| {
                 r.get(0)
@@ -588,7 +606,7 @@ impl Cache {
                     .unwrap_or(false)
                 {
                     Some(
-                        ["read", "connect", "edit", "reveal", "export", "manage"]
+                        ["read", "connect", "edit", "reveal", "export", "manage", "sql_run", "sql_monitor", "sql_manage", "sql_export"]
                             .iter()
                             .map(|s| s.to_string())
                             .collect(),
@@ -678,7 +696,7 @@ fn dependency_order(records: Vec<Record>, deleted: bool) -> Result<Vec<Record>> 
 }
 pub fn record_dependencies(record: &Record) -> Vec<String> {
     let mut ids = Vec::new();
-    for field in ["groupId", "credentialId", "hostId"] {
+    for field in ["groupId", "credentialId", "hostId", "connectionId"] {
         if let Some(id) = record.data[field].as_str().filter(|id| !id.is_empty()) {
             ids.push(id.to_string());
         }
@@ -850,6 +868,67 @@ mod tests {
         assert!(Cache::open(&path, "wrong password", false).is_err());
         let cache = Cache::open(&path, "Disposable-test-1234", false)?;
         assert_eq!(cache.pending("v")?.len(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn sql_documents_encrypted_reopen_dependencies_and_atomic_batch() -> Result<()> {
+        let dir=tempfile::tempdir()?;let path=dir.path().join("library.ttteam");
+        let mut cache=Cache::open(&path,"Disposable-library-1234",true)?;
+        cache.snapshot("v",&[],1_000_000)?;
+        let db=Record::new("databaseConnection",json!({"label":"DB"}));
+        let query=Record::new("savedQuery",json!({"label":"Özel sorgu","connectionId":db.id,"sql":"SELECT 'never-plaintext-library'"}));
+        let book=Record::new("databaseRunbook",json!({"label":"Runbook","connectionId":db.id,"steps":[{"title":"Kontrol","sql":"SELECT 1"}]}));
+        cache.enqueue_batch("v",vec![book.clone(),query.clone(),db.clone()],false,1_000_001,true)?;
+        assert_eq!(cache.conn.query_row("SELECT version FROM header",[],|r|r.get::<_,i64>(0))?,4);
+        assert_eq!(cache.pending("v")?[0].record.id,db.id);
+        let mut stale=query.clone();stale.data["_teamRevision"]=json!(99);
+        assert!(cache.enqueue("v",stale,false,1_000_002,None,true).is_err());
+        assert!(cache.enqueue("v",db.clone(),true,1_000_002,None,true).is_err());
+        let mut bad=query.clone();bad.id=Uuid::new_v4().to_string();bad.data["connectionId"]=json!(book.id);
+        assert!(cache.enqueue_batch("v",vec![Record::new("group",json!({"label":"rollback"})),bad],false,1_000_002,true).is_err());
+        assert_eq!(cache.records("v")?.len(),3);
+        drop(cache);
+        assert!(!String::from_utf8_lossy(&std::fs::read(&path)?).contains("never-plaintext-library"));
+        let mut cache=Cache::open(&path,"Disposable-library-1234",false)?;
+        assert_eq!(cache.record("v",&book.id)?.unwrap().record,book);
+        cache.enqueue_batch("v",vec![db,query,book],true,1_000_003,true)?;
+        assert!(cache.records("v")?.iter().all(|r|r.deleted));
+        Ok(())
+    }
+
+    #[test]
+    fn deleting_document_does_not_revoke_connection_leases() -> Result<()> {
+        let dir=tempfile::tempdir()?;
+        let mut cache=Cache::open(&dir.path().join("delete.ttteam"),"Disposable-library-1234",true)?;
+        let query=Record::new("savedQuery",json!({"label":"Query","connectionId":Uuid::new_v4().to_string(),"sql":"SELECT 1"}));
+        let row=CachedRecord{record:query.clone(),revision:1,permissions:vec!["read".into(),"connect".into(),"sql_run".into()],deleted:false};
+        cache.snapshot("v",&[row.clone()],1_000_000)?;
+        assert!(!cache.apply_permissions("v",&[json!({"id":query.id,"permissions":["read","connect","sql_run"],"deleted":true})])?);
+        cache.snapshot("v",&[row],1_000_001)?;
+        assert!(!cache.snapshot("v",&[],1_000_002)?);
+        Ok(())
+    }
+
+    #[test]
+    fn sql_cache_upgrade_redaction_and_revocation() -> Result<()> {
+        let dir=tempfile::tempdir()?; let path=dir.path().join("sql.ttteam");
+        let mut cache=Cache::open(&path,"Disposable-cache-1234",true)?;
+        cache.snapshot("v",&[],1_000_000)?;
+        let record=Record::new("databaseConnection",json!({"label":"Private SQL","password":"SQL-secret","caPath":"","sshHostId":""}));
+        cache.enqueue("v",record.clone(),false,1_000_001,None,true)?;
+        assert!(!cache.apply_permissions("v",&[])?);
+        assert_eq!(cache.conn.query_row("SELECT version FROM header",[],|r|r.get::<_,i64>(0))?,3);
+        let rows=[CachedRecord { record:record.clone(),revision:1,permissions:vec!["read".into(),"sql_monitor".into()],deleted:false }];
+        cache.snapshot("v",&rows,1_000_002)?;
+        assert!(cache.info("v","SQL","d")?.records[0].data["password"].is_null());
+        assert!(cache.apply_permissions("v",&[json!({"id":record.id,"permissions":["read","connect"],"deleted":false})])?);
+        assert!(cache.record("v",&record.id)?.unwrap().record.data["password"].is_null());
+        assert!(cache.enqueue("v",Record::new("databaseConnection",json!({"caPath":"/private/ca.pem"})),false,1_000_003,None,true).is_err());
+        drop(cache);
+        assert!(!String::from_utf8_lossy(&std::fs::read(&path)?).contains("SQL-secret"));
+        assert!(Cache::open(&path,"wrong",false).is_err());
+        assert_eq!(Cache::open(&path,"Disposable-cache-1234",false)?.pending("v")?.len(),1);
         Ok(())
     }
 }

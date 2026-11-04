@@ -1,0 +1,3734 @@
+{
+  "date": "2026-10-04T16:11:54.179Z",
+  "actions": {
+    "PG-PROV-001": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 34,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "requested_roles",
+        "db_name"
+      ],
+      "resultColumns": [
+        [
+          "current_user",
+          "rolsuper",
+          "rolcreatedb",
+          "rolcreaterole"
+        ],
+        [
+          "rolname",
+          "rolcanlogin",
+          "rolsuper",
+          "rolcreatedb",
+          "rolcreaterole",
+          "rolreplication",
+          "rolbypassrls"
+        ],
+        [
+          "datname",
+          "owner",
+          "encoding",
+          "datcollate",
+          "datctype",
+          "datallowconn"
+        ]
+      ]
+    },
+    "PG-PROV-002": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-PROV-003": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-PROV-004": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-PROV-005": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-PROV-006": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-PROV-007": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-PROV-008": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-PROV-009": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 11,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "app_user",
+        "reader_user",
+        "app_schema"
+      ],
+      "resultColumns": [
+        [
+          "datname",
+          "owner",
+          "app_connect",
+          "reader_connect",
+          "app_can_create_schema"
+        ],
+        [
+          "nspname",
+          "relname",
+          "owner",
+          "app_select",
+          "app_insert",
+          "app_truncate",
+          "reader_select",
+          "reader_insert",
+          "reader_update",
+          "reader_delete"
+        ]
+      ]
+    },
+    "PG-PROV-010": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-MON-001": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 6,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "sampled_at",
+          "database_name",
+          "current_user",
+          "session_user",
+          "server_address",
+          "server_port",
+          "server_version_num",
+          "server_version",
+          "instance_start",
+          "is_replica",
+          "transaction_read_only"
+        ]
+      ]
+    },
+    "PG-MON-002": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 6,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "oid",
+          "datname",
+          "owner",
+          "encoding",
+          "datcollate",
+          "datctype",
+          "datallowconn",
+          "datconnlimit",
+          "can_connect",
+          "size_bytes"
+        ]
+      ]
+    },
+    "PG-MON-003": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 6,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "name",
+          "setting",
+          "unit",
+          "context",
+          "source",
+          "pending_restart"
+        ]
+      ]
+    },
+    "PG-MON-004": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 8,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "datname",
+          "usename",
+          "application_name",
+          "state",
+          "backend_type",
+          "sessions"
+        ],
+        [
+          "client_sessions",
+          "max_connections",
+          "superuser_reserved",
+          "reserved_connections"
+        ]
+      ]
+    },
+    "PG-MON-005": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 8,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "database_name",
+        "min_seconds"
+      ],
+      "resultColumns": [
+        [
+          "pid",
+          "backend_start",
+          "datname",
+          "usename",
+          "application_name",
+          "client_addr",
+          "state",
+          "wait_event_type",
+          "wait_event",
+          "query_start",
+          "xact_start",
+          "query_age",
+          "transaction_age",
+          "query_text"
+        ]
+      ]
+    },
+    "PG-MON-006": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 7,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "min_seconds"
+      ],
+      "resultColumns": [
+        [
+          "pid",
+          "backend_start",
+          "datname",
+          "usename",
+          "application_name",
+          "state",
+          "xact_start",
+          "state_change",
+          "transaction_age",
+          "state_age",
+          "xid_age",
+          "xmin_age",
+          "last_query"
+        ]
+      ]
+    },
+    "PG-MON-007": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 2,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "pid",
+          "backend_start",
+          "datname",
+          "usename",
+          "wait_event_type",
+          "wait_event",
+          "query_age",
+          "blockers",
+          "query_text"
+        ]
+      ]
+    },
+    "PG-MON-008": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 6,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "pid"
+      ],
+      "resultColumns": [
+        [
+          "pid",
+          "locktype",
+          "mode",
+          "granted",
+          "waitstart",
+          "database",
+          "relation",
+          "page",
+          "tuple",
+          "virtualxid",
+          "transactionid",
+          "fastpath"
+        ]
+      ]
+    },
+    "PG-MON-009": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 5,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "pid",
+          "application_name",
+          "client_addr",
+          "state",
+          "sync_state",
+          "sent_lsn",
+          "write_lsn",
+          "flush_lsn",
+          "replay_lsn",
+          "not_sent_bytes",
+          "replay_distance_bytes",
+          "write_lag",
+          "flush_lag",
+          "replay_lag",
+          "reply_time"
+        ]
+      ]
+    },
+    "PG-MON-010": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "requires-standby"
+    },
+    "PG-MON-011": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 1,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "pid",
+          "status",
+          "received_or_flushed_lsn",
+          "written_lsn",
+          "received_tli",
+          "last_message_at",
+          "latest_end_lsn",
+          "slot_name",
+          "sender_host",
+          "sender_port"
+        ]
+      ]
+    },
+    "PG-MON-012": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 5,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "slot_name",
+          "slot_type",
+          "plugin",
+          "database",
+          "active",
+          "active_pid",
+          "restart_lsn",
+          "confirmed_flush_lsn",
+          "wal_status",
+          "safe_wal_size",
+          "retention_distance_bytes",
+          "logical_ack_distance_bytes",
+          "xmin_age",
+          "catalog_xmin_age",
+          "invalidation_reason",
+          "inactive_since",
+          "failover",
+          "synced"
+        ]
+      ]
+    },
+    "PG-MON-013": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 2,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "sampled_at",
+          "wal_records",
+          "wal_fpi",
+          "wal_bytes",
+          "wal_buffers_full",
+          "stats_reset"
+        ]
+      ]
+    },
+    "PG-MON-014": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 3,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "archived_count",
+          "last_archived_wal",
+          "last_archived_time",
+          "failed_count",
+          "last_failed_wal",
+          "last_failed_time",
+          "stats_reset",
+          "archive_mode"
+        ]
+      ]
+    },
+    "PG-MON-015": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 2,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "file_count",
+          "wal_directory_bytes",
+          "oldest_file_mtime",
+          "newest_file_mtime"
+        ]
+      ]
+    },
+    "PG-MON-016": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 3,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "transaction",
+          "gid",
+          "prepared",
+          "owner",
+          "database",
+          "prepared_age"
+        ]
+      ]
+    },
+    "PG-MON-017": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 1,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "datname",
+          "xid_age",
+          "multixact_age",
+          "autovacuum_freeze_max_age",
+          "pct_of_autovacuum_freeze_threshold"
+        ]
+      ]
+    },
+    "PG-MON-018": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 10,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "nspname",
+          "relname",
+          "relkind",
+          "xid_age",
+          "multixact_age",
+          "total_bytes"
+        ]
+      ]
+    },
+    "PG-MON-019": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 4,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "schemaname",
+          "relname",
+          "n_live_tup",
+          "n_dead_tup",
+          "estimated_dead_pct",
+          "n_mod_since_analyze",
+          "n_ins_since_vacuum",
+          "last_vacuum",
+          "last_autovacuum",
+          "last_analyze",
+          "last_autoanalyze",
+          "vacuum_count",
+          "autovacuum_count",
+          "analyze_count",
+          "autoanalyze_count"
+        ]
+      ]
+    },
+    "PG-MON-020": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 8,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "pid",
+          "datname",
+          "relid",
+          "phase",
+          "heap_blks_total",
+          "heap_blks_scanned",
+          "heap_blks_vacuumed",
+          "index_vacuum_count"
+        ],
+        [
+          "pid",
+          "datname",
+          "relid",
+          "index_relid",
+          "command",
+          "phase",
+          "lockers_total",
+          "lockers_done",
+          "current_locker_pid",
+          "blocks_total",
+          "blocks_done",
+          "tuples_total",
+          "tuples_done"
+        ]
+      ]
+    },
+    "PG-MON-021": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 2,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "nspname",
+          "relname",
+          "relkind",
+          "main_fork_bytes",
+          "table_including_toast_aux_bytes",
+          "index_bytes",
+          "total_bytes",
+          "estimated_rows"
+        ]
+      ]
+    },
+    "PG-MON-022": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 4,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "parent_table"
+      ],
+      "resultColumns": [
+        [
+          "relid",
+          "parentrelid",
+          "isleaf",
+          "level",
+          "nspname",
+          "relname",
+          "leaf_total_bytes"
+        ]
+      ]
+    },
+    "PG-MON-023": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 5,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "schemaname",
+          "relname",
+          "indexrelname",
+          "idx_scan",
+          "idx_tup_read",
+          "idx_tup_fetch",
+          "index_bytes",
+          "indisprimary",
+          "indisunique",
+          "indisvalid",
+          "indisready",
+          "definition",
+          "backs_constraint"
+        ]
+      ]
+    },
+    "PG-MON-024": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 3,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "nspname",
+          "index_name",
+          "table_name",
+          "indisvalid",
+          "indisready",
+          "indislive",
+          "definition"
+        ]
+      ]
+    },
+    "PG-MON-025": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 4,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "schemaname",
+          "relname",
+          "seq_scan",
+          "seq_tup_read",
+          "idx_scan",
+          "n_live_tup",
+          "table_bytes"
+        ]
+      ]
+    },
+    "PG-MON-026": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 46,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "pg_stat_statements_view"
+      ],
+      "resultColumns": [
+        [
+          "userid",
+          "dbid",
+          "queryid",
+          "calls",
+          "total_exec_time",
+          "mean_exec_time",
+          "max_exec_time",
+          "rows",
+          "shared_blks_hit",
+          "shared_blks_read",
+          "temp_blks_read",
+          "temp_blks_written",
+          "wal_bytes",
+          "query_text"
+        ]
+      ]
+    },
+    "PG-MON-027": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 5,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "sampled_at",
+          "datid",
+          "datname",
+          "numbackends",
+          "xact_commit",
+          "xact_rollback",
+          "blks_read",
+          "blks_hit",
+          "tup_returned",
+          "tup_fetched",
+          "tup_inserted",
+          "tup_updated",
+          "tup_deleted",
+          "conflicts",
+          "temp_files",
+          "temp_bytes",
+          "deadlocks",
+          "blk_read_time",
+          "blk_write_time",
+          "stats_reset"
+        ]
+      ]
+    },
+    "PG-MON-028": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 47,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "backend_type",
+          "object",
+          "context",
+          "reads",
+          "read_time_ms",
+          "writes",
+          "write_time_ms",
+          "hits",
+          "evictions",
+          "fsyncs",
+          "op_bytes",
+          "read_bytes",
+          "write_bytes",
+          "stats_reset"
+        ]
+      ]
+    },
+    "PG-MON-029": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 4,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "bgwriter_counters"
+        ]
+      ]
+    },
+    "PG-MON-030": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 1,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "checkpointer_counters"
+        ]
+      ]
+    },
+    "PG-MON-031": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 3,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "rolname",
+          "rolcanlogin",
+          "rolsuper",
+          "rolcreatedb",
+          "rolcreaterole",
+          "rolreplication",
+          "rolbypassrls",
+          "rolinherit",
+          "rolconnlimit",
+          "rolvaliduntil"
+        ]
+      ]
+    },
+    "PG-MON-032": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 4,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "granted_role",
+          "member_role",
+          "granted_by",
+          "admin_option",
+          "inherit_option",
+          "set_option"
+        ]
+      ]
+    },
+    "PG-MON-033": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 3,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "role_name",
+        "schema_name"
+      ],
+      "resultColumns": [
+        [
+          "nspname",
+          "can_use",
+          "can_create"
+        ],
+        [
+          "nspname",
+          "relname",
+          "can_select",
+          "can_insert",
+          "can_update",
+          "can_delete",
+          "can_truncate"
+        ]
+      ]
+    },
+    "PG-MON-034": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 4,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "creator_role",
+          "schema_scope",
+          "defaclobjtype",
+          "grantee",
+          "privilege_type",
+          "is_grantable"
+        ]
+      ]
+    },
+    "PG-MON-035": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 8,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "schema_name"
+      ],
+      "resultColumns": [
+        [
+          "schemaname",
+          "tablename",
+          "policyname",
+          "permissive",
+          "roles",
+          "cmd",
+          "qual",
+          "with_check"
+        ],
+        [
+          "nspname",
+          "proname",
+          "args",
+          "owner",
+          "prosecdef",
+          "proconfig"
+        ]
+      ]
+    },
+    "PG-MON-036": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 5,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "pid",
+          "datname",
+          "usename",
+          "application_name",
+          "client_addr",
+          "ssl",
+          "version",
+          "cipher",
+          "bits"
+        ]
+      ]
+    },
+    "PG-MON-037": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 6,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "publication_name"
+      ],
+      "resultColumns": [
+        [
+          "pubname",
+          "puballtables",
+          "pubinsert",
+          "pubupdate",
+          "pubdelete",
+          "pubtruncate",
+          "pubviaroot"
+        ],
+        [
+          "pubname",
+          "schemaname",
+          "tablename"
+        ]
+      ]
+    },
+    "PG-MON-038": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 8,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "subid",
+          "subname",
+          "pid",
+          "relid",
+          "received_lsn",
+          "last_msg_send_time",
+          "last_msg_receipt_time",
+          "latest_end_lsn",
+          "latest_end_time"
+        ],
+        [
+          "subname",
+          "table_name",
+          "srsubstate",
+          "srsublsn"
+        ]
+      ]
+    },
+    "PG-MON-039": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 8,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "pid",
+          "datname",
+          "relid",
+          "command",
+          "type",
+          "bytes_processed",
+          "bytes_total",
+          "tuples_processed",
+          "tuples_excluded"
+        ],
+        [
+          "pid",
+          "datname",
+          "relid",
+          "phase",
+          "sample_blks_total",
+          "sample_blks_scanned"
+        ]
+      ]
+    },
+    "PG-MON-040": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 13,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "extname",
+          "extversion",
+          "extension_schema"
+        ],
+        [
+          "nspname",
+          "relname",
+          "attname",
+          "data_type"
+        ]
+      ]
+    },
+    "PG-MON-041": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 4,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "table_name"
+      ],
+      "resultColumns": [
+        [
+          "attnum",
+          "attname",
+          "data_type",
+          "attnotnull",
+          "attidentity",
+          "attgenerated",
+          "default_expression",
+          "comment"
+        ]
+      ]
+    },
+    "PG-MON-042": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 5,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "table_name"
+      ],
+      "resultColumns": [
+        [
+          "conname",
+          "contype",
+          "source_table",
+          "referenced_table",
+          "convalidated",
+          "condeferrable",
+          "condeferred",
+          "definition"
+        ]
+      ]
+    },
+    "PG-MON-043": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 2,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "selection",
+        "table",
+        "unique_key",
+        "page_size"
+      ],
+      "resultColumns": [
+        [
+          "id",
+          "label"
+        ]
+      ]
+    },
+    "PG-MON-044": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "PG-MON-045": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "PG-MON-046": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 3,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "datname",
+          "confl_tablespace",
+          "confl_lock",
+          "confl_snapshot",
+          "confl_bufferpin",
+          "confl_deadlock"
+        ]
+      ]
+    },
+    "PG-MON-047": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 3,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "nspname",
+          "relname",
+          "relpersistence",
+          "reloptions"
+        ]
+      ]
+    },
+    "PG-MON-048": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 2,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "schema_name",
+        "expected_owner"
+      ],
+      "resultColumns": [
+        [
+          "object_kind",
+          "nspname",
+          "object_name",
+          "object_oid",
+          "identity_arguments",
+          "owner"
+        ]
+      ]
+    },
+    "PG-OPS-001": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-002": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-003": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-004": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-005": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-006": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-007": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R3",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-008": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R3",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-009": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-010": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-011": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-012": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-013": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-014": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "PG-OPS-015": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R3",
+      "status": "requires-change-plan"
+    },
+    "PG-CLOUD-001": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "PG-CLOUD-002": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R0",
+      "status": "requires-cloud-environment"
+    },
+    "PG-CLOUD-003": {
+      "engine": "postgresql",
+      "version": "18.3 (Ubuntu 18.3-1.pgdg24.04+1)",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-PROV-001": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 42,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "db_name",
+        "owner_login",
+        "app_login",
+        "reader_login",
+        "migrator_login"
+      ],
+      "resultColumns": [
+        [
+          "product_version",
+          "major_version",
+          "engine_edition",
+          "edition",
+          "original_login",
+          "login_name",
+          "database_name",
+          "database_user"
+        ],
+        [
+          "name",
+          "state_desc",
+          "collation_name",
+          "compatibility_level",
+          "database_owner"
+        ],
+        [
+          "name",
+          "type_desc",
+          "is_disabled"
+        ]
+      ]
+    },
+    "MS-PROV-002": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-PROV-003": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-PROV-004": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-PROV-005": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-PROV-006": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-PROV-007": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-PROV-008": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-PROV-009": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-PROV-010": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-PROV-011": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-PROV-012": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 16,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "schema_name",
+        "qualified_table"
+      ],
+      "resultColumns": [
+        [
+          "login_name",
+          "db_user",
+          "db_name"
+        ],
+        [
+          "permission_name"
+        ],
+        [
+          "permission_name"
+        ],
+        [
+          "permission_name"
+        ]
+      ]
+    },
+    "MS-MON-001": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 13,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "sampled_at_utc",
+          "reported_server_name",
+          "product_version",
+          "major_version",
+          "edition",
+          "engine_edition",
+          "database_name",
+          "original_login",
+          "effective_login",
+          "database_user",
+          "updateability"
+        ]
+      ]
+    },
+    "MS-MON-002": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 61,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "database_name"
+      ],
+      "resultColumns": [
+        [
+          "name",
+          "state_desc",
+          "user_access_desc",
+          "recovery_model_desc",
+          "log_reuse_wait_desc",
+          "compatibility_level",
+          "collation_name",
+          "is_read_only",
+          "is_auto_close_on",
+          "is_auto_shrink_on",
+          "is_read_committed_snapshot_on",
+          "snapshot_isolation_state_desc",
+          "page_verify_option_desc",
+          "is_trustworthy_on",
+          "is_db_chaining_on",
+          "database_owner"
+        ]
+      ]
+    },
+    "MS-MON-003": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 10,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "login_name",
+          "host_name",
+          "program_name",
+          "status",
+          "session_count",
+          "open_transactions"
+        ]
+      ]
+    },
+    "MS-MON-004": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 13,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "session_id",
+          "login_time",
+          "request_id",
+          "start_time",
+          "database_name",
+          "login_name",
+          "host_name",
+          "program_name",
+          "status",
+          "command",
+          "cpu_time",
+          "total_elapsed_time",
+          "logical_reads",
+          "reads",
+          "writes",
+          "wait_type",
+          "wait_time",
+          "blocking_session_id",
+          "wait_resource",
+          "open_transaction_count",
+          "statement_text"
+        ]
+      ]
+    },
+    "MS-MON-005": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 4,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "blocked_session",
+          "blocking_session_id",
+          "wait_type",
+          "wait_time",
+          "wait_resource",
+          "database_name",
+          "blocker_login_time",
+          "blocker_login",
+          "blocker_host",
+          "blocker_program",
+          "blocker_status",
+          "blocker_open_transactions"
+        ]
+      ]
+    },
+    "MS-MON-006": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 7,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "session_id",
+          "login_time",
+          "login_name",
+          "status",
+          "transaction_id",
+          "transaction_begin_time",
+          "age_seconds",
+          "database_id",
+          "database_name",
+          "database_transaction_log_bytes_used",
+          "database_transaction_log_bytes_reserved"
+        ]
+      ]
+    },
+    "MS-MON-007": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 7,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "wait_type",
+          "waiting_tasks_count",
+          "wait_time_ms",
+          "signal_wait_time_ms",
+          "max_wait_time_ms"
+        ]
+      ]
+    },
+    "MS-MON-008": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 5,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "session_id",
+          "exec_context_id",
+          "wait_duration_ms",
+          "wait_type",
+          "blocking_session_id",
+          "resource_description"
+        ]
+      ]
+    },
+    "MS-MON-009": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 3,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "database_id",
+          "total_log_size_in_bytes",
+          "used_log_space_in_bytes",
+          "used_log_space_in_percent",
+          "log_space_in_bytes_since_last_backup"
+        ]
+      ]
+    },
+    "MS-MON-010": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 7,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "file_id",
+          "name",
+          "type_desc",
+          "physical_name",
+          "size_bytes",
+          "data_used_bytes",
+          "max_size",
+          "is_percent_growth",
+          "growth",
+          "growth_bytes"
+        ]
+      ]
+    },
+    "MS-MON-011": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 8,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "file_id",
+          "name",
+          "type_desc",
+          "num_of_reads",
+          "num_of_bytes_read",
+          "io_stall_read_ms",
+          "num_of_writes",
+          "num_of_bytes_written",
+          "io_stall_write_ms",
+          "size_on_disk_bytes"
+        ]
+      ]
+    },
+    "MS-MON-012": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 11,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "volume_mount_point",
+          "logical_volume_name",
+          "total_bytes",
+          "available_bytes"
+        ]
+      ]
+    },
+    "MS-MON-013": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 5,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "file_id",
+          "total_bytes",
+          "unallocated_bytes",
+          "user_object_bytes",
+          "internal_object_bytes",
+          "version_store_bytes"
+        ]
+      ]
+    },
+    "MS-MON-014": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 10,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "session_id",
+          "login_time",
+          "login_name",
+          "program_name",
+          "user_bytes",
+          "internal_bytes"
+        ]
+      ]
+    },
+    "MS-MON-015": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 5,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "session_id",
+          "request_id",
+          "request_time",
+          "grant_time",
+          "wait_time_ms",
+          "requested_memory_kb",
+          "granted_memory_kb",
+          "required_memory_kb",
+          "used_memory_kb",
+          "max_used_memory_kb",
+          "queue_id"
+        ]
+      ]
+    },
+    "MS-MON-016": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 4,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "physical_memory_in_use_kb",
+          "locked_page_allocations_kb",
+          "large_page_allocations_kb",
+          "memory_utilization_percentage",
+          "process_physical_memory_low",
+          "process_virtual_memory_low"
+        ],
+        [
+          "total_physical_memory_kb",
+          "available_physical_memory_kb",
+          "system_memory_state_desc"
+        ]
+      ]
+    },
+    "MS-MON-017": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 4,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "scheduler_id",
+          "status",
+          "runnable_tasks_count",
+          "current_tasks_count",
+          "active_workers_count",
+          "work_queue_count",
+          "pending_disk_io_count"
+        ]
+      ]
+    },
+    "MS-MON-018": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 21,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "query_hash",
+          "execution_count",
+          "creation_time",
+          "last_execution_time",
+          "total_worker_time",
+          "total_elapsed_time",
+          "total_logical_reads",
+          "total_logical_writes",
+          "total_physical_reads",
+          "statement_text"
+        ]
+      ]
+    },
+    "MS-MON-019": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 9,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "actual_state_desc",
+          "desired_state_desc",
+          "readonly_reason",
+          "current_storage_size_mb",
+          "max_storage_size_mb",
+          "query_capture_mode_desc",
+          "size_based_cleanup_mode_desc"
+        ]
+      ]
+    },
+    "MS-MON-020": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 58,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "from_time",
+        "to_time"
+      ],
+      "resultColumns": [
+        [
+          "query_id",
+          "query_text",
+          "executions",
+          "total_duration_ms",
+          "total_cpu_ms",
+          "weighted_avg_duration_ms"
+        ]
+      ]
+    },
+    "MS-MON-021": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 43,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "schema_name",
+          "table_name",
+          "approximate_rows",
+          "reserved_bytes",
+          "used_bytes"
+        ]
+      ]
+    },
+    "MS-MON-022": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 27,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "schema_name",
+          "table_name",
+          "index_name",
+          "index_id",
+          "type_desc",
+          "is_unique",
+          "is_primary_key",
+          "is_unique_constraint",
+          "is_disabled",
+          "has_filter",
+          "filter_definition",
+          "user_seeks",
+          "user_scans",
+          "user_lookups",
+          "user_updates",
+          "last_user_seek",
+          "last_user_scan"
+        ]
+      ]
+    },
+    "MS-MON-023": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "MS-MON-024": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 8,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "object_id",
+          "schema_name",
+          "table_name",
+          "equality_columns",
+          "inequality_columns",
+          "included_columns",
+          "user_seeks",
+          "user_scans",
+          "avg_total_user_cost",
+          "avg_user_impact",
+          "last_user_seek",
+          "last_user_scan"
+        ]
+      ]
+    },
+    "MS-MON-025": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 23,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "schema_name",
+          "object_name",
+          "stats_name",
+          "auto_created",
+          "user_created",
+          "no_recompute",
+          "last_updated",
+          "rows",
+          "rows_sampled",
+          "modification_counter"
+        ]
+      ]
+    },
+    "MS-MON-026": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 10,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "database_name"
+      ],
+      "resultColumns": [
+        [
+          "database_name",
+          "last_regular_full",
+          "last_copy_only_full",
+          "last_diff",
+          "last_log"
+        ],
+        [
+          "backup_set_id",
+          "type",
+          "backup_start_date",
+          "backup_finish_date",
+          "backup_size",
+          "compressed_backup_size",
+          "is_copy_only",
+          "has_backup_checksums",
+          "is_damaged",
+          "first_lsn",
+          "last_lsn",
+          "database_backup_lsn"
+        ]
+      ]
+    },
+    "MS-MON-027": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 6,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "job_id",
+          "name",
+          "enabled",
+          "run_status",
+          "run_date",
+          "run_time",
+          "run_duration",
+          "last_message"
+        ]
+      ]
+    },
+    "MS-MON-028": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 13,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "availability_group",
+          "replica_server_name",
+          "database_name",
+          "is_local",
+          "is_primary_replica",
+          "synchronization_state_desc",
+          "synchronization_health_desc",
+          "database_state_desc",
+          "is_suspended",
+          "suspend_reason_desc",
+          "log_send_queue_size",
+          "log_send_rate",
+          "redo_queue_size",
+          "redo_rate",
+          "last_commit_time"
+        ]
+      ]
+    },
+    "MS-MON-029": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 25,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "name",
+          "type_desc",
+          "is_disabled",
+          "default_database_name"
+        ],
+        [
+          "role_name",
+          "member_name"
+        ],
+        [
+          "role_name",
+          "member_name"
+        ]
+      ]
+    },
+    "MS-MON-030": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 47,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "grantee",
+          "grantor",
+          "class_desc",
+          "major_id",
+          "minor_id",
+          "permission_name",
+          "state_desc",
+          "schema_name",
+          "object_name"
+        ]
+      ]
+    },
+    "MS-MON-031": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 11,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "name",
+          "type_desc",
+          "authentication_type_desc",
+          "sid"
+        ]
+      ]
+    },
+    "MS-MON-032": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 6,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "session_id",
+          "login_name",
+          "program_name",
+          "net_transport",
+          "encrypt_option",
+          "auth_scheme",
+          "client_net_address",
+          "connect_time"
+        ]
+      ]
+    },
+    "MS-MON-033": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 27,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "object_id"
+      ],
+      "resultColumns": [
+        [
+          "column_id",
+          "name",
+          "data_type",
+          "max_length",
+          "precision",
+          "scale",
+          "is_nullable",
+          "is_identity",
+          "is_computed",
+          "collation_name",
+          "default_definition",
+          "computed_definition"
+        ]
+      ]
+    },
+    "MS-MON-034": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 18,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "object_id"
+      ],
+      "resultColumns": [
+        [
+          "name",
+          "type_desc",
+          "unique_index_id"
+        ],
+        [
+          "name",
+          "source_schema",
+          "source_table",
+          "source_column",
+          "target_schema",
+          "target_table",
+          "target_column",
+          "is_disabled",
+          "is_not_trusted",
+          "constraint_column_id"
+        ]
+      ]
+    },
+    "MS-MON-035": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 4,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "page_size",
+        "selection",
+        "table",
+        "unique_key"
+      ],
+      "resultColumns": [
+        [
+          "id",
+          "label"
+        ]
+      ]
+    },
+    "MS-MON-036": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "requires-cloud-environment"
+    },
+    "MS-MON-037": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 6,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "session_id",
+          "command",
+          "status",
+          "percent_complete",
+          "start_time",
+          "total_elapsed_time",
+          "wait_type",
+          "blocking_session_id"
+        ]
+      ]
+    },
+    "MS-MON-038": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 16,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "schema_name",
+          "table_name",
+          "name",
+          "type_desc"
+        ],
+        [
+          "constraint_type",
+          "name",
+          "schema_name",
+          "table_name",
+          "is_disabled",
+          "is_not_trusted"
+        ]
+      ]
+    },
+    "MS-MON-039": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 4,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "database_id",
+          "recovery_model",
+          "log_min_lsn",
+          "log_end_lsn",
+          "total_vlf_count",
+          "active_vlf_count",
+          "total_log_size_mb",
+          "active_log_size_mb",
+          "log_truncation_holdup_reason",
+          "log_backup_time",
+          "log_since_last_log_backup_mb"
+        ]
+      ]
+    },
+    "MS-MON-040": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 30,
+      "resultStatus": "partial",
+      "parameterNames": [
+        "approved_session_name"
+      ],
+      "resultColumns": [
+        [
+          "name",
+          "startup_state"
+        ],
+        [
+          "name",
+          "target_name",
+          "target_metadata"
+        ]
+      ]
+    },
+    "MS-OPS-001": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "MS-OPS-002": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 5,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "session_id"
+      ],
+      "resultColumns": [
+        [
+          "session_id",
+          "command",
+          "status",
+          "percent_complete",
+          "remaining_ms",
+          "elapsed_ms"
+        ]
+      ]
+    },
+    "MS-OPS-003": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "MS-OPS-004": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "MS-OPS-005": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "MS-OPS-006": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "MS-OPS-007": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "MS-OPS-008": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "MS-OPS-009": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-OPS-010": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-OPS-011": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-OPS-012": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-OPS-013": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R3",
+      "status": "requires-change-plan"
+    },
+    "MS-CLOUD-001": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "MS-CLOUD-002": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "requires-cloud-environment"
+    },
+    "MS-CLOUD-003": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R0",
+      "status": "requires-cloud-environment"
+    },
+    "MS-CLOUD-004": {
+      "engine": "mssql",
+      "version": "16.00.4295",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "OR-PROV-001": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 4,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "DB_NAME",
+          "CON_NAME",
+          "CON_ID",
+          "SERVICE_NAME",
+          "SESSION_USER",
+          "CURRENT_SCHEMA",
+          "PROXY_USER"
+        ],
+        [
+          "PRODUCT",
+          "VERSION",
+          "STATUS"
+        ]
+      ]
+    },
+    "OR-PROV-002": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "OR-PROV-003": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "OR-PROV-004": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "OR-PROV-005": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "OR-PROV-006": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "OR-PROV-007": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "OR-PROV-008": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "OR-PROV-009": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 395,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "owner_user",
+        "rw_role",
+        "ro_role"
+      ],
+      "resultColumns": [
+        [
+          "OWNER",
+          "TABLE_NAME"
+        ],
+        [
+          "OWNER",
+          "TABLE_NAME",
+          "GRANTEE",
+          "PRIVILEGE",
+          "GRANTABLE"
+        ]
+      ]
+    },
+    "OR-PROV-010": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "OR-PROV-011": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 159,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "SESSION_USER",
+          "PROXY_USER",
+          "CURRENT_SCHEMA"
+        ],
+        [
+          "PRIVILEGE"
+        ],
+        [
+          "ROLE"
+        ],
+        [
+          "OWNER",
+          "TABLE_NAME",
+          "PRIVILEGE",
+          "GRANTABLE"
+        ]
+      ]
+    },
+    "OR-MON-001": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 17,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "INSTANCE_NAME",
+          "HOST_NAME",
+          "VERSION",
+          "STARTUP_TIME",
+          "STATUS",
+          "DATABASE_STATUS",
+          "INSTANCE_ROLE"
+        ],
+        [
+          "DBID",
+          "NAME",
+          "DB_UNIQUE_NAME",
+          "CDB",
+          "OPEN_MODE",
+          "DATABASE_ROLE",
+          "LOG_MODE",
+          "FORCE_LOGGING",
+          "PROTECTION_MODE",
+          "PROTECTION_LEVEL"
+        ]
+      ]
+    },
+    "OR-MON-002": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 10,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "CON_ID",
+          "NAME",
+          "OPEN_MODE",
+          "RESTRICTED",
+          "TOTAL_SIZE"
+        ]
+      ]
+    },
+    "OR-MON-003": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 7,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "RESOURCE_NAME",
+          "CURRENT_UTILIZATION",
+          "MAX_UTILIZATION",
+          "INITIAL_ALLOCATION",
+          "LIMIT_VALUE"
+        ]
+      ]
+    },
+    "OR-MON-004": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 16,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "row_limit"
+      ],
+      "resultColumns": [
+        [
+          "INST_ID",
+          "CON_ID",
+          "SID",
+          "SERIAL#",
+          "USERNAME",
+          "STATUS",
+          "SERVICE_NAME",
+          "MACHINE",
+          "PROGRAM",
+          "MODULE",
+          "ACTION",
+          "LOGON_TIME",
+          "SQL_ID",
+          "SQL_CHILD_NUMBER",
+          "SQL_EXEC_START",
+          "EVENT",
+          "WAIT_CLASS",
+          "STATE",
+          "SECONDS_IN_WAIT",
+          "BLOCKING_INSTANCE",
+          "BLOCKING_SESSION"
+        ]
+      ]
+    },
+    "OR-MON-005": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 8,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "INST_ID",
+          "CON_ID",
+          "SID",
+          "SERIAL#",
+          "USERNAME",
+          "SQL_ID",
+          "BLOCKING_SESSION_STATUS",
+          "BLOCKING_INSTANCE",
+          "BLOCKING_SESSION",
+          "FINAL_BLOCKING_SESSION_STATUS",
+          "FINAL_BLOCKING_INSTANCE",
+          "FINAL_BLOCKING_SESSION",
+          "EVENT",
+          "WAIT_CLASS",
+          "SECONDS_IN_WAIT"
+        ]
+      ]
+    },
+    "OR-MON-006": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 8,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "min_seconds",
+        "row_limit"
+      ],
+      "resultColumns": [
+        [
+          "INST_ID",
+          "CON_ID",
+          "SID",
+          "SERIAL#",
+          "USERNAME",
+          "SQL_ID",
+          "SQL_EXEC_START",
+          "ELAPSED_SECONDS",
+          "EVENT",
+          "WAIT_CLASS",
+          "STATE",
+          "MODULE"
+        ]
+      ]
+    },
+    "OR-MON-007": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 13,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "INST_ID",
+          "CON_ID",
+          "SID",
+          "SERIAL#",
+          "USERNAME",
+          "STATUS",
+          "SQL_ID",
+          "LOGON_TIME",
+          "START_TIME",
+          "USED_UBLK",
+          "USED_UREC",
+          "XIDUSN",
+          "XIDSLOT",
+          "XIDSQN"
+        ]
+      ]
+    },
+    "OR-MON-008": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 32,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "INST_ID",
+          "CON_ID",
+          "SID",
+          "TYPE",
+          "ID1",
+          "ID2",
+          "LMODE",
+          "REQUEST",
+          "CTIME",
+          "BLOCK"
+        ]
+      ]
+    },
+    "OR-MON-009": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 7,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "INST_ID",
+          "CON_ID",
+          "SID",
+          "SERIAL#",
+          "OPNAME",
+          "TARGET",
+          "SOFAR",
+          "TOTALWORK",
+          "UNITS",
+          "START_TIME",
+          "ELAPSED_SECONDS",
+          "TIME_REMAINING",
+          "SQL_ID"
+        ]
+      ]
+    },
+    "OR-MON-010": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 14,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "row_limit"
+      ],
+      "resultColumns": [
+        [
+          "INST_ID",
+          "CON_ID",
+          "EVENT",
+          "WAIT_CLASS",
+          "TOTAL_WAITS",
+          "TIME_WAITED_MICRO",
+          "TOTAL_TIMEOUTS"
+        ]
+      ]
+    },
+    "OR-MON-011": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 8,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "INST_ID",
+          "CON_ID",
+          "NAME",
+          "VALUE"
+        ]
+      ]
+    },
+    "OR-MON-012": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 7,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "BEGIN_TIME",
+          "END_TIME",
+          "INTSIZE_CSEC",
+          "GROUP_ID",
+          "METRIC_NAME",
+          "VALUE",
+          "METRIC_UNIT",
+          "CON_ID"
+        ]
+      ]
+    },
+    "OR-MON-013": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 25,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "min_executions",
+        "row_limit"
+      ],
+      "resultColumns": [
+        [
+          "INST_ID",
+          "CON_ID",
+          "SQL_ID",
+          "PLAN_HASH_VALUE",
+          "EXECUTIONS",
+          "ELAPSED_TIME",
+          "CPU_TIME",
+          "BUFFER_GETS",
+          "DISK_READS",
+          "ROWS_PROCESSED",
+          "AVG_ELAPSED_S",
+          "SQL_TEXT_PREVIEW"
+        ]
+      ]
+    },
+    "OR-MON-014": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 9,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "sql_id"
+      ],
+      "resultColumns": [
+        [
+          "INST_ID",
+          "CON_ID",
+          "SQL_ID",
+          "CHILD_NUMBER",
+          "PLAN_HASH_VALUE",
+          "EXECUTIONS",
+          "ELAPSED_TIME",
+          "CPU_TIME",
+          "BUFFER_GETS",
+          "DISK_READS",
+          "INVALIDATIONS",
+          "LOADS",
+          "LAST_ACTIVE_TIME",
+          "IS_BIND_SENSITIVE",
+          "IS_BIND_AWARE"
+        ]
+      ]
+    },
+    "OR-MON-015": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 110,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "sql_id",
+        "child_number"
+      ],
+      "resultColumns": [
+        [
+          "PLAN_TABLE_OUTPUT"
+        ]
+      ]
+    },
+    "OR-MON-016": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 11,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "TABLESPACE_NAME",
+          "CONTENTS",
+          "STATUS",
+          "BLOCK_SIZE",
+          "USED_BYTES",
+          "EFFECTIVE_CAPACITY_BYTES",
+          "USED_PERCENT"
+        ]
+      ]
+    },
+    "OR-MON-017": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 19,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "TABLESPACE_NAME",
+          "FILE_ID",
+          "FILE_NAME",
+          "BYTES",
+          "AUTOEXTENSIBLE",
+          "MAXBYTES",
+          "INCREMENT_BY",
+          "STATUS",
+          "ONLINE_STATUS"
+        ]
+      ]
+    },
+    "OR-MON-018": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 46,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "TABLESPACE_NAME",
+          "TABLESPACE_SIZE",
+          "ALLOCATED_SPACE",
+          "FREE_SPACE",
+          "SHARED",
+          "INST_ID"
+        ]
+      ]
+    },
+    "OR-MON-019": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 26,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "INST_ID",
+          "CON_ID",
+          "SID",
+          "SERIAL#",
+          "USERNAME",
+          "SQL_ID",
+          "TABLESPACE",
+          "SEGTYPE",
+          "ALLOCATED_BLOCKS"
+        ]
+      ]
+    },
+    "OR-MON-020": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 8,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "lookback_hours"
+      ],
+      "resultColumns": [
+        [
+          "BEGIN_TIME",
+          "END_TIME",
+          "UNDOBLKS",
+          "TXNCOUNT",
+          "MAXQUERYLEN",
+          "MAXCONCURRENCY",
+          "UNXPSTEALCNT",
+          "SSOLDERRCNT",
+          "NOSPACEERRCNT",
+          "TUNED_UNDORETENTION"
+        ]
+      ]
+    },
+    "OR-MON-021": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 100,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "NAME",
+          "SPACE_LIMIT",
+          "SPACE_USED",
+          "SPACE_RECLAIMABLE",
+          "NUMBER_OF_FILES",
+          "CON_ID"
+        ],
+        [
+          "FILE_TYPE",
+          "PERCENT_SPACE_USED",
+          "PERCENT_SPACE_RECLAIMABLE",
+          "NUMBER_OF_FILES",
+          "CON_ID"
+        ]
+      ]
+    },
+    "OR-MON-022": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 12,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "DEST_ID",
+          "DEST_NAME",
+          "STATUS",
+          "TYPE",
+          "DATABASE_MODE",
+          "RECOVERY_MODE",
+          "DESTINATION",
+          "ERROR",
+          "ARCHIVED_THREAD#",
+          "ARCHIVED_SEQ#",
+          "APPLIED_THREAD#",
+          "APPLIED_SEQ#"
+        ]
+      ]
+    },
+    "OR-MON-023": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 12,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "NAME",
+          "VALUE",
+          "UNIT",
+          "TIME_COMPUTED",
+          "DATUM_TIME"
+        ]
+      ]
+    },
+    "OR-MON-024": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 57,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "THREAD#",
+          "LOW_SEQUENCE#",
+          "HIGH_SEQUENCE#"
+        ],
+        [
+          "NAME",
+          "ROLE",
+          "ACTION",
+          "CLIENT_ROLE",
+          "THREAD#",
+          "SEQUENCE#"
+        ]
+      ]
+    },
+    "OR-MON-025": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 71,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "lookback_days",
+        "row_limit"
+      ],
+      "resultColumns": [
+        [
+          "SESSION_KEY",
+          "INPUT_TYPE",
+          "STATUS",
+          "START_TIME",
+          "END_TIME",
+          "ELAPSED_SECONDS",
+          "INPUT_BYTES",
+          "OUTPUT_BYTES",
+          "COMPRESSION_RATIO",
+          "OUTPUT_DEVICE_TYPE"
+        ]
+      ]
+    },
+    "OR-MON-026": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 27,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "FILE#",
+          "BLOCK#",
+          "BLOCKS",
+          "CORRUPTION_CHANGE#",
+          "CORRUPTION_TYPE",
+          "CON_ID"
+        ]
+      ]
+    },
+    "OR-MON-027": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 36,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "lookback_minutes",
+        "row_limit"
+      ],
+      "resultColumns": [
+        [
+          "ORIGINATING_TIMESTAMP",
+          "MESSAGE_TYPE",
+          "MESSAGE_LEVEL",
+          "COMPONENT_ID",
+          "PROBLEM_KEY",
+          "MESSAGE_TEXT"
+        ]
+      ]
+    },
+    "OR-MON-028": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 54,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "owner_user"
+      ],
+      "resultColumns": [
+        [
+          "OWNER",
+          "OBJECT_NAME",
+          "OBJECT_TYPE",
+          "STATUS",
+          "LAST_DDL_TIME"
+        ],
+        [
+          "OWNER",
+          "NAME",
+          "TYPE",
+          "SEQUENCE",
+          "LINE",
+          "POSITION",
+          "TEXT"
+        ]
+      ]
+    },
+    "OR-MON-029": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 196,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "owner_user"
+      ],
+      "resultColumns": [
+        [
+          "OWNER",
+          "INDEX_NAME",
+          "TABLE_OWNER",
+          "TABLE_NAME",
+          "INDEX_TYPE",
+          "STATUS",
+          "PARTITIONED",
+          "VISIBILITY"
+        ],
+        [
+          "INDEX_OWNER",
+          "INDEX_NAME",
+          "PARTITION_NAME",
+          "STATUS"
+        ],
+        [
+          "INDEX_OWNER",
+          "INDEX_NAME",
+          "SUBPARTITION_NAME",
+          "STATUS"
+        ]
+      ]
+    },
+    "OR-MON-030": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 418,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "owner_user"
+      ],
+      "resultColumns": [
+        [
+          "OWNER",
+          "TABLE_NAME",
+          "PARTITION_NAME",
+          "SUBPARTITION_NAME",
+          "NUM_ROWS",
+          "BLOCKS",
+          "SAMPLE_SIZE",
+          "LAST_ANALYZED",
+          "STALE_STATS",
+          "STATTYPE_LOCKED"
+        ]
+      ]
+    },
+    "OR-MON-031": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 147,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "owner_user",
+        "row_limit"
+      ],
+      "resultColumns": [
+        [
+          "OWNER",
+          "SEGMENT_NAME",
+          "PARTITION_NAME",
+          "SEGMENT_TYPE",
+          "TABLESPACE_NAME",
+          "BYTES",
+          "BLOCKS",
+          "EXTENTS"
+        ]
+      ]
+    },
+    "OR-MON-032": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 220,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "owner_user",
+        "lookback_days",
+        "row_limit"
+      ],
+      "resultColumns": [
+        [
+          "OWNER",
+          "JOB_NAME",
+          "ENABLED",
+          "STATE",
+          "FAILURE_COUNT",
+          "LAST_START_DATE",
+          "LAST_RUN_DURATION",
+          "NEXT_RUN_DATE"
+        ],
+        [
+          "OWNER",
+          "JOB_NAME",
+          "STATUS",
+          "ERROR#",
+          "ACTUAL_START_DATE",
+          "RUN_DURATION",
+          "ADDITIONAL_INFO"
+        ]
+      ]
+    },
+    "OR-MON-033": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 43,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "USERNAME",
+          "ACCOUNT_STATUS",
+          "LOCK_DATE",
+          "EXPIRY_DATE",
+          "DEFAULT_TABLESPACE",
+          "TEMPORARY_TABLESPACE",
+          "PROFILE",
+          "AUTHENTICATION_TYPE",
+          "COMMON",
+          "ORACLE_MAINTAINED",
+          "CREATED"
+        ]
+      ]
+    },
+    "OR-MON-034": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 108,
+      "resultStatus": "partial",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "GRANTEE",
+          "GRANTED_ROLE",
+          "ADMIN_OPTION",
+          "DEFAULT_ROLE",
+          "COMMON"
+        ],
+        [
+          "GRANTEE",
+          "PRIVILEGE",
+          "ADMIN_OPTION",
+          "COMMON"
+        ]
+      ]
+    },
+    "OR-MON-035": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 691,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "owner_user"
+      ],
+      "resultColumns": [
+        [
+          "OWNER",
+          "TABLE_NAME",
+          "GRANTEE",
+          "GRANTOR",
+          "PRIVILEGE",
+          "GRANTABLE",
+          "TYPE"
+        ],
+        [
+          "OWNER",
+          "TABLE_NAME",
+          "COLUMN_NAME",
+          "GRANTEE",
+          "PRIVILEGE",
+          "GRANTABLE"
+        ]
+      ]
+    },
+    "OR-MON-036": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 28,
+      "resultStatus": "unknown",
+      "parameterNames": [
+        "owner_user"
+      ],
+      "resultColumns": [
+        [
+          "USERNAME",
+          "TABLESPACE_NAME",
+          "BYTES",
+          "MAX_BYTES",
+          "BLOCKS",
+          "MAX_BLOCKS"
+        ]
+      ]
+    },
+    "OR-MON-037": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 96,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "owner_user",
+        "table_name"
+      ],
+      "resultColumns": [
+        [
+          "OWNER",
+          "TABLE_NAME",
+          "COLUMN_ID",
+          "COLUMN_NAME",
+          "DATA_TYPE",
+          "DATA_LENGTH",
+          "CHAR_LENGTH",
+          "CHAR_USED",
+          "DATA_PRECISION",
+          "DATA_SCALE",
+          "NULLABLE",
+          "IDENTITY_COLUMN",
+          "VIRTUAL_COLUMN",
+          "DATA_DEFAULT"
+        ]
+      ]
+    },
+    "OR-MON-038": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 2105,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "owner_user",
+        "table_name"
+      ],
+      "resultColumns": [
+        [
+          "OWNER",
+          "TABLE_NAME",
+          "CONSTRAINT_NAME",
+          "CONSTRAINT_TYPE",
+          "STATUS",
+          "VALIDATED",
+          "DEFERRABLE",
+          "DEFERRED",
+          "DELETE_RULE",
+          "R_OWNER",
+          "R_CONSTRAINT_NAME",
+          "COLUMN_NAME",
+          "POSITION"
+        ]
+      ]
+    },
+    "OR-MON-039": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 13,
+      "resultStatus": "ok",
+      "parameterNames": [
+        "selection",
+        "table",
+        "page_size"
+      ],
+      "resultColumns": [
+        [
+          "ID",
+          "LABEL"
+        ]
+      ]
+    },
+    "OR-MON-040": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 40,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "NAME",
+          "NETWORK_NAME",
+          "CON_ID"
+        ],
+        [
+          "NAME",
+          "VALUE",
+          "ISDEFAULT",
+          "ISSYS_MODIFIABLE",
+          "ISPDB_MODIFIABLE"
+        ]
+      ]
+    },
+    "OR-MON-041": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 35,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "NAME",
+          "VALUE"
+        ],
+        [
+          "NAME",
+          "VALUE",
+          "UNIT"
+        ]
+      ]
+    },
+    "OR-MON-042": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 25,
+      "resultStatus": "ok",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "GROUP#",
+          "THREAD#",
+          "SEQUENCE#",
+          "BYTES",
+          "MEMBERS",
+          "ARCHIVED",
+          "STATUS"
+        ],
+        [
+          "GROUP#",
+          "STATUS",
+          "TYPE",
+          "MEMBER"
+        ]
+      ]
+    },
+    "OR-MON-043": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 12,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "LOCAL_TRAN_ID",
+          "GLOBAL_TRAN_ID",
+          "STATE",
+          "MIXED",
+          "ADVICE",
+          "FAIL_TIME",
+          "FORCE_TIME",
+          "RETRY_TIME"
+        ]
+      ]
+    },
+    "OR-MON-044": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "passed",
+      "durationMs": 15,
+      "resultStatus": "unknown",
+      "parameterNames": [],
+      "resultColumns": [
+        [
+          "PROXY",
+          "CLIENT",
+          "AUTHENTICATION",
+          "FLAGS"
+        ]
+      ]
+    },
+    "OR-MON-045": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "license-gated"
+    },
+    "OR-MON-046": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R0",
+      "status": "license-gated"
+    },
+    "OR-OPS-001": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "OR-OPS-002": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "OR-OPS-003": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "OR-OPS-004": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "OR-OPS-005": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "OR-OPS-006": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "OR-OPS-007": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "OR-OPS-008": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "OR-OPS-009": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "OR-OPS-010": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "OR-OPS-011": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    },
+    "OR-OPS-012": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R3",
+      "status": "requires-change-plan"
+    },
+    "OR-CLOUD-001": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R2",
+      "status": "requires-change-plan"
+    },
+    "OR-CLOUD-002": {
+      "engine": "oracle",
+      "version": "Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.3.0.0",
+      "risk": "R1",
+      "status": "requires-change-plan"
+    }
+  }
+}

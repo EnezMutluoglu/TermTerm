@@ -34,6 +34,7 @@ export default function DataTools({
   const [encoding, setEncoding] = useState("auto");
   const [path, setPath] = useState("");
   const [password, setPassword] = useState("");
+  const [keyFile, setKeyFile] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [profiles, setProfiles] = useState(false);
   const [secrets, setSecrets] = useState(false);
@@ -142,7 +143,8 @@ export default function DataTools({
           const result = await call<ImportPreview>("import_preview", {
             path,
             format,
-            password,
+            password: keyFile && !password ? null : password,
+            keyFile: keyFile || null,
             mapping,
             encoding,
             operationId: activeOperation.current,
@@ -341,6 +343,11 @@ export default function DataTools({
                   value: "mobaxterm",
                   label: "MobaXterm (.ini / .mobaconf / .mxtsessions)",
                 },
+                {
+                  value: "keepass-kdbx",
+                  label: "KeePass şifreli kasa (.kdbx)",
+                },
+                { value: "keepass", label: "KeePass 2 XML (.xml)" },
                 { value: "securecrt", label: tr("SecureCRT settings (.xml)") },
                 {
                   value: "ansible",
@@ -383,9 +390,14 @@ export default function DataTools({
           )}
           {mode === "import" &&
             !preview &&
-            ["ttvault", "ttbackup", "auto", "mobaxterm", "securecrt"].includes(
-              format,
-            ) && (
+            [
+              "ttvault",
+              "ttbackup",
+              "auto",
+              "mobaxterm",
+              "securecrt",
+              "keepass-kdbx",
+            ].includes(format) && (
               <Field
                 label={tr("Source password (if encrypted)")}
                 value={password}
@@ -395,6 +407,32 @@ export default function DataTools({
                   "Vendor encryption without a verified decoder is reported as unsupported; encrypted fields are never treated as plaintext credentials.",
                 )}
               />
+            )}
+          {mode === "import" &&
+            !preview &&
+            ["auto", "keepass-kdbx"].includes(format) && (
+              <div className="file-field">
+                <Field
+                  label="KeePass keyfile (isteğe bağlı)"
+                  value={keyFile}
+                  onChange={setKeyFile}
+                  hint="Kasa parola, keyfile veya ikisini birlikte kullanabilir. Windows hesabına bağlı ve donanım challenge-response koruması desteklenmez."
+                />
+                <button
+                  className="secondary"
+                  aria-label="KeePass keyfile seç"
+                  onClick={async () => {
+                    try {
+                      const file = await chooseFile(["*"], "KeePass keyfile");
+                      if (file && mounted.current) setKeyFile(file);
+                    } catch (e) {
+                      if (mounted.current) setError(errorText(e));
+                    }
+                  }}
+                >
+                  <FolderOpen size={17} />
+                </button>
+              </div>
             )}
           {mode === "import" && format === "csv" && !preview && (
             <>
