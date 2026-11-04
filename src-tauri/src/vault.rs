@@ -19,6 +19,7 @@ pub struct Vault {
     pub id: String,
     pub path: PathBuf,
     pub device_id: String,
+    pub(crate) authenticator_context: String,
     _lock: File,
 }
 #[derive(Serialize, Deserialize)]
@@ -30,6 +31,10 @@ pub struct Backup {
 pub struct BackupVault {
     pub name: String,
     pub records: Vec<Record>,
+    #[serde(default, rename = "vpnProfiles", skip_serializing_if = "Vec::is_empty")]
+    pub vpn_profiles: Vec<Record>,
+    #[serde(default, skip_serializing_if="Vec::is_empty")]
+    pub authenticator: Vec<crate::authenticator::Entry>,
 }
 #[derive(Serialize, Deserialize)]
 struct BackupFile {
@@ -64,6 +69,8 @@ impl Vault {
         Ok(BackupVault {
             name: v.name()?,
             records: v.records()?,
+            vpn_profiles: crate::vpn::profiles_raw(&v)?,
+            authenticator: crate::authenticator::load(&v)?,
         })
     }
     fn lock(path: &Path) -> Result<File> {
@@ -112,6 +119,7 @@ impl Vault {
             id,
             path: path.into(),
             device_id,
+            authenticator_context: Uuid::new_v4().to_string(),
             _lock: lock,
         })
     }
@@ -146,7 +154,7 @@ impl Vault {
             )
             .context("This is not a TermTerm vault")?;
         ensure!(
-            version == crypto::FORMAT_VERSION,
+            version == crypto::FORMAT_VERSION || version == 2 || version == 3,
             "Unsupported vault version; file has not been changed"
         );
         let envelope: Envelope = serde_json::from_slice(&envelope)?;
@@ -164,9 +172,11 @@ impl Vault {
             id,
             path: path.into(),
             device_id,
+            authenticator_context: Uuid::new_v4().to_string(),
             _lock: lock,
         };
         vault.records()?;
+        crate::vpn::profiles_raw(&vault)?;
         Ok(vault)
     }
     pub fn name(&self) -> Result<String> {
@@ -314,6 +324,8 @@ impl Vault {
                 vaults: vec![BackupVault {
                     name: self.name()?,
                     records,
+                    vpn_profiles: if ids.is_empty() { crate::vpn::profiles_raw(self)? } else { vec![] },
+                    authenticator: if ids.is_empty() { crate::authenticator::load(self)? } else { vec![] },
                 }],
             },
         )
@@ -342,10 +354,13 @@ impl Vault {
 pub fn write_backup(path: &Path, password: &str, backup: &Backup) -> Result<()> {
     let key = crypto::random_key();
     let envelope = Envelope::create(password, &key, b"termterm-backup-v1")?;
+    let mut payload = serde_json::to_value(backup)?;
+    if backup.vaults.iter().any(|v| !v.vpn_profiles.is_empty()) { payload["version"] = 2.into(); }
+    if backup.vaults.iter().any(|v| !v.authenticator.is_empty()) { payload["version"] = 3.into(); }
     let content = serde_json::to_vec(&BackupFile {
         magic: "TERMTTERM_BACKUP".into(),
         envelope,
-        payload: crypto::seal(&key, &serde_json::to_vec(backup)?, b"termterm-backup-v1")?,
+        payload: crypto::seal(&key, &serde_json::to_vec(&payload)?, b"termterm-backup-v1")?,
     })?;
     use std::io::Write;
     let mut f = OpenOptions::new()
@@ -368,7 +383,10 @@ pub fn read_backup(path: &Path, password: &str) -> Result<Backup> {
     let key = file.envelope.unlock(password, b"termterm-backup-v1")?;
     let backup: Backup =
         serde_json::from_slice(&crypto::unseal(&key, &file.payload, b"termterm-backup-v1")?)?;
-    ensure!(backup.version == 1, "Unsupported backup version");
+    ensure!([1, 2, 3].contains(&backup.version), "Unsupported backup version");
+    ensure!(backup.version >= 2 || backup.vaults.iter().all(|v| v.vpn_profiles.is_empty()), "VPN backup requires version 2");
+    ensure!(backup.version >= 3 || backup.vaults.iter().all(|v| v.authenticator.is_empty()), "Authenticator backup requires version 3");
+    for vault in &backup.vaults {crate::authenticator::validate(&vault.authenticator)?;}
     Ok(backup)
 }
 pub fn restored_records(records: &[Record]) -> Result<Vec<Record>> {

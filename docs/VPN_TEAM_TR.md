@@ -1,0 +1,29 @@
+# Team VPN geliştirme sözleşmesi
+
+29 Ekim 2026. Bu belge VPN geliştirme dalındaki Team bölümünü anlatır. Kararlı uygulama, yayın kanalı ve otomatik güncelleme dosyaları bu çalışma kapsamında değiştirilmez.
+
+Team çalışma alanı kişisel bölümle aynı VPN panelini kullanır. Özel VPN profili hesabına aittir. Paylaşma işlemi ayrı kimliği, şifreleme anahtarları ve geçmişi olan bağımsız bir ortak kopya oluşturur; sonraki özel düzenlemeler bu kopyaya aktarılmaz. OpenVPN dosyaları ve ekleri ile WireGuard yapılandırması şifreli yapılandırma alanında kalır. Sunucu, realm/grup, tür, klasör ve ad ayrı profil alanlarıdır.
+
+Ortak kopyada görüntüleme, bağlanma, düzenleme, yapılandırmayı görme ve dışa aktarma hakları ayrı değerlendirilir. Bağlanma veya düzenleme hakkı yapılandırmayı ön yüze açmaz. Yalnız açık bir görme/dışa aktarma işlemi ilgili yetkiyi kullanabilir. Mevcut Team anahtar zarfları, kurtarma ve sürüm geçmişi korunur; kaynak ve takım sahibi ortak kopyanın yönetimini sürdürür.
+
+VPN kullanıcı adı, parola ve hatırlama tercihi ortak yapılandırmadan ayrıdır. `vpn_auth` özel kimliği ile `(takım, hesap, VPN)` eşlemesi kullanılır; paylaşım hazırlığı bu kimlik türünü reddeder. Ortak VPN'yi kullanan diğer kişi kendi girişini girer. Hatırlamayı kapatmak boş kullanıcı adıyla birlikte de eski parolayı temizler. OTP, tekrarlanan challenge yanıtı ve tarayıcı/SSO oturumu bu modele alınmaz. Native ilk-parola formu denetimi OTP'yi hatırlama yoluna sokmaz.
+
+Host ayarı önce, ardından en yakın klasör ayarı çözülür. Aynı düğümde hesaba özel eşleme ortak eşlemeden önce gelir. Boş seçim üst klasörden devralır; zorunlu VPN'yi devre dışı bırakmaz. Ortak eşleme başka bir kişinin özel profilini gösteremez; özel eşleme hesap kapsamındadır. İstenen hop geçerli, yetkili kök bağlantı planında bulunmalıdır. Seçili geçmiş sürümün rotası da bu kontrolden geçer. Tek başına hop'a bağlanma hakkı olmadan yetkili kök üzerinden bağımlılık kullanılabilir; ilgisiz hop sorgusu reddedilir. VPN erişimi kaldırılırsa gerekli bağlantı doğrudan ağ yoluna düşmez.
+
+Servis şeması **66**, API sürümü **1**, Team önbelleği **9** olur. Uygulanmış `001`–`065` migration dosyaları değişmez. `066_vpn.sql`, paket uyumluluk dosyası ve servis şema kontrolü birlikte ilerler. Normal, VPN istemeyen bağlantılarda 0.4.2 uyumluluğu korunur. VPN gerektiren target/plan/credential uçları `vpn-v1` yeteneği olmayan istemciyi açıkça reddeder. Bunun için yayımlanmamış bir sürüm desteklenen istemci kataloğuna eklenmez.
+
+Önbellek 8'den 9'a geçiş mevcut kaynak günlüğü ve şifreli kayıtları korur. VPN için ayrı `cached_vpn`, `vpn_operations` ve `vpn_requirements` tabloları kullanılır. Yapılandırma, kişisel giriş ve değişmez işlem taslağı aynı SQLite işleminde yazılır. Anahtar ve AAD mevcut hesap/kimlik kapsamını kullanır. Saat geri alınırsa düzenleme kirası kapanır. **24 saat sınırı yazma içindir**; önceden yetkilendirilmiş, şifreli olarak önbelleğe alınmış bağlantı bu süreden sonra da kullanılabilir.
+
+Her kök/hop için gerekli VPN veya sunucunun doğruladığı açık `null` sonucu kayıtlı olmalıdır. Kanıt önbellekteki bağlantı planının hash'ine bağlıdır. Eksik, bozulmuş veya başka plana ait kanıt doğrudan bağlantı anlamına gelmez; bağlantı engellenir. Yalnız kesin `network_unavailable` hatası önbelleğe geçebilir. Kimlik doğrulama, TLS, bakım ve yetki hataları bu yola alınmaz. Açık ret okunabilir profil/giriş/bağımlılık kanıtını kaldırır; bekleyen taslak şifreli olarak karantinada korunur.
+
+Yeni özel profilin çevrimdışı oluşturulması önceden verilmiş hesap/cihaz oluşturma yetkisi ister. Paylaşma, ACL, eşleme, görme ve dışa aktarma çevrimiçi kalır. VPN düzenlemeleri kaynak `ResourceContent` karar zarflarına gönderilmez. Sunucuda işlem kimliği, cihaz, sıra, profil, temel revizyon ve istek hash'i bağlı prepare/apply/receipt akışı vardır. Tam hazırlanmış şifreli istek ve ortak güncelleme planı gönderimden önce diskte tutulur. Kaybolan yanıt önce receipt ile çözülür; belirsiz istek yeniden şifrelenmez. Parola ve yapılandırma sunucuda da birlikte commit edilir. Eski revizyon, değişen ACL veya kurtarma anahtarı üzerine yazılmaz.
+
+Çakışan veya yetkisi kaldırılan VPN taslağının otomatik yönetici teslimi bu sürümde desteklenmez. Şifreli yerel aday korunur ve panel bu sınırı gösterir. Eski kimliğin taslakları başka kimliğe sessizce taşınmaz. macOS native VPN, donanım anahtarı veya üretim VPN/SSH doğrulaması bu Team testlerinden çıkarılamaz.
+
+Doğrulama kaynakları:
+
+- `team-client` birim testleri: 8→9 veri koruma; atomik yazma ve disk hatasında rollback; yeniden açma; saat geri alma; 24 saat yazma kirası; plan kanıtı; ret sonrası temizleme ve şifreli taslak koruma; aynı şifreli isteğin korunması.
+- `tests/team_vpn.py`: gerçek PostgreSQL temiz 66 ve korunmuş kayıtlarla 65→66; iki hesap; kimlik türü sınırları; bağımsız kopya; ACL; ortak/kişisel ve en yakın klasör eşlemesi; kök/hop ve geçmiş rota; atomik yapılandırma/giriş; idempotent receipt; eski ACL/kurtarma anahtarı çakışması.
+- `tests/team_v2_upgrade.py`: özel yedek ve ayrı veritabanına restore; korunmuş kaynak/kimlik ciphertext'i; kesinti/devam; checksum ve downgrade reddi; HTTPS bakım/readiness; eski istemcinin VPN uçlarından reddi ve normal 0.4.2 erişimi.
+- `tests/team_vpn_http.py` + `team-client/tests/vpn_service.rs`: gerçek HTTPS ve AEAD; özel hatırlanan giriş; bağımsız ortak kopya ve alıcı hakları; kaybolan başarılı apply yanıtı; gerçek TCP kesintisi; çevrimdışı düzenleme/çıkış/yeniden giriş/yeniden açma/teslim; çevrimiçi ret sonrası sonraki kesintide sır erişiminin engellenmesi. Tünel veya SSH oturumu açılmaz.
+- `tests/ui/team-vpn.spec.ts`: gerçek panel, IPC test doubles ile izinler, beş paylaşım hakkı, kişisel giriş, hesap değişimi, WireGuard native çağrısı ve çevrimdışı sınırlar. `artifacts/vpn-ui/team-vpn-permissions.png` bu arayüz testinin görüntüsüdür; fiziksel bağlantı kanıtı değildir.

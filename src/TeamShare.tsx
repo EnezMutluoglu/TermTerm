@@ -6,6 +6,8 @@ type Recipient = {
   connect: boolean;
   reveal: boolean;
   export: boolean;
+  view?:boolean;
+  edit?:boolean;
 };
 type Preview = { id: string; recipients: Recipient[] };
 export default function TeamShare({
@@ -16,7 +18,7 @@ export default function TeamShare({
   onSaved,
   privateSources = [],
 }: {
-  source: { id: string; label: string; visibility?: string };
+  source: { id: string; label: string; visibility?: string;kind?:string };
   privateSources?: { id: string; label: string }[];
   scopes: { id: string; name: string }[];
   rpc: (action: Record<string, unknown>) => Promise<any>;
@@ -66,6 +68,7 @@ export default function TeamShare({
         setRecipients(
           users.map((u: any) => ({
             ...u,
+            view: false, edit:false,
             connect: false,
             reveal: false,
             export: false,
@@ -156,8 +159,9 @@ export default function TeamShare({
                 <thead>
                   <tr>
                     <th>Üye</th>
-                    <th>Bağlantıda kullan</th>
-                    <th>Sırrı gör</th>
+                    {source.kind==="vpn" && <><th>Görüntüle</th><th>Düzenle</th></>}
+                    <th>{source.kind==="totp" ? "Kod kullan" : "Bağlantıda kullan"}</th>
+                    <th>{source.kind==="totp" ? "Kurulum sırrını gör" : "Sırrı gör"}</th>
                     <th>Dışa aktar</th>
                   </tr>
                 </thead>
@@ -165,13 +169,13 @@ export default function TeamShare({
                   {recipients.map((r) => (
                     <tr key={r.accountId}>
                       <td>{r.displayName}</td>
-                      {(["connect", "reveal", "export"] as const).map(
+                      {(source.kind==="vpn" ? ["view","edit","connect","reveal","export"] as const : ["connect", "reveal", "export"] as const).map(
                         (flag) => (
                           <td key={flag}>
                             <input
                               type="checkbox"
                               aria-label={`${r.displayName} ${flag}`}
-                              checked={r[flag]}
+                              checked={!!r[flag]}
                               disabled={busy}
                               onChange={(e) =>
                                 setRecipients((rows) =>
@@ -213,8 +217,9 @@ export default function TeamShare({
                           scopeId: scope,
                         }),
                     recipients: recipients
-                      .filter((r) => r.connect || r.reveal || r.export)
-                      .map(({ accountId, connect, reveal, export: exp }) => ({
+                      .filter((r) => r.connect || r.reveal || r.export || (source.kind==="vpn" && (r.view || r.edit)))
+                      .map(({ accountId, connect, reveal, export: exp,view,edit }) => ({
+                        ...(source.kind==="vpn" ? {view:!!view,edit:!!edit}:{}),
                         accountId,
                         connect,
                         reveal,
@@ -235,6 +240,7 @@ export default function TeamShare({
               <thead>
                 <tr>
                   <th>Alıcı</th>
+                  {source.kind==="vpn" && <><th>Görüntüle</th><th>Düzenle</th></>}
                   <th>Bağlantı</th>
                   <th>Sırrı gör</th>
                   <th>Dışa aktar</th>
@@ -244,7 +250,7 @@ export default function TeamShare({
                 {preview.recipients.map((r) => (
                   <tr key={r.accountId}>
                     <td>{r.displayName}</td>
-                    {[r.connect, r.reveal, r.export].map((v, i) => (
+                    {(source.kind==="vpn" ? [r.view,r.edit,r.connect,r.reveal,r.export] : [r.connect,r.reveal,r.export]).map((v, i) => (
                       <td key={i}>{v ? "İzinli" : "Kapalı"}</td>
                     ))}
                   </tr>

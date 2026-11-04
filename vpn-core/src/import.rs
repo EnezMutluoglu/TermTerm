@@ -49,6 +49,18 @@ fn words(line: &str) -> Result<Vec<String>> {
     Ok(words)
 }
 
+pub fn configuration(text: &str, directory: &Path) -> Result<(crate::Family, Preview)> {
+    ensure!(text.len() <= 1024 * 1024 && !text.contains('\0'), "VPN dosyası çok büyük veya geçersiz");
+    let lines: Vec<_> = text.trim_start_matches('\u{feff}').lines().map(str::trim)
+        .filter(|s| !s.is_empty() && !s.starts_with('#') && !s.starts_with(';')).collect();
+    if lines.iter().any(|s| *s == "[Interface]") {
+        let preview = wireguard(text)?;
+        return Ok((crate::Family::WireGuard, preview));
+    }
+    ensure!(lines.iter().any(|s| *s == "client" || s.starts_with("remote ") || s.starts_with("remote\t")), "Tanınmayan VPN biçimi; OpenVPN veya WireGuard yapılandırması gerekli");
+    Ok((crate::Family::OpenVpn, openvpn(text, directory)?))
+}
+
 pub fn openvpn(text: &str, directory: &Path) -> Result<Preview> {
     ensure!(
         text.len() <= 1024 * 1024 && !text.contains('\0'),
@@ -216,6 +228,90 @@ pub fn openvpn(text: &str, directory: &Path) -> Result<Preview> {
     Ok(p)
 }
 
+/// Broker inputs are self-contained: privileged reads must never follow client paths.
+pub fn openvpn_embedded(text: &str) -> Result<()> {
+    let mut inline: Option<String> = None;
+    for raw in text.lines() {
+        let line = raw.trim();
+        if let Some(tag) = &inline {
+            if line == format!("</{tag}>") {
+                inline = None;
+            }
+            continue;
+        }
+        if line.starts_with('<') && !line.starts_with("</") {
+            inline = Some(line.trim_start_matches('<').trim_end_matches('>').into());
+            continue;
+        }
+        let tokens = words(line)?;
+        if let Some(name) = tokens.first() {
+            ensure!(
+                !["ca", "cert", "key", "tls-auth", "tls-crypt", "tls-crypt-v2"]
+                    .contains(&name.trim_start_matches("--")),
+                "external_file_not_allowed"
+            );
+            ensure!(
+                name.trim_start_matches("--") != "auth-user-pass" || tokens.len() == 1,
+                "external_credentials_not_allowed"
+            );
+        }
+    }
+    let parsed = openvpn(text, Path::new("/nonexistent-termterm-vpn-import"))?;
+    ensure!(
+        !parsed.blocked && parsed.missing_files.is_empty(),
+        "unsafe_openvpn_configuration"
+    );
+    Ok(())
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct OpenVpnRemote {
+    pub host: String,
+    pub port: u16,
+    pub protocol: String,
+}
+/// Inspect approved embedded configuration with the same tokenizer as import.
+pub fn openvpn_remotes(text: &str) -> Result<Vec<OpenVpnRemote>> {
+    openvpn_embedded(text)?;
+    let mut inline: Option<String> = None;
+    let mut protocol = None;
+    let mut remotes = vec![];
+    for raw in text.lines() {
+        let line = raw.trim();
+        if let Some(tag) = &inline {
+            if line == format!("</{tag}>") { inline = None; }
+            continue;
+        }
+        if line.starts_with('<') { inline = Some(line.trim_start_matches('<').trim_end_matches('>').into()); continue; }
+        if line.starts_with('#') || line.starts_with(';') { continue; }
+        let tokens = words(line)?;
+        match tokens.first().map(|v|v.trim_start_matches("--")) {
+            Some("proto") => { ensure!(tokens.len() == 2 && protocol.is_none(),"ambiguous_openvpn_protocol"); protocol = Some(tokens[1].clone()); }
+            Some("remote") => { ensure!((2..=4).contains(&tokens.len()),"invalid_openvpn_remote"); remotes.push(tokens); }
+            _ => {}
+        }
+    }
+    ensure!(!remotes.is_empty() && remotes.len() <= 64,"invalid_openvpn_remote_count");
+    remotes.into_iter().map(|tokens| {
+        let port = tokens.get(2).map_or(Ok(1194),|value|value.parse::<u16>())?;
+        ensure!(port > 0 && !tokens[1].is_empty() && tokens[1].len() <= 253,"invalid_openvpn_remote");
+        Ok(OpenVpnRemote {host:tokens[1].clone(),port,protocol:tokens.get(3).cloned().or_else(||protocol.clone()).unwrap_or_else(||"udp".into())})
+    }).collect()
+}
+
+#[cfg(test)]
+mod remote_tests {
+    use super::*;
+    #[test]
+    fn parsed_remotes_use_quoted_tokens_and_skip_embedded_material() {
+        let remote = openvpn_remotes("client\nproto tcp-client\nremote \"127.0.0.1\" 31194\n<ca>\nremote attacker.example 443\n</ca>\n").unwrap();
+        assert_eq!(remote,vec![OpenVpnRemote {host:"127.0.0.1".into(),port:31194,protocol:"tcp-client".into()}]);
+        assert!(openvpn_remotes("proto tcp-client\nproto udp\nremote 127.0.0.1 31194\n").is_err());
+        assert!(openvpn_remotes("remote 127.0.0.1 65536\n").is_err());
+        assert!(openvpn_remotes("remote 127.0.0.1 31194 tcp extra\n").is_err());
+    }
+}
+
 pub fn wireguard(text: &str) -> Result<Preview> {
     ensure!(
         text.len() <= 1024 * 1024 && !text.contains('\0'),
@@ -231,8 +327,8 @@ pub fn wireguard(text: &str) -> Result<Preview> {
     let mut interfaces = 0;
     let mut peers = 0;
     for raw in text.trim_start_matches('\u{feff}').lines() {
-        let line = raw.trim();
-        if line.is_empty() || line.starts_with('#') {
+        let line = raw.split('#').next().unwrap_or("").trim();
+        if line.is_empty() || line.starts_with(';') {
             continue;
         }
         if line == "[Interface]" {
@@ -268,12 +364,41 @@ pub fn wireguard(text: &str) -> Result<Preview> {
         interfaces == 1 && peers > 0,
         "Bir Interface ve en az bir Peer gerekli"
     );
+    if !p.blocked { crate::wireguard::parse(&p.config)?; }
     Ok(p)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn configuration_detects_content_and_preserves_sources() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("İstanbul.conf");
+        let wg = "\u{feff}# Türkçe\n[Interface]\nPrivateKey = AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=\nAddress = 10.1.0.2/32\n[Peer]\nPublicKey = AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=\nEndpoint = 127.0.0.1:31820\nAllowedIPs = 10.0.0.0/8\n";
+        std::fs::write(&path, wg).unwrap();
+        assert_eq!(configuration(wg, temp.path()).unwrap().0, crate::Family::WireGuard);
+        assert_eq!(std::fs::read_to_string(path).unwrap(), wg);
+        assert!(configuration(&wg.replace("AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=", "invalid-key"), temp.path()).is_err());
+        let (_, ovpn) = configuration("client\nremote vpn.example 443\nca absent.pem\n", temp.path()).unwrap();
+        assert_eq!(ovpn.missing_files.len(), 1);
+        assert!(configuration("[Interface]\n[Peer]\n", temp.path()).is_err());
+        assert!(configuration("arbitrary = data", temp.path()).is_err());
+        assert!(configuration(&wg.replace("Address =", "PostUp ="), temp.path()).unwrap().1.blocked);
+    }
+    #[test]
+    fn privileged_broker_never_reads_external_files_or_hooks() {
+        for text in [
+            "client\nca /etc/shadow\n",
+            "client\nkey secret\n",
+            "client\n--cert secret\n",
+            "client\nauth-user-pass /etc/shadow\n",
+            "client\nup script\n",
+        ] {
+            assert!(openvpn_embedded(text).is_err());
+        }
+        assert!(openvpn_embedded("client\n<ca>\nfixture\n</ca>\n").is_ok());
+    }
     #[test]
     fn imports_embed_relative_keys_but_never_run_hooks() {
         let dir = tempfile::tempdir().unwrap();

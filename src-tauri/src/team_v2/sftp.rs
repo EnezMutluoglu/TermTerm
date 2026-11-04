@@ -39,6 +39,8 @@ async fn connect(
         );
     }
     let (ssh, _) = connect_target(app, state, &id, host, epoch, None).await?;
+    let vpn = ssh.vpn.clone();
+    crate::vpn_lifecycle::run(&vpn, async {
     let channel = ssh.handle.channel_open_session().await?;
     channel.request_subsystem(true, "sftp").await?;
     let sftp = russh_sftp::client::SftpSession::new(channel.into_stream()).await?;
@@ -48,6 +50,7 @@ async fn connect(
         .check_connection(host, epoch)
         .await?;
     let connection = Arc::new(SftpConnection { sftp, _ssh: ssh });
+    let registration = vpn.as_ref().map(|lease|lease.register()).transpose()?;
     {
         let mut connections = state.sftp.lock().await;
         ensure!(
@@ -58,7 +61,9 @@ async fn connect(
     }
     let app = app.clone();
     let state = state.clone();
+    let cancellation = vpn.clone();
     tauri::async_runtime::spawn(async move {
+        let _registration = registration;
         let desktop = app.state::<DesktopState>();
         let monitor = async {
             let mut ticks = tokio::time::interval(Duration::from_millis(250));
@@ -84,29 +89,25 @@ async fn connect(
                 }
             }
         };
-        tokio::select! {_=monitor=>{},_=desktop.cancelled(epoch)=>{}}
-        let removed = {
+        tokio::select! {_=monitor=>{},_=desktop.cancelled(epoch)=>{},_=crate::vpn_lifecycle::cancelled(&cancellation)=>{}}
+        {
             let mut connections = state.sftp.lock().await;
             if connections
                 .get(&id)
                 .is_some_and(|c| Arc::ptr_eq(c, &connection))
             {
                 connections.remove(&id);
-                true
-            } else {
-                false
+                // Emit under the identity lock so a replacement cannot receive this close.
+                let _ = app.emit("sftp-closed", serde_json::json!({"id": id}));
             }
-        };
-        if removed {
-            // Invalidate the visible directory before waiting for transport shutdown.
-            let _ = app.emit("sftp-closed", serde_json::json!({"id": id}));
         }
         // Close the transport too: transfer tasks may still hold an Arc.
-        let _ = connection
+        let _ = tokio::time::timeout(Duration::from_secs(2), connection
             ._ssh
             .handle
-            .disconnect(russh::Disconnect::ByApplication, "Team SFTP closed", "en")
+            .disconnect(russh::Disconnect::ByApplication, "Team SFTP closed", "en"))
             .await;
     });
     Ok(home)
+    }).await
 }

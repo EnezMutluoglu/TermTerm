@@ -1,14 +1,25 @@
 // OpenVPN Core is included under its MPL-2.0 option; upstream files are unchanged.
 #define OPENVPN_CORE_API_VISIBILITY_HIDDEN
+#ifdef _WIN32
+#define OPENVPN_EXTERNAL_TUN_FACTORY
+#else
 #define USE_TUN_BUILDER
+#endif
 #define HAVE_JSON
 #include <client/ovpncli.hpp>
 #include "channel.hpp"
+#ifdef _WIN32
+#include "windows/packet-handle.hpp"
+#define OPENVPN_LOG(args) do {} while (0)
+#define OPENVPN_LOG_NTNL(args) do {} while (0)
+#define OPENVPN_LOG_STRING(args) do {} while (0)
+#include <openvpn/tun/extern/config.hpp>
+#else
 #include "tun-builder.hpp"
+#endif
 #include <thread>
 #include <atomic>
-#include <poll.h>
-#include <unistd.h>
+#include "dns.hpp"
 
 static unsigned challenge_id = 0;
 static Json::Value field(const char *name, const std::string &label, bool secret, const char *purpose) {
@@ -34,6 +45,17 @@ static Json::Value ask(const Json::Value &fields) {
 
 class Client : public openvpn::ClientAPI::OpenVPNClient {
 public:
+#ifdef _WIN32
+    openvpn::TunClientFactory *new_tun_factory(const openvpn::ExternalTun::Config &, const openvpn::OptionList &) override;
+    HANDLE establish_packet_pipe() {
+        ::event("network-plan", network);
+        if (read_message()["action"] != "accept-network") throw std::runtime_error("network_plan_not_accepted");
+        ::event("tunnel-ready", network);
+        const auto configured = read_message();
+        if (configured["action"] != "network-configured") throw std::runtime_error("network_configuration_failed");
+        return packet_handle(configured);
+    }
+#endif
     std::string interface;
     Json::Value network;
     std::atomic<bool> finished{false};
@@ -51,7 +73,9 @@ public:
         network = Json::objectValue;
         for (auto key : {"addresses", "routes", "excludedRoutes", "dns", "dnsDomains"})
             network[key] = Json::arrayValue;
+#ifndef _WIN32
         network["interface"] = interface;
+#endif
         return true;
     }
     bool tun_builder_set_remote_address(const std::string &address, bool) override {
@@ -79,6 +103,7 @@ public:
     bool tun_builder_set_dns_options(const openvpn::DnsOptions &dns) override {
         // Preserve the full policy for the broker; never silently ignore split DNS.
         network["dnsOptions"] = dns.to_json();
+        if (project_legacy_dns(network["dnsOptions"], network)) return true;
         for (const auto &[priority, server] : dns.servers)
             for (const auto &address : server.addresses) {
                 if (address.port != 0 && address.port != 53) return false;
@@ -92,12 +117,16 @@ public:
     bool tun_builder_set_allow_family(int, bool allow) override { return allow; }
     bool tun_builder_persist() override { return false; }
     int tun_builder_establish() override {
+#ifdef _WIN32
+        throw std::runtime_error("unix_tun_builder_unavailable");
+#else
         int fd = -1;
         try {
             ::event("network-plan", network);
             if (read_message()["action"] != "accept-network")
                 throw std::runtime_error("network_plan_not_accepted");
             fd = create_tun(interface);
+            network["interface"] = interface;
             ::event("tunnel-ready", network);
             if (read_message()["action"] != "network-configured")
                 throw std::runtime_error("network_configuration_failed");
@@ -106,6 +135,7 @@ public:
             if (fd >= 0) close(fd);
             ::event("failed", error.what()); return -1;
         }
+#endif
     }
     void event(const openvpn::ClientAPI::Event &e) override {
         if (connected_once && (e.error || e.name == "RECONNECTING")) {
@@ -130,8 +160,7 @@ public:
             ::event("connected", detail);
             if (!control.joinable()) control = std::thread([this] {
                 while (!finished) {
-                    pollfd fd{STDIN_FILENO, POLLIN, 0};
-                    if (poll(&fd, 1, 100) > 0) { stop(); break; }
+                    if (control_pending(100)) { stop(); break; }
                 }
             });
         } else ::event(e.error ? "failed" : "progress", detail);
@@ -143,10 +172,15 @@ public:
     void external_pki_sign_request(openvpn::ClientAPI::ExternalPKISignRequest &r) override { r.error = true; }
 };
 
+#ifdef _WIN32
+#include "windows/core-packet.hpp"
+#endif
+
 int main() {
     try {
         require_isolated_lab();
         const auto request = read_message();
+        initialize_session(request);
         openvpn::ClientAPI::Config config;
         config.content = request["config"].asString();
         config.connTimeout = 20;
@@ -155,7 +189,9 @@ int main() {
         for (unsigned attempt = 0; attempt < 4; ++attempt) {
             Client client;
             client.interface = request["interface"].asString();
+#ifndef _WIN32
             validate_interface(client.interface);
+#endif
             auto parsed = client.eval_config(config);
             if (parsed.error) throw std::runtime_error("invalid_openvpn_configuration");
             if (parsed.externalPki) throw std::runtime_error("external_pki_unsupported");

@@ -1,0 +1,23 @@
+[package]
+name = "termterm-vpn-engine-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+default-run = "termterm-vpn-engine-probe"
+
+[features]
+auth-only-test = ["termterm-vpn-windows-broker/auth-only-test"]
+
+[[bin]]
+name = "termterm-vpn-auth-only-probe"
+path = "src/auth-only.rs"
+required-features = ["auth-only-test"]
+
+[dependencies]
+anyhow = "1"
+serde_json = "1"
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+tokio = { version = "1", features = ["rt", "macros", "time", "net", "sync", "io-util"] }
+termterm-vpn-windows-broker = { path = "../../vpn-windows-broker" }
+

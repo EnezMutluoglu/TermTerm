@@ -1,0 +1,10 @@
+# Routing lessons
+
+Record only verified, reusable lessons with a date and evidence. Never add credentials, private paths/data, guesses, or transient task status.
+
+- 2026-10-22: On this Windows setup, the default `bash` resolves to a WSL launcher; Git Bash is available separately. Use the verified Git Bash executable for repository shell hooks instead of assuming PATH selects it.
+- 2026-10-22: A custom agent's `sandbox_mode` does not override its parent's permissions (official subagent configuration documentation). Triage and verifier are instructed not to edit; these instructions are not an enforced filesystem sandbox.
+- 2026-10-22: A Stop hook must write its protocol JSON to stdout. Send diagnostics elsewhere so they cannot corrupt that response.
+- 2026-10-22: AGENTS.md requires stable-release approval and protects user vaults and credentials. Preserve existing application work, including the dirty 0.5 work and isolated VPN development. Do not modify installed stable TermTerm or claim native/lab coverage from TypeScript/Vitest checks.
+- 2026-10-26: Bind OpenConnect browser callback origins to `openconnect_get_dnsname()` and the current port, never `openconnect_get_hostname()`: the latter becomes the connected numeric peer IP after TLS (pinned 9.21 `openconnect.h`, `library.c`, `ssl.c`). A disposable DNS SSO fixture rejected the old engine and passed with the DNS getter; IP-literal-only fixtures had hidden the mismatch. Keep canonical origin validation and the advertised gateway-choice allowlist strict. Evidence: `scripts/test-gp-sso.py` and `artifacts/vpn-auth/gp-sso-dns-origin-20261026.json`.
+- 2026-10-28: Windows VPN teardown can restore IP/DNS state before the owned registered interface disappears. Require both baseline equality and strict empty native inventory within one bounded read-only wait; never start recovery to manufacture cleanup evidence. Native DNS client-death validation recorded one registered interface followed by zero, with no recovery (`validate-dns-v1.ps1`, isolated v8 acceptance report).

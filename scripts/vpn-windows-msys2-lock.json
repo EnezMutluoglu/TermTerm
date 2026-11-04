@@ -1,0 +1,748 @@
+{
+  "version": 1,
+  "base": {
+    "url": "https://repo.msys2.org/distrib/x86_64/msys2-base-x86_64-20260927.tar.xz",
+    "sha256": "ea2f31a0b6ade63914ce441ffb022f0f6aa96982bfefa2326460a26d5fb01322",
+    "publisherDigest": "https://api.github.com/repos/msys2/msys2-installer/releases/tags/2026-09-27"
+  },
+  "environment": "MINGW64",
+  "packages": [
+    {
+      "name": "autoconf-wrapper",
+      "version": "20260320-3",
+      "file": "autoconf-wrapper-20260320-3-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/autoconf-wrapper-20260320-3-any.pkg.tar.zst",
+      "sha256": "b8999a4e34de53a813450591681b82e439c250806fbd081e8751386970964aec",
+      "signatureSha256": "dd5849712257bd53f3c29142a80c5c069ca272c8b7e02deb5b2ed221a060d8e6",
+      "licenses": [
+        "spdx:GPL-2.0-only"
+      ],
+      "projectUrls": [
+        "https://gitweb.gentoo.org/proj/autotools-wrappers.git/"
+      ]
+    },
+    {
+      "name": "autoconf2.69",
+      "version": "2.69-4",
+      "file": "autoconf2.69-2.69-4-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/autoconf2.69-2.69-4-any.pkg.tar.zst",
+      "sha256": "56b2de8e53e46a88bb217a427c2f7b5671ac6400148681fb2089e9b7be817364",
+      "signatureSha256": "5cd385bd0d01ade7d357d1dc07a7079e4015dcf837c3bf84177e725bd223d894",
+      "licenses": [
+        "spdx:GPL-2.0-or-later",
+        "spdx:GPL-3.0-or-later",
+        "spdx:Autoconf-exception-3.0"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/autoconf"
+      ]
+    },
+    {
+      "name": "autoconf2.71",
+      "version": "2.71-4",
+      "file": "autoconf2.71-2.71-4-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/autoconf2.71-2.71-4-any.pkg.tar.zst",
+      "sha256": "55be2b911beaa0424d60fdcf206f2411a0eb24cb53e66a82964497ef8a4faac0",
+      "signatureSha256": "5eb76a37edce9d18310998225a683d2a7a35863e618ce8d05721e2d8c45acfb7",
+      "licenses": [
+        "spdx:GPL-2.0-or-later",
+        "spdx:GPL-3.0-or-later",
+        "spdx:Autoconf-exception-3.0"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/autoconf"
+      ]
+    },
+    {
+      "name": "autoconf2.72",
+      "version": "2.72-4",
+      "file": "autoconf2.72-2.72-4-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/autoconf2.72-2.72-4-any.pkg.tar.zst",
+      "sha256": "65b3a37edf8bb4221d38db910ce1acc1ed879c7bcba33faa058066d06d35e7b0",
+      "signatureSha256": "ef080640a2f4db8cdf96f764be38d170ce39c69ddfd5574612ff8eb07e7fae57",
+      "licenses": [
+        "spdx:GPL-2.0-or-later",
+        "spdx:GPL-3.0-or-later",
+        "spdx:Autoconf-exception-3.0"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/autoconf"
+      ]
+    },
+    {
+      "name": "autoconf2.73",
+      "version": "2.73-1",
+      "file": "autoconf2.73-2.73-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/autoconf2.73-2.73-1-any.pkg.tar.zst",
+      "sha256": "716d0542dc12a481f1c2d5574f17f1470eb9d3226cf6e206d4e243c12fa95e1a",
+      "signatureSha256": "78ac95867dbf91725adfd15768b085a36c9dc575d93cdae980bc8d44357568dc",
+      "licenses": [
+        "spdx:GPL-2.0-or-later AND GPL-3.0-or-later AND Autoconf-exception-3.0"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/autoconf"
+      ]
+    },
+    {
+      "name": "automake-wrapper",
+      "version": "20260320-3",
+      "file": "automake-wrapper-20260320-3-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/automake-wrapper-20260320-3-any.pkg.tar.zst",
+      "sha256": "463d356d914c579f54d0ca242c71ba98523049300a6a289e81fbab23b6188823",
+      "signatureSha256": "3c37aff8c80be5c00e8ec6879eee9ef228591ea55138a6dcc957fad4dcd05cfe",
+      "licenses": [
+        "spdx:GPL-2.0-only"
+      ],
+      "projectUrls": [
+        "https://gitweb.gentoo.org/proj/autotools-wrappers.git/"
+      ]
+    },
+    {
+      "name": "automake1.15",
+      "version": "1.15.1-4",
+      "file": "automake1.15-1.15.1-4-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/automake1.15-1.15.1-4-any.pkg.tar.zst",
+      "sha256": "e3c73d0094eebbc2353b2ddd0b7c81020917c2ec09d3e4967d7abc9794fa7843",
+      "signatureSha256": "1138487e8b7e859929e7ed0da75b718dab4a48dfffa5564b5e7ff519b789e554",
+      "licenses": [
+        "GPL"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/automake"
+      ]
+    },
+    {
+      "name": "automake1.16",
+      "version": "1.16.5-1",
+      "file": "automake1.16-1.16.5-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/automake1.16-1.16.5-1-any.pkg.tar.zst",
+      "sha256": "1963b5fa0ab5eaf1bdc311501cd742c6bb19941e831dcc8ab1e51a8c7f1634fe",
+      "signatureSha256": "563b28d0e047afac9b83dbd905ab84056c23c11388e8444ed41f1d051b94b8c1",
+      "licenses": [
+        "GPL"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/automake"
+      ]
+    },
+    {
+      "name": "automake1.17",
+      "version": "1.17-2",
+      "file": "automake1.17-1.17-2-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/automake1.17-1.17-2-any.pkg.tar.zst",
+      "sha256": "d3f79c4515fbc5ddac99c8afecd3651715ad0a8ee0d096f6b5e1ab7fbda37a77",
+      "signatureSha256": "ebcb094385ec4072317f55ad06600ae5c25dfac8611c5d8f85cc70a7682a00bf",
+      "licenses": [
+        "spdx:GPL-2.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/automake"
+      ]
+    },
+    {
+      "name": "automake1.18",
+      "version": "1.18.1-2",
+      "file": "automake1.18-1.18.1-2-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/automake1.18-1.18.1-2-any.pkg.tar.zst",
+      "sha256": "6f6934ae6749771f627d0ca2170c87fb8c5c22658d8f2a8963154be8601d81ce",
+      "signatureSha256": "38e5b5dd333ff9cd1b7c653ae74beaa2f031f0912623ea976f21a3895fd7ce61",
+      "licenses": [
+        "spdx:GPL-2.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/automake"
+      ]
+    },
+    {
+      "name": "automake1.19",
+      "version": "1.19-1",
+      "file": "automake1.19-1.19-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/automake1.19-1.19-1-any.pkg.tar.zst",
+      "sha256": "1d1c752741c775f764c531780472c6680c9fe18446e00e92d84aa09233e0d886",
+      "signatureSha256": "ea1f7835722ecd2d377c2201ef8aaeab9b8c67230ed3d8395b7aaaefe645840e",
+      "licenses": [
+        "spdx:GPL-2.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/automake"
+      ]
+    },
+    {
+      "name": "db",
+      "version": "6.2.32-6",
+      "file": "db-6.2.32-6-x86_64.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/db-6.2.32-6-x86_64.pkg.tar.zst",
+      "sha256": "41bc94acad3b53eaa92227ec34412305f648848ffbc963bcad88274517e13e8d",
+      "signatureSha256": "dfd5a37a7512575806074297354f8ee3a1e1d58a750e6d30dd1522f12a4ee085",
+      "licenses": [
+        "spdx:AGPL-3.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.oracle.com/technetwork/database/database-technologies/berkeleydb/overview/index.html"
+      ]
+    },
+    {
+      "name": "diffutils",
+      "version": "3.12-1",
+      "file": "diffutils-3.12-1-x86_64.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/diffutils-3.12-1-x86_64.pkg.tar.zst",
+      "sha256": "7902c8ce3d4dd69a0f5e98dc9d5c83c17b23314ba486169db57ef6e2835ce3b6",
+      "signatureSha256": "f25457caac4b77e5341e8fd02a53e696a023024ed398992eec199a43fd26c811",
+      "licenses": [
+        "spdx:GPL-3.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/diffutils"
+      ]
+    },
+    {
+      "name": "gdbm",
+      "version": "1.26-1",
+      "file": "gdbm-1.26-1-x86_64.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/gdbm-1.26-1-x86_64.pkg.tar.zst",
+      "sha256": "1f8e949be2bbe488c5644132db78ecda288c9945922e7ed2447384734e2adba2",
+      "signatureSha256": "dde1cf8a37a12fd83a97a1c25d30774b789c2b1ed772ef0b540fbc3127d64e5f",
+      "licenses": [
+        "GPL3"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/gdbm/gdbm.html"
+      ]
+    },
+    {
+      "name": "libdb",
+      "version": "6.2.32-6",
+      "file": "libdb-6.2.32-6-x86_64.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/libdb-6.2.32-6-x86_64.pkg.tar.zst",
+      "sha256": "27a35786f3aab14e625c02df7bcd8a9dda0da782ce4f0549a427a21316b4d179",
+      "signatureSha256": "1f0efaa8e2c0065af9e9fa8bdd8ae990ad414f121e67cb7b7e57fb8e46016294",
+      "licenses": [
+        "spdx:AGPL-3.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.oracle.com/technetwork/database/database-technologies/berkeleydb/overview/index.html"
+      ]
+    },
+    {
+      "name": "libgdbm",
+      "version": "1.26-1",
+      "file": "libgdbm-1.26-1-x86_64.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/libgdbm-1.26-1-x86_64.pkg.tar.zst",
+      "sha256": "bb4b08b720dd3194db010589812e9c63bec3d29b32545e7cbd07b6443e51c5ed",
+      "signatureSha256": "b5806f722fc62740275ab0ed60d6cd2fbecd4f062597250c785634201df333b9",
+      "licenses": [
+        "GPL3"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/gdbm/gdbm.html"
+      ]
+    },
+    {
+      "name": "libltdl",
+      "version": "2.6.2-2",
+      "file": "libltdl-2.6.2-2-x86_64.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/libltdl-2.6.2-2-x86_64.pkg.tar.zst",
+      "sha256": "eb89de728ca3151ccc4ca0fdd73e8aecc69081ae75dc2eb72f385a8e285d300e",
+      "signatureSha256": "bfcf252897f69e5198701fb73a76d5246619b0376d51e89ab30879bd66452af6",
+      "licenses": [
+        "spdx:LGPL-2.0-or-later WITH Libtool-exception"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/libtool"
+      ]
+    },
+    {
+      "name": "libtool",
+      "version": "2.6.2-2",
+      "file": "libtool-2.6.2-2-x86_64.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/libtool-2.6.2-2-x86_64.pkg.tar.zst",
+      "sha256": "7af0712b50e1f440e0b0c9d7cdd30dc25a6ce82180c0cb61c99c62270d253f60",
+      "signatureSha256": "277e9d103b6b1ce5f9a0f3b2715bcbab3ea2a192ed6e5a751f1bb6f40c64593d",
+      "licenses": [
+        "spdx:LGPL-2.0-or-later WITH Libtool-exception"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/libtool"
+      ]
+    },
+    {
+      "name": "m4",
+      "version": "1.4.21-1",
+      "file": "m4-1.4.21-1-x86_64.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/m4-1.4.21-1-x86_64.pkg.tar.zst",
+      "sha256": "b561e8871c7599502d9fae7196ee965b3fed3d7af09154eb8d2f5e4d9e5e5106",
+      "signatureSha256": "d38d5a7c83ef5a0ebe395bb9487e06d0067fc63f70921a23e25edfac7f34b972",
+      "licenses": [
+        "GPL3"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/m4"
+      ]
+    },
+    {
+      "name": "make",
+      "version": "4.4.1-3",
+      "file": "make-4.4.1-3-x86_64.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/make-4.4.1-3-x86_64.pkg.tar.zst",
+      "sha256": "af0bdba17f06fe037f0194069adaa31a8fe45f1a11381501896aea1fae37bd5d",
+      "signatureSha256": "7f53c96aeb1a29d9917e2b00e9f709fbdc5b0458e6535e88b1fed69365191265",
+      "licenses": [
+        "GPL3"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/make"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-binutils",
+      "version": "2.47-4",
+      "file": "mingw-w64-x86_64-binutils-2.47-4-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-binutils-2.47-4-any.pkg.tar.zst",
+      "sha256": "e36c52a7fe1d104c2efd97dc74162386eabf8323f6aeb9b83aeb574b291a7da0",
+      "signatureSha256": "4e414c545f4ef77b50f045c107b76f28aa42cb506fdbcbf66cf40672d76f3c38",
+      "licenses": [
+        "spdx:GPL-3.0-or-later AND GPL-2.0-or-later AND LGPL-3.0-or-later AND LGPL-2.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/binutils/"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-brotli",
+      "version": "1.2.0-1",
+      "file": "mingw-w64-x86_64-brotli-1.2.0-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-brotli-1.2.0-1-any.pkg.tar.zst",
+      "sha256": "f5f2f7e723a08378241d15f0537386950c1a48e2d82bc47bedd632bd61852aba",
+      "signatureSha256": "41d40cbb64a05c0e4d41347fa3bb8e2fbe7239c689a91463e2a9316aa9fd381a",
+      "licenses": [
+        "spdx:MIT"
+      ],
+      "projectUrls": [
+        "https://github.com/google/brotli"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-cc-libs",
+      "version": "16.2.0-6",
+      "file": "mingw-w64-x86_64-cc-libs-16.2.0-6-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-cc-libs-16.2.0-6-any.pkg.tar.zst",
+      "sha256": "0128c6f7fc227e5862351e970e52d42370c72c896db87b8413c2699c6337a13a",
+      "signatureSha256": "bad976c03670df3abb9a3a3b2044946daafcb4702136012f243b7b6ba78f037b",
+      "licenses": [
+        "spdx:GPL-3.0-or-later WITH GCC-exception-3.1 AND GFDL-1.3-or-later"
+      ],
+      "projectUrls": [
+        "https://gcc.gnu.org"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-crt",
+      "version": "14.0.0.r495.g63ebe6cdb-1",
+      "file": "mingw-w64-x86_64-crt-14.0.0.r495.g63ebe6cdb-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-crt-14.0.0.r495.g63ebe6cdb-1-any.pkg.tar.zst",
+      "sha256": "2a304ce7b1200dd7441af8ae38d978cead7c9ac620ed220913d4072502cf3a1e",
+      "signatureSha256": "0ddf632196820482a9494194fc225a0a6c514381eb917a0b746384e7691b43dc",
+      "licenses": [
+        "spdx:ZPL-2.1"
+      ],
+      "projectUrls": [
+        "https://www.mingw-w64.org/"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-gcc",
+      "version": "16.2.0-6",
+      "file": "mingw-w64-x86_64-gcc-16.2.0-6-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-16.2.0-6-any.pkg.tar.zst",
+      "sha256": "f9a78b7f257984bc8a2b62d5f93f1af45b03d4b84afaf2eafc7d90c9b8c4568e",
+      "signatureSha256": "7d94ddb3b5a5e2ad3cd75faf02467e7052404d06511f1a8ac52133e0d5c1ec2e",
+      "licenses": [
+        "spdx:GPL-3.0-or-later WITH GCC-exception-3.1 AND GFDL-1.3-or-later"
+      ],
+      "projectUrls": [
+        "https://gcc.gnu.org"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-gettext-runtime",
+      "version": "1.0-1",
+      "file": "mingw-w64-x86_64-gettext-runtime-1.0-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gettext-runtime-1.0-1-any.pkg.tar.zst",
+      "sha256": "be68d7f260633284b910c588c6d82ee304a81c8817a686d2cd9df83f872c27af",
+      "signatureSha256": "f4da268315da6eb32c01715830743e6a10c960392eb1e9e57ee33060a6411379",
+      "licenses": [
+        "spdx:GPL-3.0-or-later AND LGPL-2.1-or-later"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/gettext/"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-gmp",
+      "version": "6.3.0-2",
+      "file": "mingw-w64-x86_64-gmp-6.3.0-2-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gmp-6.3.0-2-any.pkg.tar.zst",
+      "sha256": "8924433974c4add46cb46ea4f6ef283b5c5139d3f552375115b5580f855015cc",
+      "signatureSha256": "a70d99dc9a6165886e1a03c973246377eda2005f33fe9f07815ae8f43aa0a8e5",
+      "licenses": [
+        "LGPL3",
+        "GPL"
+      ],
+      "projectUrls": [
+        "https://gmplib.org/"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-gnutls",
+      "version": "3.8.13-3",
+      "file": "mingw-w64-x86_64-gnutls-3.8.13-3-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gnutls-3.8.13-3-any.pkg.tar.zst",
+      "sha256": "0d5a373ac558af20dc0a46d249e99f8a3b3d3562ae013e73f00642dc3bd118cf",
+      "signatureSha256": "75032e84bda92415aaa2d087af5c542e42de1eb5df33d63db578e0c00cee9b8b",
+      "licenses": [
+        "spdx:GPL-3.0-or-later",
+        "spdx:LGPL-2.1-or-later"
+      ],
+      "projectUrls": [
+        "https://www.gnutls.org/"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-headers",
+      "version": "14.0.0.r495.g63ebe6cdb-1",
+      "file": "mingw-w64-x86_64-headers-14.0.0.r495.g63ebe6cdb-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-headers-14.0.0.r495.g63ebe6cdb-1-any.pkg.tar.zst",
+      "sha256": "c8cffc339349a50978c0d3fd6d49e33e377165f20d7f360c999cc1622dde4626",
+      "signatureSha256": "0c9e0c6a28af83a0f134ed936c128eee008031ff2821f2c55bb6f51d8afcb47e",
+      "licenses": [
+        "spdx:ZPL-2.1 AND LGPL-2.1-or-later"
+      ],
+      "projectUrls": [
+        "https://www.mingw-w64.org/"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-isl",
+      "version": "0.28-1",
+      "file": "mingw-w64-x86_64-isl-0.28-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-isl-0.28-1-any.pkg.tar.zst",
+      "sha256": "03ed191718a89edc46e783deed46b8fd20ec47a09fcdefb37c6c4169b6188b08",
+      "signatureSha256": "e2119db75c92fb0d36de0ff70a11ed326d01e13a955311567171e2f40590a7ca",
+      "licenses": [
+        "spdx:MIT"
+      ],
+      "projectUrls": [
+        "https://libisl.sourceforge.io/"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-libffi",
+      "version": "3.8.0-1",
+      "file": "mingw-w64-x86_64-libffi-3.8.0-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-libffi-3.8.0-1-any.pkg.tar.zst",
+      "sha256": "6dad7f3c6c900d3c64a4fe0c2764b405e678b22df3521d2284ffaeff0198b84b",
+      "signatureSha256": "e1dc3072e95312c8474c1b4ad335c6fd9387a390fba70b6b46961b74e195c95c",
+      "licenses": [
+        "spdx:MIT"
+      ],
+      "projectUrls": [
+        "https://sourceware.org/libffi"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-libgcc",
+      "version": "16.2.0-6",
+      "file": "mingw-w64-x86_64-libgcc-16.2.0-6-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-libgcc-16.2.0-6-any.pkg.tar.zst",
+      "sha256": "e0815432c4225892b0eef57055fe507fa0b9a036436f046605f6629696bd1b88",
+      "signatureSha256": "3394a32a729d1d2fbbba9d100d266a6ac6f2213913bbd53f3a25cf260e4f14c2",
+      "licenses": [
+        "spdx:GPL-3.0-or-later WITH GCC-exception-3.1 AND GFDL-1.3-or-later"
+      ],
+      "projectUrls": [
+        "https://gcc.gnu.org"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-libiconv",
+      "version": "1.19-1",
+      "file": "mingw-w64-x86_64-libiconv-1.19-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-libiconv-1.19-1-any.pkg.tar.zst",
+      "sha256": "21e334d0911f25de75d3e18e0697648bcecfa9658256d600cad0827d719c2f35",
+      "signatureSha256": "89de5b11d92ed20d7a960d5658cfd98b670f323802ea805c229fdc5f14efc5eb",
+      "licenses": [
+        "spdx:LGPL-2.1-or-later",
+        "documentation:spdx:GPL-3.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/libiconv/"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-libidn2",
+      "version": "2.3.8-4",
+      "file": "mingw-w64-x86_64-libidn2-2.3.8-4-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-libidn2-2.3.8-4-any.pkg.tar.zst",
+      "sha256": "f98a157446f9ac35465022e329cdaf6169b0c9fa19837e9d80aff9d4e5109013",
+      "signatureSha256": "b30b2e03097cafc670024cb12f0a27216bdbb92f3c1f2b98d624dec25aae83a2",
+      "licenses": [
+        "spdx:GPL-2.0-or-later",
+        "spdx:LGPL-3.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/libidn/#libidn2"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-libstdc++",
+      "version": "16.2.0-6",
+      "file": "mingw-w64-x86_64-libstdc++-16.2.0-6-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-libstdc++-16.2.0-6-any.pkg.tar.zst",
+      "sha256": "924b47e8c3e20b6448e29d3333acc638a4f4783c1c45230e09673532f9c4f198",
+      "signatureSha256": "5db16dc02e586b5a99b27cf8ce85d6720f105a0b767d0be887bbc021804cbca3",
+      "licenses": [
+        "spdx:GPL-3.0-or-later WITH GCC-exception-3.1 AND GFDL-1.3-or-later"
+      ],
+      "projectUrls": [
+        "https://gcc.gnu.org"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-libtasn1",
+      "version": "4.21.0-1",
+      "file": "mingw-w64-x86_64-libtasn1-4.21.0-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-libtasn1-4.21.0-1-any.pkg.tar.zst",
+      "sha256": "9f7aa213d14135e5856cc7a1254d871cbed60dee00b40db87a6ca7a4e733d2b2",
+      "signatureSha256": "7b2fe55d20c9e862f2e40860fc93c0b08b944de17486ee2985694ea7d55027f5",
+      "licenses": [
+        "GPL3, LGPL"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/libtasn1/"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-libunistring",
+      "version": "1.4.2-1",
+      "file": "mingw-w64-x86_64-libunistring-1.4.2-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-libunistring-1.4.2-1-any.pkg.tar.zst",
+      "sha256": "c940cf52fb2b579baa596d3c1d911f7544cbf90f8bd19c260377aa115c65b059",
+      "signatureSha256": "a2b54a0a61cd062476f4098491f887b85b5575ba1e7429e1a7e7aac8786014ac",
+      "licenses": [
+        "spdx:LGPL-3.0-or-later OR GPL-3.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/libunistring"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-libwinpthread",
+      "version": "14.0.0.r495.g63ebe6cdb-2",
+      "file": "mingw-w64-x86_64-libwinpthread-14.0.0.r495.g63ebe6cdb-2-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-libwinpthread-14.0.0.r495.g63ebe6cdb-2-any.pkg.tar.zst",
+      "sha256": "e657ade501916ef2f0ff8b5f5d93dc65d39f1a0ec66cfee8206026b240f60518",
+      "signatureSha256": "291507653a7d755c8c68ba4fdd356c5b4fd3718b1a12fdcf3e0258ae0dd8a104",
+      "licenses": [
+        "spdx:MIT AND BSD-3-Clause"
+      ],
+      "projectUrls": [
+        "https://www.mingw-w64.org/"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-libxml2",
+      "version": "2.15.4-2",
+      "file": "mingw-w64-x86_64-libxml2-2.15.4-2-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-libxml2-2.15.4-2-any.pkg.tar.zst",
+      "sha256": "6c4bbee61b28a54b2f63c63d09f5e8a49e38dd77fc8eacccdb48467dec0399ca",
+      "signatureSha256": "9881aedbcc402e0baaa6b1e40c5351bce341a96228357b0afb20d30f8a6b050e",
+      "licenses": [
+        "spdx:MIT"
+      ],
+      "projectUrls": [
+        "https://gitlab.gnome.org/GNOME/libxml2/-/wikis/home"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-mpc",
+      "version": "1.4.1-1",
+      "file": "mingw-w64-x86_64-mpc-1.4.1-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-mpc-1.4.1-1-any.pkg.tar.zst",
+      "sha256": "ce024a90d59c8a591d2c88ef94a386c6367750bf9edc6a944e80815ec5d93344",
+      "signatureSha256": "30c2508bcf5496f4676d4dcac2ba8494d4d4df3cc3c324289b190daf7198afb0",
+      "licenses": [
+        "spdx:LGPL-3.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.multiprecision.org"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-mpfr",
+      "version": "4.2.2-3",
+      "file": "mingw-w64-x86_64-mpfr-4.2.2-3-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-mpfr-4.2.2-3-any.pkg.tar.zst",
+      "sha256": "9ecbc05f1f855bc656a8f111d367f61fbd90dbbfcf469ba74d6d5dd1ec07a542",
+      "signatureSha256": "697c93a308af6cce48e30bae914f68922897818425bb78bf4e6805f4871aa34f",
+      "licenses": [
+        "spdx:LGPL-3.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.mpfr.org"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-nettle",
+      "version": "4.0-1",
+      "file": "mingw-w64-x86_64-nettle-4.0-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-nettle-4.0-1-any.pkg.tar.zst",
+      "sha256": "505773abfb4f3af514012e2926c11db6365299c7eda141d958a065740740dc86",
+      "signatureSha256": "d9c1ba25960d2ac18365a7a4faf4df7725d929a8aa11b9fba579c4cb23c80281",
+      "licenses": [
+        "spdx:GPL-2.0-or-later",
+        "spdx:LGPL-3.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.lysator.liu.se/~nisse/nettle"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-p11-kit",
+      "version": "0.26.5-1",
+      "file": "mingw-w64-x86_64-p11-kit-0.26.5-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-p11-kit-0.26.5-1-any.pkg.tar.zst",
+      "sha256": "171b877586efd64888648007a56c3a263eb2d4abc82594c90d30b1b7e4b9f5eb",
+      "signatureSha256": "4a366c6211bce2682d52b2cfe0af3be819b03ad2c0b01155dce30fda56d903c0",
+      "licenses": [
+        "spdx:BSD-3-Clause"
+      ],
+      "projectUrls": [
+        "https://p11-glue.freedesktop.org/p11-kit.html"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-pkgconf",
+      "version": "1~3.0.10-1",
+      "file": "mingw-w64-x86_64-pkgconf-1~3.0.10-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-pkgconf-1~3.0.10-1-any.pkg.tar.zst",
+      "sha256": "430c96143ec00912cab2bdb257dd84baf2d583e38681a0d6b552d07b43c95ce1",
+      "signatureSha256": "e4b36da06a0ff6c193b06363fa81d967156d9f1e00ae988aa0027c5b4609ea3c",
+      "licenses": [
+        "spdx:ISC"
+      ],
+      "projectUrls": [
+        "https://pkgconf.org"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-tzdata",
+      "version": "2026e-1",
+      "file": "mingw-w64-x86_64-tzdata-2026e-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-tzdata-2026e-1-any.pkg.tar.zst",
+      "sha256": "6d28805f8fb6517011cc309aa452111565afa1bc9188ad784cb5f62df98f0988",
+      "signatureSha256": "836fbbe3f4def501d7a6a069d241aef95c00af5b515d81b0ff7d2a8ff295c812",
+      "licenses": [
+        "custom: public domain"
+      ],
+      "projectUrls": [
+        "https://www.iana.org/time-zones"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-windows-default-manifest",
+      "version": "20260815-1",
+      "file": "mingw-w64-x86_64-windows-default-manifest-20260815-1-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-windows-default-manifest-20260815-1-any.pkg.tar.zst",
+      "sha256": "d2dd9a4f3a3362bc85ca273dff2b0f9868cfba7ba60151499b5935a049f00d74",
+      "signatureSha256": "d3719889029b308d5a1f0f87aaba63c675c7ad77e842170c2255b952034516b5",
+      "licenses": [
+        "custom:Public Domain"
+      ],
+      "projectUrls": []
+    },
+    {
+      "name": "mingw-w64-x86_64-winpthreads",
+      "version": "14.0.0.r495.g63ebe6cdb-2",
+      "file": "mingw-w64-x86_64-winpthreads-14.0.0.r495.g63ebe6cdb-2-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-winpthreads-14.0.0.r495.g63ebe6cdb-2-any.pkg.tar.zst",
+      "sha256": "32d4cbc4b4b910eb9ac42be3741c860ca9421582058b6b15c337e0bc368a37bc",
+      "signatureSha256": "4656e40ef526375b2f47a19ca55babef72bbc2568bc53591bb253dee18d4b1a2",
+      "licenses": [
+        "spdx:MIT AND BSD-3-Clause"
+      ],
+      "projectUrls": [
+        "https://www.mingw-w64.org/"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-zlib",
+      "version": "1.3.2-2",
+      "file": "mingw-w64-x86_64-zlib-1.3.2-2-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-zlib-1.3.2-2-any.pkg.tar.zst",
+      "sha256": "9e75842a070ba648e986e12424e1c92c9d7d77200e85f6a34eeb600819f2e694",
+      "signatureSha256": "c11e9e3e495eefb0d0d1ef53303f28430ef47967c4fe484b3742d59c012f60f8",
+      "licenses": [
+        "spdx:Zlib"
+      ],
+      "projectUrls": [
+        "https://www.zlib.net/"
+      ]
+    },
+    {
+      "name": "mingw-w64-x86_64-zstd",
+      "version": "1.5.7-2",
+      "file": "mingw-w64-x86_64-zstd-1.5.7-2-any.pkg.tar.zst",
+      "url": "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-zstd-1.5.7-2-any.pkg.tar.zst",
+      "sha256": "1add6705b344664f6aca108c85f79ab5bdd9e1162662bb06a4cf40a34f6e0907",
+      "signatureSha256": "8007e5509c5cc470eb231ad586b61b9cc74e7a6c060792a990a0b20728c67cb3",
+      "licenses": [
+        "spdx:BSD-3-Clause OR GPL-2.0-or-later"
+      ],
+      "projectUrls": [
+        "https://facebook.github.io/zstd/"
+      ]
+    },
+    {
+      "name": "patch",
+      "version": "2.8-2",
+      "file": "patch-2.8-2-x86_64.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/patch-2.8-2-x86_64.pkg.tar.zst",
+      "sha256": "df34ebf345d607cabf0b2cbad60f562f775f07985647b84035b40702f62ee9b1",
+      "signatureSha256": "3d3c9091fdc9f6e2eb7c89de4298d5bd8ee29458a0f3d93ad764bc0e13074967",
+      "licenses": [
+        "spdx:GPL-3.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.gnu.org/software/patch/patch.html"
+      ]
+    },
+    {
+      "name": "perl",
+      "version": "5.42.3-3",
+      "file": "perl-5.42.3-3-x86_64.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/perl-5.42.3-3-x86_64.pkg.tar.zst",
+      "sha256": "6a4dbc38cdcc53d16239904b5c87d2277cffc49ed92c6a7796f8bf6b49517d5b",
+      "signatureSha256": "cdd37c7d9594ccad8c5f6efe2655d2f07ecd6b5ece90ffec777ece1d8adaf6c5",
+      "licenses": [
+        "spdx:Artistic-1.0-Perl OR GPL-1.0-or-later"
+      ],
+      "projectUrls": [
+        "https://www.perl.org/"
+      ]
+    },
+    {
+      "name": "pkgconf",
+      "version": "3.0.10-1",
+      "file": "pkgconf-3.0.10-1-x86_64.pkg.tar.zst",
+      "url": "https://repo.msys2.org/msys/x86_64/pkgconf-3.0.10-1-x86_64.pkg.tar.zst",
+      "sha256": "ab9fdaf563938752aecd8b5495954e1e04f6ac5721a6522b35374e548fc357c2",
+      "signatureSha256": "80be19de24abb4cd38a01a7caeb66a2acfb7a1314bba086aa6ddfa985a3968ed",
+      "licenses": [
+        "spdx:ISC"
+      ],
+      "projectUrls": [
+        "http://pkgconf.org"
+      ]
+    }
+  ]
+}

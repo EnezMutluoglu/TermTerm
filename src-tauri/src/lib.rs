@@ -1,4 +1,5 @@
 pub mod archive;
+pub mod authenticator;
 pub mod commands;
 pub mod connections;
 pub mod crypto;
@@ -26,6 +27,13 @@ pub mod transfers;
 pub mod tunnels;
 pub mod updater;
 pub mod vault;
+pub mod vpn;
+mod vpn_lifecycle;
+mod vpn_sso;
+#[cfg(all(target_os = "linux", feature = "vpn-webkit-fixture"))]
+pub use vpn_sso::native_webkit_response_fixture;
+#[cfg(any(windows, test))]
+mod vpn_bundle;
 pub fn run() {
     use commands::*;
     use tauri::Manager;
@@ -43,7 +51,27 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler(|invoke: tauri::ipc::Invoke<tauri::Wry>| {
+            // Remote auth pages must remain unprivileged even if they reach a local document.
+            if vpn_sso::is_auth_view(invoke.message.webview_ref().label()) {
+                invoke.resolver.reject("VPN authentication views cannot use application IPC");
+                return true;
+            }
+            let handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
+            vpn::vpn_status,
+            vpn::vpn_profiles,
+            vpn::vpn_import,
+            vpn::vpn_profile_save,
+            vpn::vpn_profile_delete,
+            vpn::vpn_sessions,
+            vpn::vpn_connect,
+            vpn::vpn_disconnect,
+            vpn::vpn_answer,
+            vpn_sso::vpn_sso_open,
+            vpn_sso::vpn_sso_close,
+            vpn_sso::vpn_sso_test_start,
+            vpn_sso::vpn_sso_test_isolation,
+            vpn_sso::vpn_sso_test_diagnostics,
             team_v2::team_v2_login,
             team_v2::signin::team_v2_saved_login,
             team_v2::signin::team_v2_login_remembered,
@@ -57,6 +85,7 @@ pub fn run() {
             team_v2::sftp::team_v2_sftp,
             team_v2::tunnel::team_v2_tunnel,
             passwords::password_board,
+            authenticator::authenticator,
             team::migration::team_migration_export,
             team::migration::team_migration_preview,
             team::team_auth,
@@ -133,7 +162,9 @@ pub fn run() {
             lab_profile,
             cloud_discover,
             api_bridge
-        ])
+        ];
+            handler(invoke)
+        })
         .build(tauri::generate_context!())
         .expect("TermTerm startup failed")
         .run(move |app, event| {

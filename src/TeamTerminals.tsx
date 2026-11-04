@@ -3,7 +3,7 @@ import { InputQueue } from "./inputQueue";
 import { copyText } from "./clipboard";
 import type { DocumentRequest } from "./TeamDocuments";
 import { createPortal } from "react-dom";
-import { HardDrive, ArrowLeftRight, X } from "lucide-react";
+import { HardDrive, ArrowLeftRight, ShieldCheck, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -40,7 +40,7 @@ export default function TeamTerminals({
   panelsTarget: HTMLElement | null;
   workspace: string;
   navigation: number;
-  onWorkspace: (view: "vaults" | "sftp") => void;
+  onWorkspace: (view: "vaults" | "sftp" | "authenticator") => void;
   onLock: () => void;
 }) {
   const live = useRef(true),
@@ -257,11 +257,11 @@ export default function TeamTerminals({
       }
       const terminalsOnly = action === "previous" || action === "next";
       const tabs = [
-        ...(terminalsOnly ? [] : ["vaults", "sftp"]),
+        ...(terminalsOnly ? [] : ["vaults", "sftp", "authenticator"]),
         ...sessions.map((s) => s.id),
       ];
       if (!tabs.length) return;
-      const current = active ?? (workspace === "sftp" ? "sftp" : "vaults");
+      const current = active ?? (["sftp","authenticator"].includes(workspace) ? workspace : "vaults");
       const next =
         tabs[
           (tabs.indexOf(current) +
@@ -269,7 +269,7 @@ export default function TeamTerminals({
             tabs.length) %
             tabs.length
         ];
-      if (next === "vaults" || next === "sftp") {
+      if (next === "vaults" || next === "sftp" || next === "authenticator") {
         setActive(null);
         onWorkspace(next);
       } else setActive(next);
@@ -309,7 +309,7 @@ export default function TeamTerminals({
         createPortal(
           <nav className="top-tabs" aria-label="Team terminal sekmeleri">
             <button
-              className={!active && workspace !== "sftp" ? "active" : ""}
+              className={!active && !["sftp","authenticator"].includes(workspace) ? "active" : ""}
               onClick={() => {
                 setActive(null);
                 onWorkspace("vaults");
@@ -328,6 +328,7 @@ export default function TeamTerminals({
               <ArrowLeftRight size={14} />
               SFTP
             </button>
+            <button className={!active && workspace === "authenticator" ? "active" : ""} onClick={() => {setActive(null);onWorkspace("authenticator");}}><ShieldCheck size={14} />Authenticator</button>
             {sessions.map((s) => (
               <div
                 key={s.id}

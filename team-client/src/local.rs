@@ -11,6 +11,7 @@ use std::{path::Path, time::Duration};
 use zeroize::Zeroizing;
 
 mod connections;
+pub(crate) mod vpn;
 pub mod journal;
 
 pub struct Store {
@@ -38,7 +39,7 @@ impl Store {
         db.busy_timeout(Duration::from_secs(2))?;
         let version: i64 = db.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         ensure!(
-            (0..=8).contains(&version),
+            (0..=9).contains(&version),
             "Unsupported Team cache version; file not changed"
         );
         db.execute_batch("PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;")?;
@@ -52,7 +53,7 @@ impl Store {
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         // Recheck inside the write lock so two processes can initialize safely.
         let version: i64 = tx.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        ensure!((0..=8).contains(&version), "Unsupported Team cache version");
+        ensure!((0..=9).contains(&version), "Unsupported Team cache version");
         if version == 0 {
             let tables: i64 = tx.query_row(
                 "SELECT count(*) FROM sqlite_master WHERE type='table'",
@@ -83,6 +84,7 @@ impl Store {
         }
         if version < 6 { tx.execute_batch("PRAGMA user_version=6;")?; }
         if version < 8 { tx.execute_batch("PRAGMA user_version=8;")?; }
+        if version < 9 {vpn::migrate(&tx)?;}
         tx.commit()?;
         Ok(result)
     }

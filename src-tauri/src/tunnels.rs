@@ -33,6 +33,10 @@ pub async fn start(app: AppHandle, state: Shared, id: String, tunnel: Tunnel) ->
 pub(crate) async fn start_connected(app:AppHandle,state:Shared,id:String,tunnel:Tunnel,ssh:Arc<crate::connections::SshConnection>)->Result<()> {
     ensure!(["127.0.0.1","::1","localhost"].contains(&tunnel.bind_address.as_str()),"Tunnels bind to loopback only");
     ensure!(["local","dynamic","remote"].contains(&tunnel.mode.as_str()),"Invalid tunnel mode");
+    let vpn = ssh.vpn.clone();
+    crate::vpn_lifecycle::run(&vpn, async {
+    let registration = vpn.as_ref().map(|lease|lease.register()).transpose()?;
+    let cancellation = vpn.clone();
     let task_id = id.clone();
     let task = if tunnel.mode == "remote" {
         let port = ssh
@@ -44,8 +48,9 @@ pub(crate) async fn start_connected(app:AppHandle,state:Shared,id:String,tunnel:
             serde_json::json!({"id":id,"status":"running","port":port}),
         )?;
         tokio::spawn(async move {
+            let _registration = registration;
             let _keep = ssh;
-            std::future::pending::<()>().await;
+            crate::vpn_lifecycle::cancelled(&cancellation).await;
         })
     } else {
         ensure!(
@@ -59,12 +64,15 @@ pub(crate) async fn start_connected(app:AppHandle,state:Shared,id:String,tunnel:
             serde_json::json!({"id":id,"status":"running","port":bound}),
         )?;
         tokio::spawn(async move {
+            let _registration = registration;
             let mut clients = tokio::task::JoinSet::new();
             loop {
-                tokio::select! {accepted=listener.accept()=>{let Ok((mut stream,_))=accepted else{break;};let ssh=ssh.clone();let t=tunnel.clone();let app=app.clone();let id=id.clone();clients.spawn(async move{let result:Result<()>=async{
+                tokio::select! {biased;_=crate::vpn_lifecycle::cancelled(&cancellation)=>break,accepted=listener.accept()=>{let Ok((mut stream,_))=accepted else{break;};let ssh=ssh.clone();let t=tunnel.clone();let app=app.clone();let id=id.clone();clients.spawn(async move{let result:Result<()>=async{
                 let(address,port)=if t.mode=="dynamic"{let mut header=[0;2];stream.read_exact(&mut header).await?;ensure!(header[0]==5,"SOCKS5 required");let mut methods=vec![0;header[1]as usize];stream.read_exact(&mut methods).await?;ensure!(methods.contains(&0),"No supported SOCKS method");stream.write_all(&[5,0]).await?;let mut request=[0;4];stream.read_exact(&mut request).await?;ensure!(request[0]==5&&request[1]==1,"Only SOCKS5 CONNECT is supported");let address=match request[3]{1=>{let mut a=[0;4];stream.read_exact(&mut a).await?;std::net::Ipv4Addr::from(a).to_string()},4=>{let mut a=[0;16];stream.read_exact(&mut a).await?;std::net::Ipv6Addr::from(a).to_string()},3=>{let n=stream.read_u8().await?;let mut a=vec![0;n as usize];stream.read_exact(&mut a).await?;String::from_utf8(a)?},_=>return Err(anyhow!("Invalid SOCKS address"))};(address,stream.read_u16().await?)}else{(t.target_address,t.target_port)};
                 let channel=ssh.handle.channel_open_direct_tcpip(&address,port as u32,"127.0.0.1",0).await?;if t.mode=="dynamic"{stream.write_all(&[5,0,0,1,127,0,0,1,0,0]).await?;}let mut remote=channel.into_stream();tokio::io::copy_bidirectional(&mut stream,&mut remote).await?;Ok(())}.await;if let Err(e)=result{let _=app.emit("tunnel-event",serde_json::json!({"id":id,"status":"connectionError","error":e.to_string()}));}});},_=clients.join_next(),if !clients.is_empty()=>{}}
             }
+            drop(listener);
+            clients.shutdown().await;
         })
     };
     if let Some(old) = state
@@ -76,4 +84,5 @@ pub(crate) async fn start_connected(app:AppHandle,state:Shared,id:String,tunnel:
         old.abort();
     }
     Ok(())
+    }).await
 }

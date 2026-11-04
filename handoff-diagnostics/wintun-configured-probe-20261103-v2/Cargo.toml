@@ -1,0 +1,14 @@
+[package]
+name = "termterm-wintun-close-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+anyhow = "=1.0.104"
+serde_json = "=1.0.154"
+uuid = { version = "=1.28.0", features = ["v4"] }
+termterm-vpn-windows-broker = { path = "../../vpn-windows-broker", features = ["privileged-validation"] }
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Devices_DeviceAndDriverInstallation", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Networking_WinSock"] }

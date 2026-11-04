@@ -287,6 +287,7 @@ impl TeamClient {
         );
         let mut request = self.client.request(method.clone(), self.base.join(path)?)
             .header("x-termterm-client-version", crate::compatibility::CLIENT_VERSION)
+            .header("x-termterm-capabilities", "vpn-v1")
             .header("x-termterm-api-version", crate::compatibility::API_VERSION.to_string());
         if let Some(proof) = proof {
             request = request.bearer_auth(proof);
@@ -664,13 +665,14 @@ mod tests {
         let root = tempfile::tempdir()?;
         let profile = ServiceProfile {service_url:"https://127.0.0.1:1".into(),team_id:Uuid::new_v4(),ca_pem:None};
         let first=TeamClient::new(profile.clone())?;
-        let policy=crate::compatibility::Policy {revision:1,api_version:1,minimum_client_version:"0.4.2".into(),service_version:"0.4.2".into()};
+        let mut future=semver::Version::parse(crate::compatibility::CLIENT_VERSION)?;future.patch+=1;future.pre=semver::Prerelease::EMPTY;
+        let policy=crate::compatibility::Policy {revision:1,api_version:1,minimum_client_version:future.to_string(),service_version:crate::compatibility::CLIENT_VERSION.into()};
         crate::compatibility::PolicyStore::new(root.path(),&format!("{}:{}",first.base,profile.team_id))?.save(&policy)?;
         drop(first);
         let desktop=crate::desktop::DesktopState::default();
         desktop.configure_cache(root.path().to_owned())?;
         let error=desktop.login(profile,"fixture".into(),"Disposable-password-2026!".into()).await.unwrap_err();
-        assert_eq!(error.to_string(),"team_update_required:0.4.2:1");
+        assert_eq!(error.to_string(),format!("team_update_required:{future}:1"));
         assert!(desktop.call(crate::desktop::DesktopAction::Overview{}).await.is_err());
         Ok(())
     }

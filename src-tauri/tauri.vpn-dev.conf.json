@@ -4,15 +4,37 @@
   "version": "0.4.3-dev.1",
   "identifier": "local.termterm.desktop.vpndev",
   "app": {
-    "windows": [{
-      "title": "TermTerm VPN · Development",
-      "width": 1440,
-      "height": 920,
-      "minWidth": 1000,
-      "minHeight": 680,
-      "backgroundColor": "#161b22"
-    }]
+    "security": {
+      "capabilities": [{
+        "identifier": "vpn-dev-main",
+        "webviews": ["main"],
+        "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save", "clipboard-manager:allow-read-text", "clipboard-manager:allow-write-text"]
+      }]
+    },
+    "windows": [
+      {
+        "title": "TermTerm VPN \u00b7 Development",
+        "width": 1440,
+        "height": 920,
+        "minWidth": 1000,
+        "minHeight": 680,
+        "backgroundColor": "#161b22"
+      }
+    ]
   },
-  "bundle": { "active": false, "createUpdaterArtifacts": false },
-  "plugins": { "updater": { "endpoints": [] } }
+  "bundle": {
+    "active": false,
+    "createUpdaterArtifacts": false,
+    "resources": []
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": []
+    }
+  },
+  "build": {
+    "beforeDevCommand": "pnpm dev --mode vpn-dev",
+    "beforeBuildCommand": "pnpm build --mode vpn-dev",
+    "frontendDist": "../dist-vpn-dev"
+  }
 }

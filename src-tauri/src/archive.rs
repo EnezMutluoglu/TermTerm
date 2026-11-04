@@ -131,6 +131,8 @@ pub fn bundle(
         vaults: vec![BackupVault {
             name: active.name()?,
             records,
+            vpn_profiles: if ids.is_empty() { crate::vpn::profiles_raw(active)? } else { vec![] },
+            authenticator: if ids.is_empty() { crate::authenticator::load(active)? } else { vec![] },
         }],
     };
     for source in sources {
@@ -140,6 +142,8 @@ pub fn bundle(
         backup.vaults.push(BackupVault {
             name: v.name,
             records,
+            vpn_profiles: v.vpn_profiles,
+            authenticator: v.authenticator,
         });
     }
     let report = Report {
@@ -168,6 +172,13 @@ pub fn preview_encoded(
     if format == "ttbackup" || path.extension().is_some_and(|e| e == "ttbackup") {
         let backup = vault::read_backup(path, password)?;
         let mut records = vec![];
+        let mut warnings = vec!["Restored records receive new IDs. Sync profiles are disabled.".into()];
+        if backup.vaults.iter().any(|v| !v.vpn_profiles.is_empty()) {
+            warnings.push("VPN profiles are preserved by Backup restore; this generic record import excludes them.".into());
+        }
+        if backup.vaults.iter().any(|v| !v.authenticator.is_empty()) {
+            warnings.push("Authenticator tokens are preserved by Backup restore; this generic record import excludes them.".into());
+        }
         for v in backup.vaults {
             records.extend(vault::restored_records(&v.records)?);
         }
@@ -175,16 +186,20 @@ pub fn preview_encoded(
             items: vec![],
             format: "ttbackup".into(),
             records,
-            warnings: vec!["Restored records receive new IDs. Sync profiles are disabled.".into()],
+            warnings,
         });
     }
     if format == "ttvault" || path.extension().is_some_and(|e| e == "ttvault") {
         let v = Vault::inspect(path, password)?;
+        let has_authenticator = !v.authenticator.is_empty();
+        let mut warnings = vec!["Vault imported as new records. Source file is unchanged.".into()];
+        if !v.vpn_profiles.is_empty() { warnings.push("VPN profiles are preserved by portable vault copy or Backup restore; this generic record import excludes them.".into()); }
+        if has_authenticator { warnings.push("Authenticator tokens are preserved by portable vault copy or Backup restore; this generic record import excludes them.".into()); }
         return Ok(ImportPreview {
             items: vec![],
             format: "ttvault".into(),
             records: vault::restored_records(&v.records)?,
-            warnings: vec!["Vault imported as new records. Source file is unchanged.".into()],
+            warnings,
         });
     }
     if format == "csv" {

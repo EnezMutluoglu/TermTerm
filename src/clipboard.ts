@@ -3,9 +3,9 @@ import { desktop } from "./api";
 
 // Serialize writes so an older selection cannot overwrite a more recent one.
 let writes: Promise<void> = Promise.resolve();
-export function copyText(text: string) {
+export function copyText(text: string, isCurrent: () => boolean = () => true) {
   if (!text) return Promise.resolve();
-  const next = writes.catch(() => {}).then(() => desktop ? writeText(text) : navigator.clipboard.writeText(text));
+  const next = writes.catch(() => {}).then(() => { if (isCurrent()) return desktop ? writeText(text) : navigator.clipboard.writeText(text); });
   writes = next;
   return next;
 }

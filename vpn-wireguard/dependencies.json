@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "distributionReady": false,
+  "goVersion": "go1.26.4",
+  "modules": [
+    {
+      "module": "golang.zx2c4.com/wireguard",
+      "version": "v0.0.0-20261024220952-b3bc704ef0ee",
+      "sum": "h1:hByBPN/P/BVzJ591rJfvNhdoL94vmBtRbnVw77QJL20=",
+      "archiveSha256": "e370e340c37f7b35d35f56d06c8a489613f2b02bf52146bbda6a55336c8b05f6",
+      "license": "MIT",
+      "licenseFile": "LICENSE",
+      "licenseSha256": "91276db973f25602d1aa43491f59cbc84cb88e6f151e1d0cc82a755563ce0195",
+      "notice": "WireGuard-Go-LICENSE.txt"
+    },
+    {
+      "module": "golang.zx2c4.com/wintun",
+      "version": "v0.0.0-20230126152724-0fa3db229ce2",
+      "sum": "h1:B82qJJgjvYKsXS9jeunTOisW56dUokqW/FOteYJJ/yg=",
+      "archiveSha256": "06599222daa6af8547045c446cefa9a2bab19d57bde1fc6436114308d79a2b4b",
+      "license": "MIT",
+      "licenseFile": "LICENSE",
+      "licenseSha256": "91276db973f25602d1aa43491f59cbc84cb88e6f151e1d0cc82a755563ce0195",
+      "notice": "WireGuard-Go-wintun-LICENSE.txt"
+    },
+    {
+      "module": "golang.org/x/crypto",
+      "version": "v0.37.0",
+      "sum": "h1:kJNSjF/Xp7kU0iB2Z+9viTPMW4EqqsrywMXLJOOsXSE=",
+      "archiveSha256": "7ce6b2be21be1ce9e04dc784830e08931f09b5903596b8017839322c9e828667",
+      "license": "BSD-3-Clause",
+      "licenseFile": "LICENSE",
+      "licenseSha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "notice": "WireGuard-Go-crypto-LICENSE.txt"
+    },
+    {
+      "module": "golang.org/x/net",
+      "version": "v0.39.0",
+      "sum": "h1:ZCu7HMWDxpXpaiKdhzIfaltL9Lp31x/3fCP11bc6/fY=",
+      "archiveSha256": "d8434ce72d2356472570adbbd38c538d24fe9a9678bffaa6ef99ec47ca3be0a5",
+      "license": "BSD-3-Clause",
+      "licenseFile": "LICENSE",
+      "licenseSha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "notice": "WireGuard-Go-net-LICENSE.txt"
+    },
+    {
+      "module": "golang.org/x/sys",
+      "version": "v0.32.0",
+      "sum": "h1:s77OFDvIQeibCmezSnk/q6iAfkdiQaJi4VzroCFrN20=",
+      "archiveSha256": "85d47075d21fd7ef35d9a47fc73f2356fb3cd2e7fab7f45c874b814bf312127d",
+      "license": "BSD-3-Clause",
+      "licenseFile": "LICENSE",
+      "licenseSha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "notice": "WireGuard-Go-sys-LICENSE.txt"
+    }
+  ],
+  "goLicenseSha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+}

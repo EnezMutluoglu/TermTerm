@@ -1,6 +1,34 @@
 //! VPN configuration and network policy. Never executes imported commands.
 pub mod import;
 pub mod network;
+pub mod sso;
+pub mod wireguard;
+
+/// Only an initial username/password form is reusable; a later single-secret challenge may be OTP.
+pub fn password_fields(fields: &serde_json::Value) -> Option<(&'static str, &'static str)> {
+    let fields = fields.as_array()?;
+    if fields.len() != 2 { return None; }
+    for (user, password, user_purpose, password_purpose) in [("username", "password", "username", "password"), ("user", "passwd", "text", "secret")] {
+        if fields.iter().any(|f| f["name"] == user && f["purpose"] == user_purpose)
+            && fields.iter().any(|f| f["name"] == password && f["purpose"] == password_purpose
+                && (password_purpose == "password" || f["label"].as_str().is_some_and(|label| label.trim().trim_end_matches(':').eq_ignore_ascii_case("password")))) {
+            return Some((user, password));
+        }
+    }
+    None
+}
+/// Reusable password fields must also be free of OTP hints in the full challenge.
+pub fn password_challenge_fields(challenge:&serde_json::Value)->Option<(&'static str,&'static str)> {
+    let fields=challenge["fields"].as_array()?;
+    let metadata=[&challenge["message"],&challenge["error"]].into_iter()
+        .chain(fields.iter().flat_map(|field|[&field["name"],&field["purpose"],&field["label"]]));
+    for value in metadata {
+        let text=match value {serde_json::Value::String(text)=>text.to_ascii_lowercase(),serde_json::Value::Null=>continue,_=>return None};
+        if ["otp","one-time","one time","token","verification","challenge"].iter().any(|word|text.contains(word)) {return None;}
+    }
+    password_fields(&challenge["fields"])
+}
+
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
@@ -68,6 +96,7 @@ impl Profile {
             self.remember || self.password.is_empty(),
             "Hatırlama kapalıyken parola kaydedilemez"
         );
+        if self.family == Family::WireGuard { wireguard::parse(&self.config)?; }
         Ok(())
     }
 }
@@ -127,5 +156,34 @@ mod tests {
         let mut p = profile();
         p.version = 2;
         assert!(p.validate().is_err());
+    }
+}
+
+#[cfg(test)]
+mod credential_tests {
+    use super::*;
+    use serde_json::json;
+    #[test]
+    fn remembered_forms_require_an_unambiguous_username_password_pair() {
+        let initial = json!([{"name":"user","purpose":"text"},{"name":"passwd","purpose":"secret","label":"Password: "}]);
+        assert_eq!(password_fields(&initial),Some(("user","passwd")));
+        assert_eq!(password_fields(&json!([{"name":"username","purpose":"username"},{"name":"password","purpose":"password"}])),Some(("username","password")));
+        for fields in [json!([{"name":"passwd","purpose":"secret","label":"Challenge:"}]), json!([{"name":"user","purpose":"text"},{"name":"passwd","purpose":"secret","label":"Challenge:"}]), json!([{"name":"user","purpose":"text"},{"name":"passwd","purpose":"otp","label":"Password:"}])] {
+            assert_eq!(password_fields(&fields),None);
+        }
+    }
+    #[test]
+    fn full_challenge_metadata_cannot_turn_a_verification_form_into_a_password_form() {
+        let normal=json!({"fields":[{"name":"user","purpose":"text","label":"Username:"},{"name":"passwd","purpose":"secret","label":"Password:"}],"message":"Please log in","error":""});
+        assert_eq!(password_challenge_fields(&normal),Some(("user","passwd")));
+        for marker in ["OTP","one-time code","One Time Code","token","Verification","challenge"] {
+            for key in ["message","error"] {let mut form=normal.clone();form[key]=marker.into();assert_eq!(password_challenge_fields(&form),None);}
+            let mut form=normal.clone();form["fields"][1]["label"]=marker.into();assert_eq!(password_challenge_fields(&form),None);
+        }
+        let explicit=json!({"fields":[{"name":"username","purpose":"username"},{"name":"password","purpose":"password","label":"Verification token"}]});
+        assert_eq!(password_fields(&explicit["fields"]),Some(("username","password")));
+        assert_eq!(password_challenge_fields(&explicit),None);
+        let mut invalid=normal;invalid["message"]=true.into();assert_eq!(password_challenge_fields(&invalid),None);
+        assert_eq!(password_challenge_fields(&json!({"fields":[{"name":"passwd","purpose":"secret","label":"Challenge:"}]})),None);
     }
 }

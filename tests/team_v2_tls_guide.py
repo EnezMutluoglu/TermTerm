@@ -167,7 +167,7 @@ ROLLBACK;"""
             if result.returncode==0:break
         time.sleep(.25)
     else:raise AssertionError('HTTPS with separate company CA did not become ready')
-    assert json.loads(result.stdout)['schemaVersion']==64
+    assert json.loads(result.stdout)['schemaVersion']==66
     if socket_db:
         run(['python3',upgrade,'confirm','--state-directory',str(state),'--url',f'https://{https_host}:{httpsport}',
              '--ca-file',str(httpsca)],env=env)

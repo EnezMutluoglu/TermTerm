@@ -43,11 +43,14 @@ def seed_team(db):
  call('api_resource_save',token,json.dumps(draft))
  sql('SET ROLE '+OWNER+'; INSERT INTO termterm_team_v2.resource_acl(team_id,resource_id,account_id,permission,effect) VALUES('+','.join(map(lit,[b['teamId'],host,member['accountId'],'export','deny']))+')',db)
 
+ recovery=call('api_recovery_key_set',token,pw,chr(92)+'x'+'fe'*32)['keyId']
+ for kind in ['password','totp']:
+  call('api_private_credential_put',token,uuid.uuid4(),0,kind,chr(92)+'x'+'ab'*80,chr(92)+'x'+'bc'*80,1,recovery,*[chr(92)+'x'+'cd'*120]*4)
  return {'teamId':b['teamId'],'leader':token,'member':login('operator',pw)['accessToken'],'password':pw}
 
 def fixture_fingerprint(db):
  # Small disposable fixture only; never emit row content or credential hashes.
- tables=['teams','team_accounts','team_memberships','account_crypto_identities','vaults','resources',
+ tables=['credentials','credential_versions','credential_key_envelopes','team_recovery_keys','teams','team_accounts','team_memberships','account_crypto_identities','vaults','resources',
          'hosts','resource_versions','resource_key_envelopes','resource_acl','change_operations']
  return {table:sql("SELECT md5(coalesce(string_agg(row_to_json(t)::text,E'\\n' ORDER BY row_to_json(t)::text),'')) FROM termterm_team_v2."+table+' t',db) for table in tables}
 
@@ -71,9 +74,9 @@ def main():
  passfile=case/'pgpass';passfile.write_text(f'localhost:55432:*:{OWNER}:{passwords[OWNER]}\n');passfile.chmod(0o600)
  env={**os.environ,'PGHOST':'localhost','PGPORT':'55432','PGDATABASE':source,'PGUSER':OWNER,'PGSSLROOTCERT':CA,'PGPASSFILE':str(passfile)}
  old=case/'old';shutil.copytree(ROOT/'team-service',old,ignore=shutil.ignore_patterns('target','.git'))
- (old/'migrations/064_proxy_restore.sql').unlink()
- g=old/'migrations/grant_service.sql';g.write_text('\n'.join(line for line in g.read_text().splitlines() if 'api_proxy_profile' not in line))
- contract=json.loads((old/'compatibility.json').read_text());contract['schemaVersion']=63;(old/'compatibility.json').write_text(json.dumps(contract))
+ (old/'migrations/066_vpn.sql').unlink()
+ g=old/'migrations/grant_service.sql';g.write_text('\n'.join(line for line in g.read_text().splitlines() if 'api_vpn_' not in line))
+ contract=json.loads((old/'compatibility.json').read_text());contract['schemaVersion']=65;(old/'compatibility.json').write_text(json.dumps(contract))
  for name in (source,resume_db):
   invoke(old/'deploy/manage.py',['migrate','--service-role',SERVICE],{**env,'PGDATABASE':name})
   sql("SET ROLE "+OWNER+"; CREATE TABLE termterm_team_v2.upgrade_probe(id integer PRIMARY KEY, payload bytea NOT NULL); INSERT INTO termterm_team_v2.upgrade_probe VALUES(1,decode('00ffabcd','hex'));",name)
@@ -82,7 +85,7 @@ def main():
  tool=ROOT/'team-service/deploy/upgrade.py';plan=case/'plan.json';state=case/'state'
  invoke(tool,['plan','--service-role',SERVICE,'--output',str(plan)],env)
  invoke(ROOT/'team-service/deploy/manage.py',['migrate','--service-role',SERVICE],env,False)
- data=json.loads(plan.read_text());assert data['sourceSchema']==63 and [x['version'] for x in data['pending']]==[64]
+ data=json.loads(plan.read_text());assert data['sourceSchema']==65 and [x['version'] for x in data['pending']]==[66]
  before=sql('SELECT count(*) FROM termterm_team_v2.schema_migrations',source)
  apply=['apply','--plan',str(plan),'--state-directory',str(state),'--verification-database',verify,'--service-stopped']
  invoke(tool,apply[:-1],env,False)
@@ -93,7 +96,7 @@ def main():
  # A failed restore must never migrate the source or overwrite verification objects.
  sql('CREATE TABLE public.keep_me(id int); INSERT INTO public.keep_me VALUES(42)',verify)
  invoke(tool,apply,env,False)
- assert sql('SELECT max(version) FROM termterm_team_v2.schema_migrations',source)=='63'
+ assert sql('SELECT max(version) FROM termterm_team_v2.schema_migrations',source)=='65'
  assert sql('SELECT id FROM public.keep_me',verify)=='42'
  # Only the test's known disposable table is removed, not a user database.
  sql('DROP TABLE public.keep_me',verify)
@@ -101,7 +104,7 @@ def main():
  result=json.loads((state/'state.json').read_text());assert result['phase']=='awaiting_service'
  backup=state/result['backup'];assert hashlib.sha256(backup.read_bytes()).hexdigest()==result['backupSha256']
  assert backup.stat().st_mode&0o077==0
- assert sql('SELECT max(version) FROM termterm_team_v2.schema_migrations',verify)=='63'
+ assert sql('SELECT max(version) FROM termterm_team_v2.schema_migrations',verify)=='65'
  assert sql("SELECT encode(payload,'hex') FROM termterm_team_v2.upgrade_probe",verify)=='00ffabcd'
  assert sql("SELECT encode(payload,'hex') FROM termterm_team_v2.upgrade_probe",source)=='00ffabcd'
  assert fixture_fingerprint(source)==original_records
@@ -109,19 +112,19 @@ def main():
  invoke(tool,apply,env) # completed SQL replay does not duplicate any records
  assert sql('SELECT count(*) FROM termterm_team_v2.service_installation',source)=='1'
  assert fixture_fingerprint(source)==original_records
- print('PASS: 63→64 read-only plan, wrong-target/stopped checks, failed-restore protection, real private dump/restore, preserved ciphertext and replay',flush=True)
+ print('PASS: 65->66 read-only plan, wrong-target/stopped checks, failed-restore protection, real private dump/restore, preserved ciphertext and replay',flush=True)
  # Interrupted migration resumes the same package; each revision+hash is atomic.
  future=case/'future';shutil.copytree(ROOT/'team-service',future,ignore=shutil.ignore_patterns('target','.git'))
- (future/'migrations/065_test_only.sql').write_text("BEGIN; CREATE TABLE termterm_team_v2.resume_probe(id int PRIMARY KEY); INSERT INTO termterm_team_v2.resume_probe VALUES(1); INSERT INTO termterm_team_v2.schema_migrations(version) VALUES(65); COMMIT;\n")
- (future/'migrations/066_test_only.sql').write_text("BEGIN; SELECT pg_sleep(5); INSERT INTO termterm_team_v2.resume_probe VALUES(2); INSERT INTO termterm_team_v2.schema_migrations(version) VALUES(66); COMMIT;\n")
- contract=json.loads((future/'compatibility.json').read_text());contract['schemaVersion']=66;(future/'compatibility.json').write_text(json.dumps(contract))
+ (future/'migrations/067_test_only.sql').write_text("BEGIN; CREATE TABLE termterm_team_v2.resume_probe(id int PRIMARY KEY); INSERT INTO termterm_team_v2.resume_probe VALUES(1); INSERT INTO termterm_team_v2.schema_migrations(version) VALUES(67); COMMIT;\n")
+ (future/'migrations/068_test_only.sql').write_text("BEGIN; SELECT pg_sleep(5); INSERT INTO termterm_team_v2.resume_probe VALUES(2); INSERT INTO termterm_team_v2.schema_migrations(version) VALUES(68); COMMIT;\n")
+ contract=json.loads((future/'compatibility.json').read_text());contract['schemaVersion']=68;(future/'compatibility.json').write_text(json.dumps(contract))
  ft=future/'deploy/upgrade.py';fe={**env,'PGDATABASE':resume_db};fp=case/'resume-plan.json';fs=case/'resume-state'
  invoke(ft,['plan','--service-role',SERVICE,'--output',str(fp)],fe)
  fa=['apply','--plan',str(fp),'--state-directory',str(fs),'--verification-database',resume_verify,'--service-stopped']
  child=subprocess.Popen(['python3',str(ft),*fa],env=fe,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
  try:
   for _ in range(240):
-   if sql('SELECT max(version) FROM termterm_team_v2.schema_migrations',resume_db)=='65':break
+   if sql('SELECT max(version) FROM termterm_team_v2.schema_migrations',resume_db)=='67':break
    assert child.poll() is None,'Upgrade ended before interruption point';time.sleep(.1)
   else:raise AssertionError('Migration checkpoint not reached')
   os.killpg(child.pid,signal.SIGTERM);child.wait(timeout=5)
@@ -133,14 +136,14 @@ def main():
   if sql("SELECT pg_try_advisory_lock(hashtextextended(current_database()||':termterm-team-migration',0))",resume_db)=='t':break
   time.sleep(.1)
  else:raise AssertionError('Interrupted backend did not drain')
- assert sql('SELECT max(version) FROM termterm_team_v2.schema_migrations',resume_db)=='65'
- assert sql('SELECT count(*) FROM termterm_team_v2.migration_file_hashes WHERE version=65',resume_db)=='1'
+ assert sql('SELECT max(version) FROM termterm_team_v2.schema_migrations',resume_db)=='67'
+ assert sql('SELECT count(*) FROM termterm_team_v2.migration_file_hashes WHERE version=67',resume_db)=='1'
  invoke(ft,fa,fe)
  assert sql('SELECT count(*) FROM termterm_team_v2.resume_probe',resume_db)=='2'
- assert sql('SELECT max(version) FROM termterm_team_v2.schema_migrations',resume_db)=='66'
+ assert sql('SELECT max(version) FROM termterm_team_v2.schema_migrations',resume_db)=='68'
  # Changed applied migrations and schema downgrades are refused.
  invoke(tool,['plan','--service-role',SERVICE,'--output',str(case/'downgrade.json')],fe,False)
- p=future/'migrations/065_test_only.sql';p.write_text(p.read_text()+'-- changed applied source\n')
+ p=future/'migrations/067_test_only.sql';p.write_text(p.read_text()+'-- changed applied source\n')
  invoke(ft,['plan','--service-role',SERVICE,'--output',str(case/'changed.json')],fe,False)
  print('PASS: forced process interruption, atomic revision/checksum, bounded resume, no duplicate write, checksum and downgrade rejection',flush=True)
  # Use a real updated service behind Caddy for lock/readiness/certificate checks.
@@ -149,11 +152,12 @@ def main():
  cfg=case/'service.json';cfg.write_text(json.dumps({'listen':'127.0.0.1:41854','database':{'host':'localhost','port':55432,'database':source,'username':SERVICE,'password':passwords[SERVICE],'caPath':CA}}));cfg.chmod(0o600)
  caddy=case/'Caddyfile';caddy.write_text('{\n admin off\n auto_https disable_redirects\n}\nhttps://localhost:41855 {\n bind 127.0.0.1\n tls internal\n reverse_proxy 127.0.0.1:41854\n}\n')
  container='termterm-team-upgrade-qualification';process=subprocess.Popen([str(service),str(cfg)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
- def request(path,context,body=None,token=None,version='0.4.1'):
+ def request(path,context,body=None,token=None,version='0.4.1',capability=None):
   c=http.client.HTTPSConnection('localhost',41855,context=context,timeout=20)
   try:
    headers={'Content-Type':'application/json','X-TermTerm-Client-Version':version,'X-TermTerm-API-Version':'1'}
    if token:headers['Authorization']='Bearer '+token
+   if capability:headers['X-TermTerm-Capabilities']=capability
    c.request('POST' if body is not None else 'GET',path,None if body is None else json.dumps(body),headers)
    r=c.getresponse();return r.status,json.loads(r.read())
   finally:c.close()
@@ -184,6 +188,22 @@ def main():
   assert json.loads((state/'state.json').read_text())['phase']=='ready'
   print('PASS: real maintenance request rejection/recovery, HTTPS CA and installed package/database-bound readiness confirmation',flush=True)
 
+  # Capability is scoped to VPN-required connection consumers; ordinary 0.4.2 remains compatible.
+  host=sql("SELECT id FROM termterm_team_v2.resources WHERE team_id='"+seeded['teamId']+"' AND kind='host' LIMIT 1",source)
+  assert request('/v1/connections/'+host+'/plan',context,token=seeded['leader'],version='0.4.2')[0]==200
+  def dbcall(name,*args):return json.loads(sql("SET ROLE "+OWNER+";SELECT termterm_team_v2."+name+'('+','.join('NULL' if x is None else "'"+str(x).replace("'","''")+"'" for x in args)+')',source))
+  recovery=dbcall('api_crypto_context',seeded['leader'])['recovery']['keyId'];vpn=str(uuid.uuid4())
+  dbcall('api_private_credential_put',seeded['leader'],vpn,0,'vpn',chr(92)+'x'+'ab'*80,chr(92)+'x'+'bc'*80,1,recovery,*[chr(92)+'x'+'cd'*120]*4)
+  plan=dbcall('api_share_prepare',seeded['leader'],vpn,host,'[]')
+  body=dict(encryptedData='ab'*80,encryptedSecret='bc'*80,recoveryData='cd'*120,recoverySecret='de'*120,envelopes=[dict(accountId=r['accountId'],identityVersion=r['identityVersion'],data='ef'*120,secret='fa'*120) for r in plan['recipients']])
+  shared=dbcall('api_share_finish',seeded['leader'],plan['id'],json.dumps(body))['credentialId']
+  dbcall('api_vpn_binding',seeded['leader'],host,0,shared,True)
+  for endpoint in ['target','plan','credential']:
+   body=None if endpoint!='credential' else dict(hopId=host,credentialId=str(uuid.uuid4()))
+   status,value=request('/v1/connections/'+host+'/'+endpoint,context,body,seeded['leader'],version='0.4.2')
+   assert status==422 and value['error']=='vpn_client_required'
+  assert request('/v1/connections/'+host+'/plan',context,token=seeded['leader'],version='0.4.2',capability='vpn-v1')[0]==200
+  print('PASS: real HTTPS old-client VPN target/plan/credential rejection; ordinary 0.4.2 and capable client access preserved',flush=True)
   # Team-scoped administrator choice; no frontend-supplied actor or team scope.
   status,p=request('/v1/client-policy',context,token=seeded['leader']);assert status==200 and p['revision']==0
   status,_=request('/v1/client-policy',context,{'expectedRevision':0,'version':'0.4.1'},seeded['member']);assert status==403

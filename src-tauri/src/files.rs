@@ -179,6 +179,10 @@ async fn connection(state: &Shared, id: &str) -> Result<Arc<SftpConnection>> {
         .ok_or_else(|| anyhow!("SFTP connection closed"))
 }
 pub async fn list(state: &Shared, endpoint: &Endpoint) -> Result<Vec<FileEntry>> {
+    let conn = if endpoint.connection == "local" {None} else {Some(connection(state,&endpoint.connection).await?)};
+    list_connected(endpoint,conn.as_deref()).await
+}
+async fn list_connected(endpoint: &Endpoint, conn: Option<&SftpConnection>) -> Result<Vec<FileEntry>> {
     let mut entries = vec![];
     if endpoint.connection == "local" {
         let mut dir = tokio::fs::read_dir(&endpoint.path).await?;
@@ -200,7 +204,7 @@ pub async fn list(state: &Shared, endpoint: &Endpoint) -> Result<Vec<FileEntry>>
             });
         }
     } else {
-        let conn = connection(state, &endpoint.connection).await?;
+        let conn = conn.ok_or_else(||anyhow!("SFTP connection closed"))?;
         for e in conn.sftp.read_dir(&endpoint.path).await? {
             let m = e.metadata();
             entries.push(FileEntry {
@@ -295,7 +299,14 @@ pub async fn copy(
 ) -> Result<u64> {
     let control = crate::transfers::start(app, state, id)?;
     let endpoints=[source.connection.clone(),dest.connection.clone()];
-    let result = copy_inner(app, state, id, source, dest, overwrite, &control).await;
+    let result = async {
+        let source_conn = if source.connection == "local" { None } else { Some(connection(state,&source.connection).await?) };
+        let dest_conn = if dest.connection == "local" { None } else { Some(connection(state,&dest.connection).await?) };
+        let source_vpn = source_conn.as_ref().and_then(|connection|connection._ssh.vpn.clone());
+        let dest_vpn = dest_conn.as_ref().and_then(|connection|connection._ssh.vpn.clone());
+        let _registrations = control.bind_vpns(source_vpn.into_iter().chain(dest_vpn).collect())?;
+        copy_inner(app,id,source,dest,overwrite,&control,source_conn,dest_conn).await
+    }.await;
     for endpoint in endpoints {
         if endpoint!="local" {if let Ok(connection)=connection(state,&endpoint).await {
             if let Some(audit)=&connection._ssh._audit {audit.record(if result.is_ok(){"sftp.completed"}else{"sftp.failed"},result.as_ref().copied().unwrap_or(0));}
@@ -370,30 +381,22 @@ async fn output_file(
         )
     })
 }
+#[allow(clippy::too_many_arguments)]
 async fn copy_inner(
     app: &AppHandle,
-    state: &Shared,
     id: &str,
     source: Endpoint,
     dest: Endpoint,
     overwrite: bool,
     control: &crate::transfers::Control,
+    source_conn: Option<Arc<SftpConnection>>,
+    dest_conn: Option<Arc<SftpConnection>>,
 ) -> Result<u64> {
     control.checkpoint().await?;
     ensure!(
         source.connection != dest.connection || source.path != dest.path,
         "Source and destination are the same"
     );
-    let source_conn = if source.connection == "local" {
-        None
-    } else {
-        Some(connection(state, &source.connection).await?)
-    };
-    let dest_conn = if dest.connection == "local" {
-        None
-    } else {
-        Some(connection(state, &dest.connection).await?)
-    };
     let mut metadata = control.io(fingerprint(&source, &source_conn)).await?;
     ensure!(
         !metadata.1,
@@ -432,7 +435,7 @@ async fn copy_inner(
             control.io(tokio::fs::create_dir_all(&dest.path)).await?;
         }
         let mut total = 0;
-        for e in control.io(list(state, &source)).await? {
+        for e in control.io(list_connected(&source,source_conn.as_deref())).await? {
             ensure!(
                 ![".", ".."].contains(&e.name.as_str()) && !e.name.contains(['/', '\\']),
                 "Unsafe remote filename"
@@ -444,7 +447,6 @@ async fn copy_inner(
             };
             total += Box::pin(copy_inner(
                 app,
-                state,
                 id,
                 Endpoint {
                     connection: source.connection.clone(),
@@ -456,6 +458,8 @@ async fn copy_inner(
                 },
                 overwrite,
                 control,
+                source_conn.clone(),
+                dest_conn.clone(),
             ))
             .await?;
         }

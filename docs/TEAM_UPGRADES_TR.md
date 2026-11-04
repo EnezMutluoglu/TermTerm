@@ -4,7 +4,7 @@ Bu yükseltme akışı aynı `termterm_team_v2` veritabanının yeni şemasına 
 
 ## Sözleşme ve sınırlar
 
-Paketin `compatibility.json` dosyası servis sürümü, API sürümü, gereken şema ve bakım protokolünü bildirir. Bu kaynakta şema **64**, API **1**, Team cache **8**. Masaüstü kurucusunu güncellemek sunucuya habersiz migration uygulamaz. Servis uyumsuz şemayı hazır göstermez.
+Paketin `compatibility.json` dosyası servis sürümü, API sürümü, gereken şema ve bakım protokolünü bildirir. Bu kaynakta şema **66**, API **1**, Team cache **9**. Masaüstü kurucusunu güncellemek sunucuya habersiz migration uygulamaz. Servis uyumsuz şemayı hazır göstermez.
 
 Kısa bakım aralığı kullanılır; sıfır kesinti garantisi verilmez. Yeni servis her DB isteği boyunca paylaşımlı advisory lock tutar. Yükseltme özel kilit alır; işlemdeki istek bitmeden başlayamaz, kilit varken yeni istek 503 `service_maintenance` döner. Önceki servis binary'lerinde bu protokol yoktur: **bütün Team servis örneklerini durdurmak her yükseltmede zorunludur**. DBA'nın eşzamanlı DDL/yazma işlemleri de durdurulmalıdır. Araç yalnız verilen sınırlı servis rolünün açık bağlantılarını denetleyebilir.
 

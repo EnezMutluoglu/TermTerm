@@ -46,3 +46,6 @@ __pycache__/
 *.dump
 
 *.ttsettings*
+
+/dist-vpn-dev/
+!.env.vpn-dev

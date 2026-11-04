@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "distributionReady": false,
+  "openvpnCore": {
+    "commit": "2f74c607f56294e39c9fab253f6dd87a2ed6e9ab",
+    "source": "https://github.com/OpenVPN/openvpn3.git",
+    "license": "MPL-2.0 (selected from upstream dual license)",
+    "vcpkgCommit": "3aea538b2bb21a586502c67b00eb474fdd2e3098",
+    "preset": "win-x64-release"
+  },
+  "openconnect": {
+    "version": "9.21",
+    "sourceCommit": "8b702bf2dbaf11302ed98629214b1df5d50a12aa",
+    "pipeline": 2605045915,
+    "job": 14877945032,
+    "url": "https://gitlab.com/api/v4/projects/2335175/jobs/14877945032/artifacts",
+    "archiveSha256": "9e132236aa720c9f40919051bd07c5cded233f2840fdabfbb4979e05e7dc8bdf",
+    "installer": "openconnect-installer-MinGW64-GnuTLS-v9.21.exe",
+    "installerSha256": "6ee9e8eb9bc59ef70bb0717df7f99703f8a2ccd11d8e45d58a61f9a2e6ef7d00",
+    "dllSha256": "370496877241a35f6883c316203ca8e1f0d02e31994d6315aef8138317e5d6c1",
+    "license": "LGPL-2.1-or-later; bundled dependency licenses also required",
+    "sourceUrl": "https://www.infradead.org/openconnect/download/openconnect-9.21.tar.gz",
+    "sourceSha256": "5b32369467db6e5f317aa1ed12cfcbb81ed00bdbc765450b6bfcbdc300944a58",
+    "licenseSha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+    "patch": "vpn-engine/patches/openconnect-9.21-packet-handle.patch",
+    "patchSha256": "565a06d1d9d6d88d310cea7a33e392cdfa7f230eda2ea6266ec92a0091d98302",
+    "compatibilityPatch": "vpn-engine/patches/openconnect-9.21-mingw14.patch",
+    "compatibilityPatchSha256": "0855e3c24aa39fcb127f02289daa5f22d89efcfcc2c16347e061c1bb1fb86e15",
+    "ssoPatch": "vpn-engine/patches/openconnect-9.21-gp-sso.patch",
+    "ssoPatchSha256": "f184c38af892852843b3e3b3ac43ea13f46c373ac42180c48965725940bcfa37"
+  },
+  "wintun": {
+    "version": "0.14.1",
+    "url": "https://www.wintun.net/builds/wintun-0.14.1.zip",
+    "archiveSha256": "07c256185d6ee3652e09fa55c0b673e2624b565e02c4b9091c79ca7d2f24ef51",
+    "dllSha256": "e5da8447dc2c320edc0fc52fa01885c103de8c118481f683643cacc3220dafce",
+    "license": "Prebuilt Binaries License in official ZIP; use only Permitted API, preserve notices",
+    "licenseSha256": "183adac21e7d96c508c8fd34d394b7b6708bc81564ad1bad61ab66143a008cd2"
+  },
+  "wireguard": {
+    "manifest": "vpn-wireguard/dependencies.json",
+    "source": "https://git.zx2c4.com/wireguard-go",
+    "commit": "b3bc704ef0ee21a36298601a9e1e5ff90377ac52",
+    "license": "MIT",
+    "build": "python scripts/build-wireguard.py",
+    "driver": "Existing pinned Wintun through owned broker packet pipe; no WireGuardNT service"
+  }
+}

@@ -10,6 +10,8 @@ from pathlib import Path
 import secrets
 import selectors
 import signal
+import socket
+import uuid
 import subprocess as sp
 import struct
 import tempfile
@@ -29,6 +31,31 @@ def snapshot():
     }
 
 
+def desktop_many_routes(nested=False):
+    if nested:
+        routes = [route for prefix in range(27, 33) for route in ipaddress.IPv4Network("10.88.0.0/24").subnets(new_prefix=prefix)]
+        assert len(set(routes)) == 504 and all(route.subnet_of(ipaddress.IPv4Network("10.88.0.0/24")) for route in routes)
+        return routes
+    routes = [ipaddress.IPv4Network(f"10.88.{2 + number // 128}.{2 * (number % 128)}/32") for number in range(504)]
+    assert len(set(routes)) == 504 and not any(route.overlaps(ipaddress.IPv4Network("10.88.0.0/24")) for route in routes)
+    assert all(not route.overlaps(other) for index, route in enumerate(routes) for other in routes[index + 1:])
+    return routes
+
+
+def desktop_full_exclusions(many_routes=False, nested=False):
+    # Keep only the disposable target and assigned tunnel ranges in the full plan.
+    excluded = [ipaddress.IPv4Network("0.0.0.0/0")]
+    extras = desktop_many_routes() if many_routes and not nested else []
+    for allowed in [ipaddress.IPv4Network("10.88.0.0/24"), ipaddress.IPv4Network("10.96.0.0/24"), *extras]:
+        excluded = [piece for network in excluded for piece in (
+            network.address_exclude(allowed) if allowed.subnet_of(network) else [network])]
+    assert sum(n.num_addresses for n in excluded) == 2**32 - 512 - len(extras)
+    assert not any(ipaddress.IPv4Address(address) in n for n in excluded for address in ["10.88.0.53", "10.88.0.54", "10.96.0.2"])
+    assert all(not route.overlaps(n) for route in extras for n in excluded)
+    assert all(any(ipaddress.IPv4Address(address) in n for n in excluded) for address in ["127.0.0.1", "10.88.1.1"])
+    return sorted(excluded)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--engines", type=Path, required=True)
@@ -36,7 +63,27 @@ def main():
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--policy", type=Path, required=True,
                         help="vpn-core vpn-policy-lab binary; shared reservation implementation")
+    parser.add_argument("--desktop-fixture", type=Path,
+                        help="Keep private disposable profiles and loopback-only desktop forwards inside this worktree's .lab")
+    parser.add_argument("--desktop-duration", type=int, default=3600)
+    parser.add_argument("--native-service", action="store_true", help="Also exercise the root-owned authenticated native Unix service with pinned peer identity")
+    parser.add_argument("--desktop-dns", action="store_true",
+                        help="Add a separate tunnel-only DNS fixture; requires --desktop-fixture")
+    parser.add_argument("--desktop-full-tunnel", action="store_true",
+                        help="Original /0 with exclusions preserving host Internet; requires --desktop-dns")
+    parser.add_argument("--desktop-many-routes", action="store_true",
+                        help="505 disjoint owned routes; requires --desktop-full-tunnel")
+    parser.add_argument("--desktop-nested-routes", action="store_true",
+                        help="Use 505 overlapping routes; requires --desktop-many-routes")
     args = parser.parse_args()
+    if args.desktop_dns and not args.desktop_fixture:
+        parser.error("--desktop-dns requires --desktop-fixture")
+    if args.desktop_full_tunnel and not args.desktop_dns:
+        parser.error("--desktop-full-tunnel requires --desktop-dns")
+    if args.desktop_many_routes and not args.desktop_full_tunnel:
+        parser.error("--desktop-many-routes requires --desktop-full-tunnel")
+    if args.desktop_nested_routes and not args.desktop_many_routes:
+        parser.error("--desktop-nested-routes requires --desktop-many-routes")
     if os.geteuid() != 0:
         parser.error("Run as root inside the disposable WSL lab")
     before = snapshot()
@@ -44,9 +91,22 @@ def main():
     server_ns, client_ns = f"ttvpn-s-{suffix}", f"ttvpn-c-{suffix}"
     namespaces, processes, logs = [], [], []
     results = []
+    completed = False
+    completed_source = None
     source = Path(__file__).resolve().parents[1]
+    desktop_files = []
+    if args.desktop_fixture:
+        args.desktop_fixture = args.desktop_fixture.resolve()
+        assert args.desktop_fixture.is_relative_to((source / ".lab").resolve())
+        assert args.desktop_fixture.is_dir() and not any(args.desktop_fixture.iterdir()), "Desktop fixture directory must exist and be empty/private"
+        assert 1 <= args.desktop_duration <= 7200
     source_files = sorted((source / "vpn-engine").glob("*.cpp")) + sorted((source / "vpn-engine").glob("*.hpp"))
     source_files += sorted((source / "vpn-core/src").rglob("*.rs")) + [Path(__file__).resolve()]
+    source_files += [source / "scripts/vpn-lab-broker.py"]
+    if args.native_service:
+        source_files += [source / path for path in ["scripts/vpn-unix-broker.py", "scripts/test-vpn-unix-service.py", "scripts/vpn-dns-fixture.py", "scripts/vpn_lab_json.py", "vpn-engine/macos-platform.m"]]
+    if args.desktop_dns:
+        source_files += [source / "scripts/vpn-dns-fixture.py", source / "scripts/vpn_lab_json.py"]
     source_files += [source / p for p in ["vpn-engine/CMakeLists.txt", "vpn-engine/dependencies.json",
                                          "vpn-core/Cargo.toml", "vpn-core/Cargo.lock", "scripts/prepare-vpn-lab.py"]]
     def source_hashes():
@@ -192,7 +252,7 @@ subjectKeyIdentifier = hash
             for kind in ["server", "client"]:
                 run("openssl", "req", "-newkey", "rsa:2048", "-nodes", "-subj", f"/CN=lab-{kind}",
                     "-keyout", root / f"{kind}.key", "-out", root / f"{kind}.csr")
-                ext = "extendedKeyUsage=" + ("serverAuth\nsubjectAltName=IP:198.18.8.1" if kind == "server" else "clientAuth")
+                ext = "extendedKeyUsage=" + ("serverAuth\nsubjectAltName=IP:198.18.8.1,IP:127.0.0.1" if kind == "server" else "clientAuth")
                 (root / f"{kind}.ext").write_text("basicConstraints=critical,CA:false\n" + ext + "\n")
                 run("openssl", "ca", "-batch", "-notext", "-config", root / "ca.conf", "-in", root / f"{kind}.csr",
                     "-startdate", start_date, "-enddate", end_date, "-extfile", root / f"{kind}.ext",
@@ -222,7 +282,6 @@ device = ocvpn
 ipv4-network = 10.89.0.0
 ipv4-netmask = 255.255.255.0
 route = 10.88.0.1/255.255.255.255
-default-domain = lab.invalid
 ''')
             ocserver = launch(server_ns, [args.ocserv_root / "usr/sbin/ocserv", "-f", "-c", root / "ocserv.conf"], root / "ocserv.log")
             (root / "openvpn.conf").write_text(f'''local 198.18.8.1
@@ -497,7 +556,12 @@ def send(index):
 with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
     list(pool.map(send, [1, 2, 3]))
 ''')
-            ns(client_ns, "python3", sender)
+            def verify_payloads():
+                try:
+                    ns(client_ns, "python3", sender)
+                except sp.CalledProcessError as exc:
+                    raise AssertionError("Concurrent TCP payload test failed: " + exc.stderr.decode(errors="replace")[-3000:]) from exc
+            verify_payloads()
             results.append({"test": "three-concurrent-tcp-payload-digests", "status": "passed",
                             "bytesPerTunnel": 1024 * 1024, "hash": "SHA256"})
             # A fourth overlapping server plan must fail before touching the network.
@@ -525,6 +589,135 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
                 release_network(f"parallel-{index}")
             assert concurrent_before == ns(client_ns, "ip", "-j", "route", "show", "table", "all").stdout
             results.append({"test": "concurrent-parent-disconnect-cleanup", "status": "passed", "routesRestored": True})
+            # Exercise the same authenticated IPC that the native desktop uses.
+            parallel_servers[3] = launch(server_ns, ["openvpn", "--config", root / "ov3.conf"], root / "broker-ov3.log")
+            broker_socket = root / "broker.sock"
+            broker = launch(client_ns, ["python3", source / "scripts/vpn-lab-broker.py", "--socket", broker_socket,
+                                        "--uid", "0", "--engines", args.engines, "--policy", args.policy,
+                                        "--ca-file", root / "ca.crt"], root / "broker.log")
+            deadline = time.monotonic() + 10
+            while not broker_socket.exists():
+                assert broker.poll() is None, (root / "broker.log").read_text()
+                assert time.monotonic() < deadline, "Broker did not listen"
+                time.sleep(.05)
+            connection = socket.socket(socket.AF_UNIX)
+            connection.settimeout(30)
+            connection.connect(str(broker_socket))
+            broker_stream = connection.makefile("rb")
+            broker_states, request_number = {}, 0
+            def broker_read():
+                message = json.loads(broker_stream.readline())
+                if message["kind"] == "session":
+                    state = message["session"]
+                    broker_states[state["id"]] = state
+                return message
+            def broker_request(action, **fields):
+                nonlocal request_number
+                request_number += 1
+                connection.sendall((json.dumps({"action": action, "requestId": request_number, **fields}) + "\n").encode())
+                while True:
+                    message = broker_read()
+                    if message["kind"] == "reply" and message["requestId"] == request_number:
+                        return message
+            def broker_wait(identity, desired):
+                deadline = time.monotonic() + 30
+                while time.monotonic() < deadline:
+                    state = broker_states.get(identity, {})
+                    if state.get("state") in desired:
+                        return state
+                    if state.get("state") == "challenge":
+                        challenge = state["challenge"]
+                        values = {f["name"]: password if f["secret"] else "labuser" for f in challenge["fields"]}
+                        assert broker_request("answer", id=identity, generation=1, challengeId=challenge["id"], values=values)["ok"]
+                    else:
+                        broker_read()
+                raise AssertionError("Broker session timed out")
+            assert broker_request("hello", vaultId="disposable-vault")["ok"]
+            broker_ids = [str(uuid.uuid4()) for _ in range(3)]
+            def broker_profile(index):
+                return {"version":1,"label":"Disposable lab","family":"cisco" if index == 0 else "openVpn",
+                        "source":"lab","server":oc["server"] if index == 0 else "","groupId":None,
+                        "username":"labuser","password":"","realm":"","remember":False,
+                        "config":"" if index == 0 else config if index == 1 else config.replace("1194", "1195")}
+            for index, identity in enumerate(broker_ids):
+                reply = broker_request("connect", id=identity, generation=1, profileId=f"lab-{index}", profile=broker_profile(index))
+                assert reply["ok"], reply
+                state = broker_wait(identity, {"connected", "failed"})
+                assert state["state"] == "connected", state
+            verify_payloads()
+            results.append({"test":"authenticated-broker-three-real-tunnels-tcp", "status":"passed", "bytesPerTunnel":1024*1024})
+            before_reject = ns(client_ns, "ip", "-j", "route", "show", "table", "all").stdout
+            assert not broker_request("connect", id=str(uuid.uuid4()), generation=1, profileId="four", profile=broker_profile(1))["ok"]
+            assert not broker_request("disconnect", id=broker_ids[1], generation=2)["ok"]
+            assert before_reject == ns(client_ns, "ip", "-j", "route", "show", "table", "all").stdout
+            results.append({"test":"broker-rejects-fourth-and-stale-generation", "status":"passed"})
+            assert broker_request("disconnect", id=broker_ids[1], generation=1)["ok"]
+            assert broker_wait(broker_ids[1], {"disconnected", "failed"})["state"] == "disconnected"
+            for target in [1, 3]:
+                ns(client_ns, "ping", "-c", "1", "-W", "2", f"10.88.0.{target}")
+            results.append({"test":"broker-middle-disconnect-preserves-other-traffic", "status":"passed"})
+            conflict_id = str(uuid.uuid4())
+            assert broker_request("connect", id=conflict_id, generation=1, profileId="conflict", profile=broker_profile(2))["ok"]
+            rejected = broker_wait(conflict_id, {"failed"})
+            assert "çakış" in rejected["error"], rejected
+            results.append({"test":"broker-conflict-before-network-change", "status":"passed"})
+            broker_stream.close()
+            connection.close()
+            deadline = time.monotonic() + 10
+            while concurrent_before != ns(client_ns, "ip", "-j", "route", "show", "table", "all").stdout:
+                assert time.monotonic() < deadline, "Broker desktop EOF left routes"
+                time.sleep(.05)
+            results.append({"test":"broker-desktop-eof-cleans-owned-routes", "status":"passed"})
+            stop(broker)
+            denied_socket = root / "denied.sock"
+            denied_broker = launch(client_ns, ["python3", source / "scripts/vpn-lab-broker.py", "--socket", denied_socket,
+                                             "--uid", "65534", "--engines", args.engines, "--policy", args.policy], root / "denied-broker.log")
+            deadline = time.monotonic() + 5
+            while not denied_socket.exists():
+                assert denied_broker.poll() is None, (root / "denied-broker.log").read_text()
+                assert time.monotonic() < deadline
+                time.sleep(.05)
+            with socket.socket(socket.AF_UNIX) as denied:
+                denied.settimeout(3)
+                denied.connect(str(denied_socket))
+                assert denied.recv(1) == b"", "Wrong peer UID accepted"
+            results.append({"test":"broker-rejects-wrong-peer-uid", "status":"passed"})
+            stop(denied_broker)
+            # Restart with fresh transport and kill the broker, retaining the client socket.
+            broker = launch(client_ns, ["python3", source / "scripts/vpn-lab-broker.py", "--socket", broker_socket,
+                                        "--uid", "0", "--engines", args.engines, "--policy", args.policy,
+                                        "--ca-file", root / "ca.crt"], root / "broker-restart.log")
+            deadline = time.monotonic() + 5
+            while not broker_socket.exists():
+                assert broker.poll() is None, (root / "broker-restart.log").read_text()
+                assert time.monotonic() < deadline
+                time.sleep(.05)
+            connection = socket.socket(socket.AF_UNIX)
+            connection.settimeout(30)
+            connection.connect(str(broker_socket))
+            broker_stream = connection.makefile("rb")
+            assert broker_request("hello", vaultId="disposable-vault")["ok"]
+            crash_id = str(uuid.uuid4())
+            assert broker_request("connect", id=crash_id, generation=1, profileId="crash", profile=broker_profile(1))["ok"]
+            assert broker_wait(crash_id, {"connected", "failed"})["state"] == "connected"
+            os.kill(broker.pid, signal.SIGKILL)
+            broker.wait(timeout=5)
+            deadline = time.monotonic() + 5
+            while concurrent_before != ns(client_ns, "ip", "-j", "route", "show", "table", "all").stdout:
+                assert time.monotonic() < deadline, "Broker SIGKILL left routes"
+                time.sleep(.05)
+            broker_stream.close()
+            connection.close()
+            broker_socket.unlink(missing_ok=True)
+            results.append({"test":"broker-sigkill-cleans-native-tun-owner", "status":"passed"})
+            if args.native_service:
+                import importlib.util
+                native_spec = importlib.util.spec_from_file_location("native_service_tests", source / "scripts/test-vpn-unix-service.py")
+                native_tests = importlib.util.module_from_spec(native_spec)
+                native_spec.loader.exec_module(native_tests)
+                (root / "native-auth.json").write_text(json.dumps({"password":password}))
+                (root / "native-auth.json").chmod(0o600)
+                native_tests.exercise(source,args,root,client_ns,server_ns,broker_profile,ns,results)
             # Disposable authentication server: validate the real SCRV1 wire response.
             static_otp = f"{secrets.randbelow(1000000):06d}"
             (root / "expected-auth.json").write_text(json.dumps({"password": password, "otp": static_otp}))
@@ -611,6 +804,118 @@ sys.exit(1)
             realm_request = {**oc, "server": "https://198.18.8.1:4444", "realm": "employees"}
             check("termterm-openconnect", realm_request, "openconnect-saved-realm", "connected")
             check("termterm-openconnect", {**realm_request, "realm": "missing"}, "openconnect-unknown-realm-prompts", "connected")
+            completed = True
+            completed_source = source_hashes()
+            if args.desktop_fixture:
+                ns(server_ns, "ip", "addr", "add", "10.88.0.4/32", "dev", "lo")
+                fourth = original_ov.replace("1194", "1198").replace("10.90.0.0", "10.95.0.0").replace("10.88.0.1", "10.88.0.4")
+                (root / "desktop-ov4.conf").write_text(fourth)
+                launch(server_ns, ["openvpn", "--config", root / "desktop-ov4.conf"], root / "desktop-ov4.log")
+                relay = root / "desktop-forward.py"
+                relay.write_text('''import os,socket,subprocess,sys,threading
+def bridge(connection, process):
+    def send():
+        try:
+            while data := connection.recv(65536):
+                process.stdin.write(data); process.stdin.flush()
+        except OSError: pass
+        finally: process.stdin.close()
+    worker=threading.Thread(target=send,daemon=True); worker.start()
+    try:
+        while data := os.read(process.stdout.fileno(),65536): connection.sendall(data)
+    except OSError: pass
+    finally:
+        connection.close(); process.terminate(); process.wait()
+if sys.argv[1] == "target":
+    connection=socket.create_connection(("198.18.8.1",int(sys.argv[2])),timeout=5); connection.settimeout(None)
+    def send():
+        while data := os.read(0,65536): connection.sendall(data)
+        connection.shutdown(socket.SHUT_WR)
+    worker=threading.Thread(target=send,daemon=True); worker.start()
+    while data := connection.recv(65536): os.write(1,data)
+else:
+    listener=socket.socket(); listener.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+    listener.bind(("127.0.0.1",int(sys.argv[2]))); listener.listen(8)
+    while True:
+        connection,_=listener.accept()
+        process=subprocess.Popen(["ip","netns","exec",sys.argv[1],"python3",__file__,"target",sys.argv[3]],stdin=subprocess.PIPE,stdout=subprocess.PIPE)
+        threading.Thread(target=bridge,args=(connection,process),daemon=True).start()
+''')
+                forwards = [(31194,1194),(31195,1195),(31198,1198),(31443,4443)]
+                if args.desktop_dns:
+                    dns_suffix = secrets.token_hex(8) + ".termterm.test"
+                    ns(server_ns, "ip", "addr", "add", "10.88.0.53/32", "dev", "lo")
+                    dns_config = original_ov.replace("1194", "1199").replace("10.90.0.0", "10.96.0.0").replace("10.88.0.1", "10.88.0.53")
+                    if args.desktop_full_tunnel:
+                        dns_config = dns_config.replace('push "route 10.88.0.53 255.255.255.255"', 'push "route 0.0.0.0 0.0.0.0"')
+                        for excluded in desktop_full_exclusions(args.desktop_many_routes, args.desktop_nested_routes):
+                            dns_config += f'\npush "route {excluded.network_address} {excluded.netmask} net_gateway"\n'
+                        ns(server_ns, "ip", "addr", "add", "10.88.0.54/32", "dev", "lo")
+                        launch(server_ns, ["python3", receiver, "10.88.0.54"], root / "desktop-full-digest.log")
+                    dns_config += f'\npush "dhcp-option DNS 10.88.0.53"\npush "dhcp-option ADAPTER_DOMAIN_SUFFIX {dns_suffix}"\n'
+                    (root / "desktop-dns.conf").write_text(dns_config)
+                    launch(server_ns, ["openvpn", "--config", root / "desktop-dns.conf"], root / "desktop-dns.log")
+                    forwards.append((31199,1199))
+                for local, remote in forwards:
+                    log = open(root / f"desktop-forward-{local}.log", "wb"); logs.append(log)
+                    forward = sp.Popen(["python3",relay,server_ns,str(local),str(remote)],stdout=log,stderr=log,start_new_session=True)
+                    processes.append(forward)
+                    deadline = time.monotonic() + 5
+                    while f"pid={forward.pid},".encode() not in run("ss","-ltnp",f"sport = :{local}").stdout:
+                        assert forward.poll() is None, f"Desktop forward {local} failed"
+                        assert time.monotonic() < deadline, f"Desktop forward {local} not ready"
+                        time.sleep(.05)
+                fixture = args.desktop_fixture
+                def private_file(name, content):
+                    destination = fixture / name
+                    with open(destination, "x") as handle:
+                        os.chmod(destination, 0o600); handle.write(content)
+                    desktop_files.append(destination)
+                    return destination
+                ca_path = private_file("ca.crt", (root / "ca.crt").read_text())
+                profiles = []
+                for number, local_port, original_port, target in [(1,31194,1194,"10.88.0.2"),(2,31195,1195,"10.88.0.3"),(3,31198,1198,"10.88.0.4")]:
+                    content = config.replace("198.18.8.1 1194",f"127.0.0.1 {local_port}") + "\nverify-x509-name lab-server name\n"
+                    path = private_file(f"desktop-{number}.ovpn", content)
+                    profiles.append({"profile":{**broker_profile(1),"label":f"Disposable OpenVPN {number}","config":content},"target":target,"path":str(path)})
+                ca_windows = run("wslpath", "-w", ca_path).stdout.decode().strip()
+                probe_profiles = profiles[:2] + [{"profile":{**broker_profile(0),"server":"https://127.0.0.1:31443"},"target":"10.88.0.1","caFile":ca_windows}]
+                fixture_data = {"profiles":profiles,"probeProfiles":probe_profiles,"username":"labuser","password":password}
+                if args.desktop_dns:
+                    dns_receipt = private_file("dns-receipt.json", '{}\n')
+                    desktop_files.append(dns_receipt.with_suffix(".tmp"))
+                    responder = launch(server_ns, ["python3", source / "scripts/vpn-dns-fixture.py", "--name", "probe." + dns_suffix,
+                                                   "--receipt", dns_receipt], root / "desktop-dns-responder.log")
+                    deadline = time.monotonic() + 5
+                    while b":1199" not in ns(server_ns, "ss", "-ltn").stdout or not all(
+                            b"10.88.0.53:53" in ns(server_ns, "ss", flag).stdout for flag in ["-lun", "-ltn"]):
+                        assert responder.poll() is None and time.monotonic() < deadline, "Disposable DNS fixture not ready"
+                        time.sleep(.05)
+                    dns_profile = {**broker_profile(1),"label":"Disposable DNS OpenVPN",
+                                   "config":config.replace("198.18.8.1 1194", "127.0.0.1 31199") + "\nverify-x509-name lab-server name\n"}
+                    private_file("desktop-dns.ovpn", dns_profile["config"])
+                    fixture_data["dnsFixture"] = {"profile":dns_profile,"server":"10.88.0.53","suffix":dns_suffix,
+                                                   "shortName":"probe","fqdn":"probe." + dns_suffix,"answer":"10.88.0.53",
+                                                   "receiptPath":run("wslpath", "-w", dns_receipt).stdout.decode().strip()}
+                    if args.desktop_full_tunnel:
+                        assert 'push "route 10.88.0.54' not in dns_config
+                        fixture_data["dnsFixture"]["fullTunnel"] = {"target":"10.88.0.54","port":18443,"peer":"127.0.0.1",
+                                                                     "excludedTarget":"10.88.1.1","hostInternetPreserved":True,
+                                                                     "serverExclusions":[str(n) for n in desktop_full_exclusions(args.desktop_many_routes, args.desktop_nested_routes)]}
+                        if args.desktop_many_routes:
+                            fixture_data["dnsFixture"]["fullTunnel"].update({"manyRoutesDisjoint": not args.desktop_nested_routes,
+                                "manyRoutesNested": args.desktop_nested_routes,
+                                "manyRoutePrefixes": [str(n) for n in desktop_many_routes(args.desktop_nested_routes)]})
+                            if args.desktop_nested_routes:
+                                fixture_data["dnsFixture"]["fullTunnel"]["nestedRouteTargets"] = ["10.88.0.2", "10.88.0.3"]
+                    results.append({"test":"desktop-dns-fixture-prepared","status":"prepared","hostDnsChanged":False,
+                                    "normalWindowsResolverTested":False})
+                private_file("profiles.json", json.dumps(fixture_data,indent=2))
+                private_file("ready.json",json.dumps({"pid":os.getpid(),"ports":[local for local, _ in forwards],"durationSeconds":args.desktop_duration,"hostRoutesDnsChanged":False}))
+                print("DESKTOP_FIXTURE_READY " + str(fixture),flush=True)
+                deadline = time.monotonic() + args.desktop_duration
+                while time.monotonic() < deadline and not (fixture / "stop").exists():
+                    time.sleep(.25)
     finally:
         policy.stdin.close()
         try:
@@ -629,16 +934,25 @@ sys.exit(1)
                 except ProcessLookupError:
                     pass
             run("ip", "netns", "delete", name)
+        for path in desktop_files:
+            path.unlink(missing_ok=True)
         unchanged = before == snapshot()
         args.report.parent.mkdir(parents=True, exist_ok=True)
-        evidence = {"tests": results, "hostNetworkUnchanged": unchanged,
+        evidence = {"tests": results, "completed": completed, "hostNetworkUnchanged": unchanged,
                     "namespacesRemoved": True, "productionInstallationTouched": False,
                     "utc": datetime.now(timezone.utc).isoformat(),
-                    "sourceSha256": tested_source, "sourceUnchangedDuringTest": tested_source == source_hashes(),
+                    "sourceSha256": tested_source, "sourceUnchangedDuringTest": tested_source == (completed_source if args.desktop_fixture and completed_source else source_hashes()),
                     "binarySha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in
                                      [args.engines / "termterm-openconnect", args.engines / "termterm-openvpn", args.policy]},
                     "unverified": ["Windows desktop connection", "Fortinet server", "GlobalProtect server",
                                    "production privileged broker", "split DNS", "IPv6 tunnel", "macOS"]}
+        if args.native_service:
+            evidence["nativeUnixService"]={"scope":"Root-owned helpers and authenticated nonroot pinned fixture client in a disposable Linux network namespace", "installedOnHost":False, "desktopClientTested":False,
+                "clientAuthentication":"SO_PEERCRED + pidfd + exact executable path/SHA-256", "protocol":2,
+                "wireguardBinarySha256":hashlib.sha256((source/".tools/vpn-wireguard/termterm-wireguard-linux").read_bytes()).hexdigest()}
+            evidence["unverified"]=["Host-installed production service", "Linux full desktop SSO flow", "Fortinet server", "GlobalProtect server", "split DNS with real systemd-resolved", "IPv6 tunnel", "macOS"]
+            if any(test["test"] == "native-unix-real-resolved-private-mount-network-dbus" and test["status"] == "passed" for test in results):
+                evidence["unverified"].remove("split DNS with real systemd-resolved")
         args.report.write_text(json.dumps(evidence, indent=2) + "\n")
         assert unchanged, "Host network snapshot changed during lab test"
         assert evidence["sourceUnchangedDuringTest"], "Test sources changed during the run; repeat on a stable source snapshot"

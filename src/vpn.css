@@ -469,3 +469,12 @@
     padding: 10px;
   }
 }
+.vpn-mode-switch { position: absolute; right: 35px; top: 10px; z-index: 1; }
+.vpn-connected { color: var(--accent); }
+.vpn-session-error { padding: 0 14px; color: var(--danger); font-size: 12px; overflow-wrap: anywhere; }
+.vpn-card-tools { display: flex; gap: 12px; padding: 0 14px 10px; }
+.vpn-card-tools button { color: var(--muted); font-size: 11px; }
+.vpn-form fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.vpn-form fieldset:disabled { opacity: .65; }
+.vpn-sso-pane { height: min(440px, 48vh); min-height: 160px; width: 100%; background: #fff; color: #263238; border: 1px solid var(--border); }
+.vpn-sso-pane > span { display: block; padding: 16px; font-size: 12px; }

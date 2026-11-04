@@ -6,7 +6,8 @@ edition = "2021"
 rust-version = "1.98"
 
 [features]
-e2e = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]
+e2e = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver", "termterm-vpn-windows-broker/auth-only-test"]
+vpn-webkit-fixture = []
 
 [lib]
 name = "termterm_lib"
@@ -14,12 +15,19 @@ name = "termterm_lib"
 # are not part of the Windows/Linux/macOS application packages.
 crate-type = ["rlib"]
 
+[[test]]
+name = "vpn_webkit_fixture"
+harness = false
+required-features = ["vpn-webkit-fixture"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+cc = "1"
 
 [dependencies]
+termterm-vpn-core = { path = "../vpn-core" }
 termterm-team-client = { path = "../team-client" }
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["unstable"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-wdio = { version = "1.4", optional = true }
@@ -73,11 +81,15 @@ keyring = { version = "3.6", default-features = false, features = ["apple-native
 
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3.6", default-features = false, features = ["sync-secret-service", "crypto-rust"] }
+webkit2gtk = { version = "2", features = ["v2_40"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
+termterm-vpn-windows-broker = { path = "../vpn-windows-broker" }
+webview2-com = "0.38"
+windows = { version = "0.61", features = ["Win32_Foundation"] }
 windows-sys = { version = "0.61", features = ["Win32_Security_Cryptography", "Win32_Foundation"] }
 
 [dev-dependencies]

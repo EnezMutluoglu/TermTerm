@@ -25,6 +25,7 @@ pub async fn team_v2_compatibility(
 #[tauri::command]
 pub async fn team_v2_login(
     app: AppHandle,
+    shared: State<'_, crate::state::Shared>,
     state: State<'_, DesktopState>,
     connections: State<'_, NativeConnections>,
     profile: ServiceProfile,
@@ -33,6 +34,7 @@ pub async fn team_v2_login(
     remember: Option<bool>,
 ) -> Result<Value, String> {
     let password = zeroize::Zeroizing::new(password);
+    crate::vpn::close_all(&shared).await.map_err(|e|e.to_string())?;
     connections.clear_trust();
     state
         .configure_cache(
@@ -44,6 +46,7 @@ pub async fn team_v2_login(
         .map_err(|e| e.to_string())?;
     let mut view = state.login(profile.clone(), username.clone(), password.to_string())
         .await.map_err(|e| e.to_string())?;
+    crate::vpn::activate(&shared);
     if view["activationRequired"] == false {
         let root = app.path().app_data_dir().map_err(|e|e.to_string())?.join("team-v2-signin");
         let stored = tauri::async_runtime::spawn_blocking(move || signin::save(&root,profile,username,&password,remember.unwrap_or(false)))
@@ -55,12 +58,14 @@ pub async fn team_v2_login(
 #[tauri::command]
 pub async fn team_v2_submit_drafts(
     app: AppHandle,
+    shared: State<'_, crate::state::Shared>,
     state: State<'_, DesktopState>,
     connections: State<'_, NativeConnections>,
     profile: ServiceProfile,
     username: String,
     password: String,
 ) -> Result<Value, String> {
+    crate::vpn::close_all(&shared).await.map_err(|e|e.to_string())?;
     connections.clear_trust();
     state
         .configure_cache(
@@ -70,10 +75,11 @@ pub async fn team_v2_submit_drafts(
                 .join("team-v2-cache"),
         )
         .map_err(|e| e.to_string())?;
-    state
-        .submit_drafts(profile, username, password)
+    let result = state.submit_drafts(profile, username, password)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string());
+    if result.is_ok() { crate::vpn::activate(&shared); }
+    result
 }
 #[tauri::command]
 pub async fn team_v2_action(
@@ -96,10 +102,12 @@ pub async fn team_v2_action(
 }
 #[tauri::command]
 pub async fn team_v2_logout(
+    shared: State<'_, crate::state::Shared>,
     state: State<'_, DesktopState>,
     connections: State<'_, NativeConnections>,
 ) -> Result<(), String> {
+    let cleanup = crate::vpn::close_all(&shared).await.map_err(|e|e.to_string());
     let result = state.logout().map_err(|e| e.to_string());
     connections.clear_trust();
-    result
+    result.and(cleanup)
 }

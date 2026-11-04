@@ -1,5 +1,6 @@
 //! Rust-only desktop Team client. Bearer tokens and plaintext secrets never form desktop IPC responses.
 pub mod access;
+pub mod authenticator;
 pub mod connection;
 pub mod desktop;
 pub mod keys;
@@ -24,3 +25,7 @@ mod login_cache;
 mod candidate_delivery;
 
 pub mod proxy;
+
+pub mod vpn;
+
+mod vpn_delivery;
