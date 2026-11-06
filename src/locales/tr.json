@@ -394,6 +394,7 @@
   "Only owner-approved stable releases are offered. Updates are signature-verified before installation. Your encrypted vault files are kept.": "Yalnızca sahibi tarafından onaylanan kararlı sürümler sunulur. Kurulumdan önce güncelleme imzası doğrulanır. Şifreli kasa dosyalarınız korunur.",
   "After the download is verified, terminal and SFTP connections will close, the vault will lock, and TermTerm will restart. Finish or cancel file transfers and imports first.": "İndirme doğrulandıktan sonra terminal ve SFTP bağlantıları kapanır, kasa kilitlenir ve TermTerm yeniden başlar. Önce dosya aktarımlarını ve içe aktarmaları bitirin veya iptal edin.",
   "For a .deb or .rpm installation, download the matching package from GitHub Releases and install it using your package manager. AppImage installations support in-app updates.": ".deb veya .rpm kurulumu için uygun paketi GitHub sürüm sayfasından indirip paket yöneticinizle kurun. AppImage uygulama içi güncellemeyi destekler.",
+  "This root-owned AppImage requires an administrator update. Stop VPN, close the application, then install the reviewed replacement and update the broker executable pin.": "Bu root sahipliğindeki AppImage yönetici tarafından güncellenir. VPN'i durdurup uygulamayı kapatın; ardından yönetici doğrulanan yeni paketi kurup broker'ın uygulama dosyası doğrulamasını yenilemelidir.",
   "GitHub Releases": "GitHub sürümleri",
   "PostgreSQL sync": "PostgreSQL eşitleme",
   "PostgreSQL profile": "PostgreSQL profili",

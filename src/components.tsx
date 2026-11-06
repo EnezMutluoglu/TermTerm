@@ -142,17 +142,19 @@ export function Modal({
   children,
   onClose,
   wide = false,
+  dismissOnBackdrop = true,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  dismissOnBackdrop?: boolean;
 }) {
   return (
     <div
       className="modal-shade"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (dismissOnBackdrop && e.target === e.currentTarget) onClose();
       }}
     >
       <section

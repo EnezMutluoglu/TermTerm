@@ -10,6 +10,7 @@ type Info = {
   enabled: boolean;
   repository: string;
   packageSupported: boolean;
+  administratorAppImage?: boolean;
 };
 type Release = { available: boolean; version?: string; notes?: string };
 export default function Updates({ minimumVersion }: { minimumVersion?: string } = {}) {
@@ -104,7 +105,9 @@ export default function Updates({ minimumVersion }: { minimumVersion?: string } 
       {info && !info.packageSupported && (
         <p>
           {tr(
-            "For a .deb or .rpm installation, download the matching package from GitHub Releases and install it using your package manager. AppImage installations support in-app updates.",
+            info.administratorAppImage
+              ? "This root-owned AppImage requires an administrator update. Stop VPN, close the application, then install the reviewed replacement and update the broker executable pin."
+              : "For a .deb or .rpm installation, download the matching package from GitHub Releases and install it using your package manager. AppImage installations support in-app updates.",
           )}
         </p>
       )}

@@ -73,7 +73,7 @@ pub fn app_info(app: AppHandle) -> Api<Value> {
         .ok()
         .and_then(|s| serde_json::from_str::<Value>(&s).ok());
     Ok(
-        json!({"version":env!("CARGO_PKG_VERSION"),"defaultVaultPath":dir.join("Personal.ttvault").to_string_lossy(),"home":crate::platform::home(),"recent":recent,"platform":crate::platform::info()}),
+        json!({"version":app.package_info().version.to_string(),"defaultVaultPath":dir.join("Personal.ttvault").to_string_lossy(),"home":crate::platform::home(),"recent":recent,"platform":crate::platform::info()}),
     )
 }
 #[tauri::command]
@@ -89,6 +89,7 @@ pub async fn vault_create(
     let result = vault.info().map_err(err)?;
     close_connections(&state).await?;
     *state.vault.lock().map_err(|_| "Vault lock")? = Some(vault);
+    crate::vpn::activate(&state);
     recent(&app, &result.path);
     Ok(result)
 }
@@ -104,6 +105,7 @@ pub async fn vault_open(
     let result = vault.info().map_err(err)?;
     close_connections(&state).await?;
     *state.vault.lock().map_err(|_| "Vault lock")? = Some(vault);
+    crate::vpn::activate(&state);
     recent(&app, &result.path);
     Ok(result)
 }
@@ -164,6 +166,7 @@ pub async fn vault_try_open_remembered(
     let result = vault.info().map_err(err)?;
     close_connections(&state).await?;
     *state.vault.lock().map_err(|_| "Vault lock")? = Some(vault);
+    crate::vpn::activate(&state);
     recent(&app, &result.path);
     Ok(Some(result))
 }
@@ -176,6 +179,7 @@ pub async fn vault_lock(state: State<'_, Shared>) -> Api<()> {
     Ok(())
 }
 pub(crate) async fn close_connections(state: &Shared) -> Api<()> {
+    let vpn_cleanup = crate::vpn::close_all(state).await.map_err(err);
     crate::operations::cancel_all(state);
     crate::transfers::cancel_all(state);
     crate::metrics::stop_all(state);
@@ -226,7 +230,7 @@ pub(crate) async fn close_connections(state: &Shared) -> Api<()> {
     for (_, t) in state.tunnels.lock().map_err(|_| "Tunnel lock")?.drain() {
         t.abort();
     }
-    Ok(())
+    vpn_cleanup
 }
 #[tauri::command]
 pub fn session_metrics_set(
@@ -311,7 +315,7 @@ pub async fn backup_create(
         return blocking(move || {
             let info=crate::team::info(&s)?;
             let records=crate::team::export_records(&s,&ids,true)?;
-            vault::write_backup(&PathBuf::from(path),&password,&vault::Backup{version:1,vaults:vec![vault::BackupVault{name:info.name,records}]})
+            vault::write_backup(&PathBuf::from(path),&password,&vault::Backup{version:1,vaults:vec![vault::BackupVault{name:info.name,records,vpn_profiles:vec![],authenticator:vec![]}]})
         }).await;
     }
     blocking(move || {
@@ -327,7 +331,11 @@ pub async fn backup_create(
 }
 #[tauri::command]
 pub async fn backup_preview(path: String, password: String) -> Api<vault::Backup> {
-    blocking(move || vault::read_backup(&PathBuf::from(path), &password)).await
+    blocking(move || {
+        let mut backup = vault::read_backup(&PathBuf::from(path), &password)?;
+        for vault in &mut backup.vaults { vault.vpn_profiles.clear(); vault.authenticator.clear(); }
+        Ok(backup)
+    }).await
 }
 #[tauri::command]
 pub async fn backup_restore(
@@ -348,12 +356,15 @@ pub async fn backup_restore(
             .ok_or_else(|| anyhow!("Invalid vault selection"))?;
         let mut v = Vault::create(&PathBuf::from(path), &data.name, &new_password)?;
         v.put(&vault::restored_records(&data.records)?)?;
+        crate::vpn::restore_profiles(&mut v, &data.vpn_profiles)?;
+        crate::authenticator::restore(&mut v, &data.authenticator)?;
         Ok(v)
     })
     .await?;
     let info = v.info().map_err(err)?;
     close_connections(&state).await?;
     *state.vault.lock().map_err(|_| "Vault lock")? = Some(v);
+    crate::vpn::activate(&state);
     recent(&app, &info.path);
     Ok(info)
 }
@@ -410,7 +421,7 @@ pub async fn backup_bundle(
             ensure!(sources.is_empty(),"Team yedeği ayrı üretilir; kişisel kaynakları ayrı yedekleyin");
             let (records,mut warnings)=crate::archive::portable_records(records,&[],false,include_files)?;
             let count=records.len();
-            vault::write_backup(&PathBuf::from(path),&password,&vault::Backup{version:1,vaults:vec![vault::BackupVault{name:info.name,records}]})?;
+            vault::write_backup(&PathBuf::from(path),&password,&vault::Backup{version:1,vaults:vec![vault::BackupVault{name:info.name,records,vpn_profiles:vec![],authenticator:vec![]}]})?;
             warnings.push("Team üyelikleri ve hesap oturumları yedeğe aktarılmaz. İçe aktarma yeni kayıtlar oluşturur.".into());
             Ok(crate::archive::Report{warnings,records:count,vaults:1})
         }).await;
@@ -765,6 +776,7 @@ pub async fn sync_download(
     let info = v.info().map_err(err)?;
     close_connections(&state).await?;
     *state.vault.lock().map_err(|_| "Vault lock")? = Some(v);
+    crate::vpn::activate(&state);
     recent(&app, &info.path);
     Ok(info)
 }

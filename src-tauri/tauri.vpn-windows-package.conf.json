@@ -1,0 +1,7 @@
+{
+  "mainBinaryName": "termterm-vpn-dev",
+  "productName": "TermTerm VPN Dev",
+  "identifier": "local.termterm.desktop.vpndev",
+  "bundle": { "createUpdaterArtifacts": false },
+  "plugins": { "updater": { "endpoints": [] } }
+}

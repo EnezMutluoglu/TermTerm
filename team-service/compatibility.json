@@ -5,9 +5,10 @@
   "minimumClientVersion": "0.4.1",
   "clientVersions": [
     "0.4.1",
-    "0.4.2"
+    "0.4.2",
+    "0.4.3"
   ],
-  "schemaVersion": 64,
+  "schemaVersion": 66,
   "minimumUpgradeSchema": 1,
   "maintenanceProtocol": 1,
   "automaticDowngrade": false

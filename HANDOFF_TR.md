@@ -1,5 +1,33 @@
 # TermTerm — bilgisayar değişimi için devir teslim
 
+## 6 Kasım 2026 — güncel 0.4.3 yerel kabul ve teslim
+
+**Özgün geliştirme verileri geri yüklendi; bekleyen Restore/Prepare işlemi yoktur.** Aşağıdaki 5 Kasım ve daha eski özel vaka komutları tarihsel kanıttır; yeniden çalıştırılmamalıdır. Kullanıcı gerçek sağlayıcı VPN tekrarını kapsamdan çıkardı; önceki başarısız bağlantı PASS sayılmadı.
+
+Yetkili Windows 0.4.2 → 0.4.3 yerinde yükleyici testi geçti; özgün AppData/kasa/yan dosyalar/yedekler korunup bağımsız doğrulandı, kullanıcı verileri taşınmadı. Bu Windows kabulü GUI/VPN testi içermez. Linux broker v3, gerçek root AppDir AppImage kurulumu, UID1000 ile test kasası ve kimliği doğrulanmış IPC üzerinden kabul edildi; bağlı AppImage/DEB istemcileriyle temiz servis kapanışı ve aynı sürümde değiştirme/koruma geçti. Worker-thread SIGTERM kapanış hatası düzeltildi; ilk başarısız kanıtlar korundu.
+
+Team 0.4.3 istemci kataloğunun son ELF/imaj/API kabulü geçti; yerel paket ve kabul kanıtları tamamlandı. Bu kayıt yerel kabul sonuçlarını kapsar; dağıtılan sürüm ve kurulum dosyaları [GitHub Releases](https://github.com/EnezMutluoglu/TermTerm/releases) sayfasında görülür. Ayrı SQL0.5 çalışması korunur. [Güncel paket/kapsam rehberi](artifacts/vpn-delivery-20261106/candidate-0.4.3/DURUM_VE_KURULUM_TR.md), [AppImage kabulü ve yönetici güncelleme adımları](artifacts/vpn-delivery-20261106/candidate-0.4.3/appimage-validation/README_TR.md). Bu belge eki paketlerden sonra yazıldı; paket kaynak kapanışı kendi receipt/hash kayıtlarıyla sabittir.
+
+---
+
+## 5 Kasım 2026 — VPN dev.4 ve önce veri geri yükleme
+
+**Önce mevcut test vakasını güvenle kapatın; yeni Prepare/test açmayın.** Dev.4 portable PID 30648 ile başlatıldı; ilk computer-use çağrısı fiziksel Escape ile durduruldu. GUI gözlemi/vault/import/Save/Connect/UAC yapılmadı. İki özgün dev AppData dizini `gui-import-diagnostic-dev4-bdd69050f7c14c4cbf86726d9f212fbe` özel vakasında yedekli; **Restore pending**. Kullanıcı veya gelecekte izinli CU uygulamayı kapattıktan, app/WebView/VPN süreçleri quiet doğrulandıktan sonra reviewed Restore gerekir. Bu turda CU veya alternatif close/kill yapmayın. Exact komut ve son kanıtlar [VPN devrinin dev.4 bölümündedir](docs/HANDOFF_VPN_TR.md). Eski restored vakalar bu yeni vakanın durumu değildir.
+
+Kullanıcının açıkça seçtiği sertifika-only örneğin değişmeyen native Rust parser kabulü geçti. Dev.4 compatibility/auth düzeltmesi ve odaklı kontroller bağımsız GO aldı; yeni Windows/Linux paketleri `artifacts/vpn-delivery-20261105/dev4` altında, nihai statik paket/source incelemesi bağımsız GO aldı. Admin/UAC/Connect testleri kullanıcı dönene kadar **WAIT**. Stable ve ayrı SQL0.5 korundu; yayın/main/tag/feed onayı yok. Aşağıdaki dev.3 ve eski FAIL kayıtları tarihseldir.
+
+---
+
+## 5 Kasım 2026 — VPN dev.3 güncel devir
+
+Kullanıcı isteğiyle çalışma sürdürüldü. **0.4.3-dev.3 yerel Windows/Linux paketleri ve Linux teknik kaynak kapanışı bağımsız incelemeden geçti; gerçek import hatasının nedeni hâlâ çözülmedi.** Kurulu stable uygulama ve ayrı SQL0.5 çalışması korundu; main/tag/feed/yayın onayı yok. Son durum, veri geri yükleme kaydı ve güvenli devam komutları [VPN devir teslimindedir](docs/HANDOFF_VPN_TR.md). Yerel teslim `artifacts/vpn-delivery-20261105/dev3`; ignored paketler/özel kanıtlar Git ile gelmez.
+
+Portable import-only pencere kapatıldı ve iki özgün dev AppData dizini geri yüklendi; profil seçimi/import sonucu alınamadı, VPN/Save/Connect yapılmadı. Kurulu dev.3 GUI/VPN-close kabulü **pending** kalır. Aşağıdaki 4 Kasım bilgisayar-devir kaydı ve önceki FAIL'ler tarihseldir, silinmedi.
+
+---
+
+## 4 Kasım 2026 — önceki bilgisayar-devir kaydı
+
 4 Kasım 2026. Önce bu dosyayı, ardından çalışacağınız dalın belgesini okuyun. Bu teslim kaynak çalışmasını korur; kararlı sürüm veya yayın onayı değildir.
 
 | Çalışma | Ayrı dal | Başlangıç noktası | Devam belgesi |

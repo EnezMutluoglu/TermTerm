@@ -10,6 +10,8 @@ Mosh is a separately executed GPL-3.0 program. The Windows package contains an o
 
 Primary reference material:
 
+VPN development adds an isolated Linux lab, not a distributed VPN product. `vpn-engine/dependencies.json` pins the OpenVPN 3 Core source commit and SHA256 of its Git archive and license notice; the MPL-2.0 alternative is selected, with upstream files unchanged. The lab dynamically links Ubuntu's libopenconnect 9.12 (LGPL-2.1-or-later). Its separately pinned newer upstream reference source is **not** asserted to be the corresponding source of that Ubuntu binary. Matching distro source, dependency notices and platform packaging remain required before distributing VPN binaries. License texts are in `docs/licenses/vpn`; the original Core notice remains available in the pinned source with its relative license links intact. ocserv and OpenVPN 2 are disposable lab servers only. No Pritunl, VPNclient-engine or ambiguously licensed GlobalProtect wrapper source is included.
+
 - [Termius import sources](https://docs.termius.com/getting-started/import-existing-hosts)
 - [Archived Termius CLI](https://github.com/termius/termius-cli)
 - [Tauri Windows prerequisites](https://v2.tauri.app/start/prerequisites/)

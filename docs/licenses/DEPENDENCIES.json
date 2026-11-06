@@ -7244,5 +7244,54 @@
     "licenseFiles": [
       "LICENSE"
     ]
+  },
+  {
+    "name": "jsqr",
+    "version": "1.4.0",
+    "license": "Apache-2.0",
+    "repository": "https://github.com/cozmo/jsQR",
+    "licenseFiles": [
+      "LICENSE"
+    ]
+  },
+  {
+    "name": "golang.zx2c4.com/wireguard",
+    "version": "v0.0.0-20261024220952-b3bc704ef0ee",
+    "license": "MIT",
+    "licenseFiles": [
+      "vpn/WireGuard-Go-LICENSE.txt"
+    ]
+  },
+  {
+    "name": "golang.zx2c4.com/wintun",
+    "version": "v0.0.0-20230126152724-0fa3db229ce2",
+    "license": "MIT",
+    "licenseFiles": [
+      "vpn/WireGuard-Go-wintun-LICENSE.txt"
+    ]
+  },
+  {
+    "name": "golang.org/x/crypto",
+    "version": "v0.37.0",
+    "license": "BSD-3-Clause",
+    "licenseFiles": [
+      "vpn/WireGuard-Go-crypto-LICENSE.txt"
+    ]
+  },
+  {
+    "name": "golang.org/x/net",
+    "version": "v0.39.0",
+    "license": "BSD-3-Clause",
+    "licenseFiles": [
+      "vpn/WireGuard-Go-net-LICENSE.txt"
+    ]
+  },
+  {
+    "name": "golang.org/x/sys",
+    "version": "v0.32.0",
+    "license": "BSD-3-Clause",
+    "licenseFiles": [
+      "vpn/WireGuard-Go-sys-LICENSE.txt"
+    ]
   }
 ]

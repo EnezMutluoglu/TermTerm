@@ -1,0 +1,10 @@
+{
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "appimage"],
+    "createUpdaterArtifacts": false,
+    "shortDescription": "Encrypted SSH and VPN workspace",
+    "linux": { "deb": { "conflicts": [], "replaces": [] } }
+  },
+  "plugins": { "updater": { "endpoints": [] } }
+}

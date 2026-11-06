@@ -6,7 +6,7 @@ use std::{
     future::Future,
     sync::{
         atomic::{AtomicU64, Ordering},
-        Arc,
+        Arc, Mutex,
     },
     time::Duration,
 };
@@ -25,6 +25,7 @@ pub struct Control {
     mode: watch::Sender<Mode>,
     pause_generation: AtomicU64,
     observed_generation: AtomicU64,
+    vpns: Mutex<Vec<crate::vpn_lifecycle::Lease>>,
 }
 impl Default for Control {
     fn default() -> Self {
@@ -32,20 +33,36 @@ impl Default for Control {
             mode: watch::channel(Mode::Running).0,
             pause_generation: AtomicU64::new(0),
             observed_generation: AtomicU64::new(0),
+            vpns: Mutex::new(Vec::new()),
         }
     }
 }
 impl Control {
+    pub(crate) fn bind_vpns(&self, vpns: Vec<crate::vpn_lifecycle::Lease>) -> Result<Vec<crate::vpn_lifecycle::Registration>> {
+        let registrations = vpns.iter().map(|lease|lease.register()).collect::<Result<Vec<_>>>()?;
+        *self.vpns.lock().map_err(|_|anyhow!("Transfer VPN lock"))? = vpns;
+        Ok(registrations)
+    }
+    fn check_vpns(&self) -> Result<()> {
+        ensure!(self.vpns.lock().map_err(|_|anyhow!("Transfer VPN lock"))?.iter().all(|vpn|!vpn.is_stopping()), "Transfer cancelled: required VPN disconnected");
+        Ok(())
+    }
+    async fn vpn_cancelled(&self) {
+        let vpns = self.vpns.lock().map(|vpns|vpns.clone()).unwrap_or_default();
+        if vpns.is_empty() { std::future::pending::<()>().await; }
+        futures_util::future::select_all(vpns.into_iter().map(|vpn|Box::pin(async move {vpn.cancelled().await}))).await;
+    }
     pub async fn checkpoint(&self) -> Result<bool> {
         let mut rx = self.mode.subscribe();
         let mut paused = false;
         loop {
+            self.check_vpns()?;
             let mode = *rx.borrow_and_update();
             match mode {
                 Mode::Cancelled => anyhow::bail!("Transfer cancelled"),
                 Mode::Paused => {
                     paused = true;
-                    rx.changed().await?;
+                    tokio::select! { result=rx.changed()=>result?, _=self.vpn_cancelled()=>return Err(anyhow!("Transfer cancelled: required VPN disconnected")) }
                 }
                 _ => {
                     let generation = self.pause_generation.load(Ordering::SeqCst);
@@ -67,6 +84,7 @@ impl Control {
         let task = tokio::time::timeout(Duration::from_secs(30), future);
         tokio::pin!(task);
         loop {
+            self.check_vpns()?;
             ensure!(
                 *rx.borrow_and_update() != Mode::Cancelled,
                 "Transfer cancelled"
@@ -74,6 +92,7 @@ impl Control {
             tokio::select! {
                 result=&mut task => return result.map_err(|_|anyhow!("Transfer made no I/O progress for 30 seconds"))?.map_err(Into::into),
                 change=rx.changed()=>{change?;}
+                _=self.vpn_cancelled()=>return Err(anyhow!("Transfer cancelled: required VPN disconnected")),
             }
         }
     }
@@ -197,6 +216,45 @@ pub fn finish(app: &AppHandle, state: &Shared, id: &str, result: &Result<u64>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn vpn_loss_cancels_paused_transfer_and_waits_for_cleanup() {
+        let state = Shared::default();
+        let lease = crate::vpn_lifecycle::tests::test_lease(&state, "transfer", 1);
+        let control = Arc::new(Control::default());
+        let registrations = control.bind_vpns(vec![lease]).unwrap();
+        control.action("pause").unwrap();
+        let worker = control.clone();
+        let task = tokio::spawn(async move {
+            let _registrations = registrations;
+            assert!(worker.checkpoint().await.is_err());
+        });
+        tokio::task::yield_now().await;
+        tokio::time::timeout(Duration::from_secs(1),crate::vpn_lifecycle::quiesce(&state,"transfer",1)).await.unwrap().unwrap();
+        task.await.unwrap();
+        assert!(Control::default().checkpoint().await.is_ok());
+    }
+    #[tokio::test]
+    async fn replacement_connection_keeps_its_own_generation() {
+        let state = Shared::default();
+        let old = Arc::new(crate::vpn_lifecycle::tests::test_lease(&state,"replacement",1));
+        let new = Arc::new(crate::vpn_lifecycle::tests::test_lease(&state,"replacement",2));
+        let mut endpoints = std::collections::HashMap::from([("same-id",old)]);
+        let snapshot = endpoints["same-id"].clone();
+        let old_control = Control::default();
+        let old_registrations = old_control.bind_vpns(vec![(*snapshot).clone()]).unwrap();
+        endpoints.insert("same-id",new.clone());
+        let new_control = Control::default();
+        let _new_registrations = new_control.bind_vpns(vec![(*endpoints["same-id"]).clone()]).unwrap();
+        let closing = state.clone();
+        let stop = tokio::spawn(async move {crate::vpn_lifecycle::quiesce(&closing,"replacement",1).await});
+        tokio::task::yield_now().await;
+        assert!(old_control.checkpoint().await.is_err());
+        assert!(new_control.checkpoint().await.is_ok());
+        assert!(!Arc::ptr_eq(&snapshot,&endpoints["same-id"]));
+        drop(old_registrations);
+        stop.await.unwrap().unwrap();
+        assert!(!new.is_stopping());
+    }
     #[tokio::test]
     async fn pause_resume_and_cancel_pending_io() {
         let c = Arc::new(Control::default());

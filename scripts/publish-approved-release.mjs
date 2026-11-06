@@ -5,19 +5,28 @@ import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { releaseAssets } from './release-assets.mjs';
+import { verifyReleaseManifest } from './release-manifest.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const args=process.argv.slice(2);
 const get=(key)=>args[args.indexOf(key)+1];
-const version=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8')).version;
+const packageVersion=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8')).version;
+const version=args.includes('--approved-version') ? get('--approved-version') : packageVersion;
 const git=(...a)=>execFileSync('git',a,{cwd:root,encoding:'utf8',stdio:['pipe','pipe','pipe']}).trim();
 const sha=git('rev-parse','HEAD');
 if(!args.includes('--approved-version')||get('--approved-version')!==version||!/^\d+\.\d+\.\d+$/.test(version)) throw Error('Explicit owner-approved stable version is required');
+if(version!=='0.4.3'&&version!==packageVersion) throw Error('Approved version differs from package version');
 if(!args.includes('--approved-commit')||get('--approved-commit')!==sha) throw Error('Approval must name the exact current commit SHA');
 if(git('branch','--show-current')!=='main'||git('status','--porcelain','--untracked-files=no')) throw Error('Publish only a clean owner-approved main commit');
 const repo='EnezMutluoglu/TermTerm';
 const dir=path.join(root,'artifacts',`release-${version}`);
 const {platforms,required}=releaseAssets(version,{includeMacos:args.includes('--include-macos')});
 for(const name of required) if(!fs.existsSync(path.join(dir,name))) throw Error(`Missing release asset: ${name}`);
+if(version==='0.4.3') {
+  verifyReleaseManifest(dir,version);
+  for(const name of Object.values(platforms)) execFileSync('cargo',
+    ['test','--locked','--lib','--features','vpn-candidate','--manifest-path','src-tauri/Cargo.toml','updater::tests::release_signature_and_tamper_check','--','--ignored','--exact'],
+    {cwd:root,stdio:'inherit',env:{...process.env,TERMTERM_VERIFY_ARTIFACT:path.join(dir,name)}});
+}
 const serviceArchive=required.find(name=>name.startsWith('TermTerm-Team-Service-')&&name.endsWith('.tar.gz'));
 if(serviceArchive) execFileSync(process.platform==='win32'?'python':'python3',
   [path.join(root,'scripts','verify_team_setup.py'),path.join(dir,serviceArchive)],{cwd:root,stdio:'inherit'});

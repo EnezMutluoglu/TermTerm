@@ -1,6 +1,12 @@
 fn main() {
     println!("cargo:rerun-if-env-changed=TERMTERM_RELEASE_CHANNEL");
     tauri_build::build();
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        cc::Build::new().file("src/vpn_sso/webkit.m").flag("-fobjc-arc").compile("termterm_vpn_sso");
+        println!("cargo:rustc-link-lib=framework=WebKit");
+        println!("cargo:rustc-link-lib=framework=Foundation");
+        println!("cargo:rerun-if-changed=src/vpn_sso/webkit.m");
+    }
     // Rust lib-test executables also link the native dialog code. Without a
     // Common Controls v6 activation manifest Windows loads v5 and cannot find
     // TaskDialogIndirect, so the test process fails before running any tests.

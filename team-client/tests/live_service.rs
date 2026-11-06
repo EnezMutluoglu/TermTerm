@@ -416,6 +416,32 @@ async fn real_encrypted_credential_and_two_user_isolation() {
     );
     let before = user.open_private_credential(id, &user_key).await.unwrap();
     assert_eq!(&**before.secret, b"private-test-password");
+    // Authenticator uses the same envelope/recovery pipeline, with separate code-use authority.
+    {
+        use termterm_team_client::{authenticator::{Action,Input,Token},desktop::{DesktopAction,DesktopState}};
+        let native=DesktopState::default();
+        native.login(fixture.profile.clone(),fixture.username.clone(),password.into()).await.unwrap();
+        let list=native.call(DesktopAction::Authenticator{context:None,action:Action::List}).await.unwrap();
+        let scope=list["context"].as_str().unwrap().to_string();
+        let added=native.call(DesktopAction::Authenticator{context:Some(scope.clone()),action:Action::Add{input:Input{provisioning:"GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ".into(),label:"RFC fixture".into(),issuer:"Tests".into(),algorithm:"SHA1".into(),digits:6,period:30}}}).await.unwrap();
+        let serialized=serde_json::to_string(&added).unwrap();assert!(!serialized.contains("GEZDG"));assert!(!serialized.contains("otpauth"));assert!(!serialized.contains("secret"));
+        let token_id=Uuid::parse_str(added["entries"].as_array().unwrap().iter().find(|e|e["label"]=="RFC fixture").unwrap()["id"].as_str().unwrap()).unwrap();
+        assert!(leader.set_default_credential(token_id,0).await.is_err());
+        assert!(leader.save_private_credential(token_id,1,"password",b"wrong kind",b"overwrite",&leader_key).await.is_err());
+        let private=leader.open_private_credential(token_id,&leader_key).await.unwrap();assert_eq!(private.kind,"totp");assert_eq!(private.revision,1);
+        let token:Token=serde_json::from_slice(&private.secret).unwrap();assert_eq!(token.code(59).unwrap(),"287082");
+        let plan=leader.prepare_share(token_id,folder,&[termterm_team_client::sharing::ShareRecipient{account_id:member.account_id,connect:true,reveal:false,export:false,view:None,edit:None}]).await.unwrap();
+        let receipt=leader.finish_share(serde_json::from_value(plan["id"].clone()).unwrap(),&leader_key).await.unwrap();
+        let shared_id:Uuid=serde_json::from_value(receipt["credentialId"].clone()).unwrap();
+        let code_only=user.open_shared_credential(shared_id,"otp",None,&user_key).await.unwrap();let token:Token=serde_json::from_slice(&code_only.secret).unwrap();assert_eq!(token.code(59).unwrap(),"287082");
+        assert!(user.open_shared_credential(shared_id,"reveal",None,&user_key).await.is_err());assert!(user.open_shared_credential(shared_id,"export",None,&user_key).await.is_err());
+        assert!(user.open_shared_credential(shared_id,"connect",Some(host),&user_key).await.is_err());assert!(user.set_default_credential(shared_id,1).await.is_err());
+        let recovery_job=termterm_team_client::shared_recovery::SharedRecovery::begin(&leader,shared_id,&recovery,password,"TOTP fixture recovery").await.unwrap();
+        assert_eq!(recovery_job.finish(&leader,&leader_key).await.unwrap()["revision"],2);
+        let recovered=leader.open_shared_credential(shared_id,"reveal",None,&leader_key).await.unwrap();assert_eq!(serde_json::from_slice::<Token>(&recovered.secret).unwrap().code(59).unwrap(),"287082");
+        leader.remove_shared(shared_id,2).await.unwrap();assert!(user.open_shared_credential(shared_id,"otp",None,&user_key).await.is_err());
+        native.logout().unwrap();assert!(native.call(DesktopAction::Authenticator{context:Some(scope),action:Action::List}).await.is_err());
+    }
     // Independent, context-bound encrypted shared copy; connect does not imply reveal/export.
     let source = Uuid::new_v4();
     leader
@@ -438,6 +464,7 @@ async fn real_encrypted_credential_and_two_user_isolation() {
                 connect: true,
                 reveal: false,
                 export: false,
+                view:None, edit:None,
             }],
         )
         .await
@@ -449,6 +476,14 @@ async fn real_encrypted_credential_and_two_user_isolation() {
         receipt
     );
     let shared = Uuid::parse_str(receipt["credentialId"].as_str().unwrap()).unwrap();
+    {
+        use termterm_team_client::{authenticator::Action,desktop::{DesktopAction,DesktopState}};
+        let native=DesktopState::default();native.login(fixture.profile.clone(),fixture.username.clone(),password.into()).await.unwrap();
+        let list=native.call(DesktopAction::Authenticator{context:None,action:Action::List}).await.unwrap();
+        assert!(native.call(DesktopAction::Authenticator{context:Some(list["context"].as_str().unwrap().into()),action:Action::Delete{id:shared.to_string(),revision:1}}).await.is_err());
+        assert_eq!(leader.open_shared_credential(shared,"reveal",None,&leader_key).await.unwrap().revision,1);
+        assert!(user.open_shared_credential(shared,"otp",None,&user_key).await.is_err());native.logout().unwrap();
+    }
     assert_eq!(
         &**user
             .open_connection_credential(shared, host, &user_key)
@@ -502,6 +537,7 @@ async fn real_encrypted_credential_and_two_user_isolation() {
         connect: true,
         reveal: false,
         export: false,
+        view:None, edit:None,
     }];
     let update = leader
         .prepare_shared_update(shared, 1, Some(source), &recipients)

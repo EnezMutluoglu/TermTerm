@@ -3,6 +3,7 @@ use super::*;
 pub(crate) fn routes() -> Router<App> {
     Router::new()
         .route("/v1/credentials/shared", get(list))
+        .route("/v1/credentials/private/{id}/remove", post(remove_authenticator))
         .route("/v1/credentials/shared/{id}/recover", post(recover))
         .route("/v1/credentials/shared/{id}/read", post(read))
         .route("/v1/credentials/shared/{id}/remove", post(remove))
@@ -20,6 +21,7 @@ pub(crate) fn routes() -> Router<App> {
         .route("/v1/credentials/share/plans", post(prepare))
         .route("/v1/credentials/share/plans/{id}", get(plan).post(cancel))
         .route("/v1/credentials/share/plans/{id}/finish", post(finish))
+        .layer(DefaultBodyLimit::max(4*1024*1024))
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -125,6 +127,10 @@ struct Recipient {
     connect: bool,
     reveal: bool,
     export: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    view: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    edit: Option<bool>,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -242,4 +248,9 @@ impl Drop for Recover { fn drop(&mut self){self.password.zeroize();} }
 async fn recover(State(app):State<App>,headers:HeaderMap,RoutePath(id):RoutePath<Uuid>,Json(p):Json<Recover>)->ApiResult {
     let token=bearer(&headers)?;
     app.query("SELECT termterm_team_v2.api_shared_recovery_begin($1,$2,$3,$4,$5)",&[&token.as_str(),&id,&p.password,&unhex(&p.public_key)?,&p.reason]).await
+}
+
+async fn remove_authenticator(State(app):State<App>,headers:HeaderMap,RoutePath(id):RoutePath<Uuid>,Json(p):Json<Remove>)->ApiResult {
+    let token=bearer(&headers)?;
+    app.query("SELECT termterm_team_v2.api_authenticator_remove($1,$2,$3)",&[&token.as_str(),&id,&p.expected_revision]).await
 }

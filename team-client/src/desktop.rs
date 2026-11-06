@@ -17,6 +17,10 @@ use std::sync::{
 use tokio::sync::Mutex as AsyncMutex;
 use uuid::Uuid;
 use zeroize::Zeroizing;
+#[path="desktop_authenticator.rs"]
+mod authenticator;
+#[path="desktop_vpn.rs"]
+mod vpn;
 
 struct Session {
     login_binding: Option<String>,
@@ -196,6 +200,9 @@ pub struct DesktopState {
     deny_unknown_fields
 )]
 pub enum DesktopAction {
+    VpnShare {context:String,action:Value},
+    Vpn {context:Option<String>,action:crate::vpn::Action},
+    Authenticator {context:Option<String>,action:crate::authenticator::Action},
     ClientPolicy {},
     SetClientPolicy { expected_revision: i64, version: String },
     PrepareMove {id:Uuid,destination_id:Option<Uuid>,client_at:String},
@@ -420,6 +427,7 @@ pub enum DesktopAction {
     },
 }
 impl DesktopState {
+    pub fn active(&self)->bool {self.session.lock().map(|s|s.is_some()).unwrap_or(true)}
     /// Public policy check needs no account password. A denial closes the native
     /// session; cached ciphertext and unsent journal entries remain untouched.
     pub async fn compatibility(&self, profile: ServiceProfile) -> Result<Value> {
@@ -456,6 +464,9 @@ impl DesktopState {
             .lock()
             .map_err(|_| anyhow::anyhow!("Cache configuration lock"))? = Some(root);
         Ok(())
+    }
+    pub fn configured_cache_root(&self) -> Result<Option<std::path::PathBuf>> {
+        Ok(self.cache_root.lock().map_err(|_| anyhow::anyhow!("Cache configuration lock"))?.clone())
     }
     /// Always takes effect locally, even while the previous network request hangs.
     pub fn logout(&self) -> Result<()> { self.close_session(None).map(|_| ()) }
@@ -681,6 +692,8 @@ impl DesktopState {
                         | DesktopAction::Vaults {}
                         | DesktopAction::HistorySelections {}
                         | DesktopAction::SaveResource { .. }
+                        | DesktopAction::Vpn {action:crate::vpn::Action::List,..}
+                        | DesktopAction::Vpn {action:crate::vpn::Action::Authenticate{..},..}
                 );
                 if e.to_string() == "authentication_denied" {
                     if let Some(store) = s.store.as_mut() {
@@ -696,7 +709,7 @@ impl DesktopState {
                 s.offline = false;
             }
         }
-        let result = Self::execute(&mut s, action).await;
+        let result = Self::execute(&mut s, action, epoch).await;
         if result
             .as_ref()
             .is_err_and(|e| e.to_string() == "authentication_denied")
@@ -834,7 +847,7 @@ impl DesktopState {
         ensure!(self.current_epoch() == epoch, "Session closed");
         Ok(())
     }
-    async fn execute(s: &mut Session, action: DesktopAction) -> Result<Value> {
+    async fn execute(s: &mut Session, action: DesktopAction, epoch:u64) -> Result<Value> {
         if let DesktopAction::Activate { password } = action {
             let password = Zeroizing::new(password);
             let identity = Identity::generate();
@@ -844,6 +857,14 @@ impl DesktopState {
         }
         let identity = s.identity.as_ref().context("Activate account first")?;
         match action {
+            DesktopAction::VpnShare{context,action}=>{
+                ensure!(context==format!("{}:vpn:{epoch}",s.client.local_scope()?),"Team session changed; reopen VPN");
+                let action:DesktopAction=serde_json::from_value(action)?;
+                ensure!(matches!(action,DesktopAction::ShareCandidates{..}|DesktopAction::SharedUpdateOptions{..}|DesktopAction::PrepareShare{..}|DesktopAction::FinishShare{..}|DesktopAction::CancelShare{..}|DesktopAction::PrepareSharedUpdate{..}|DesktopAction::FinishSharedUpdate{..}|DesktopAction::CancelSharedUpdate{..}),"Unsupported VPN sharing action");
+                Box::pin(Self::execute(s,action,epoch)).await
+            },
+            DesktopAction::Vpn{context,action}=>vpn::execute(s,context.as_deref(),action,epoch).await,
+            DesktopAction::Authenticator{context,action}=>authenticator::execute(s,context.as_deref(),action,epoch).await,
             DesktopAction::ClientPolicy {} => s.client.request(reqwest::Method::GET,"v1/client-policy",None,true).await,
             DesktopAction::SetClientPolicy {expected_revision,version} => s.client.request(reqwest::Method::POST,"v1/client-policy",Some(&json!({"expectedRevision":expected_revision,"version":version})),true).await,
             DesktopAction::PrepareMove{id,destination_id,client_at} => {
@@ -950,12 +971,13 @@ impl DesktopState {
                 Ok(result)
             }
             DesktopAction::JournalStatus {} => Ok(match s.store.as_mut() {
-                Some(store) => serde_json::to_value(store.journal_status(now_ms()?)?)?,
+                Some(store) => {let mut status=serde_json::to_value(store.journal_status(now_ms()?)?)?;let vpn=store.vpn_status()?;for field in ["pending","conflicts","quarantined"] {status[field]=json!(status[field].as_i64().unwrap_or(0)+vpn[field].as_i64().unwrap_or(0));}status["vpn"]=vpn;status},
                 None => json!({"pending":0,"conflicts":0,"quarantined":0,"editRemainingMs":0}),
             }),
             DesktopAction::SyncJournal {} => {
                 let store = s.store.as_mut().context("Persistent cache unavailable")?;
                 s.client.reconcile_journal(store).await?;
+                s.client.deliver_next_vpn(store,identity).await?;
                 let mut delivered = 0;
                 for _ in 0..1 {
                     match s.client.deliver_next(store).await? {
@@ -965,7 +987,8 @@ impl DesktopState {
                         crate::offline::Delivery::Quarantined(_) => {}
                     }
                 }
-                Ok(json!({"delivered":delivered,"journal":store.journal_status(now_ms()?)?}))
+                let mut journal=serde_json::to_value(store.journal_status(now_ms()?)?)?;let vpn=store.vpn_status()?;for field in ["pending","conflicts","quarantined"] {journal[field]=json!(journal[field].as_i64().unwrap_or(0)+vpn[field].as_i64().unwrap_or(0));}journal["vpn"]=vpn;
+                Ok(json!({"delivered":delivered,"journal":journal}))
             }
             DesktopAction::SelectHistory { id, revision } => {
                 // Never fall back to a cached route from a different selection.
@@ -1643,7 +1666,8 @@ impl DesktopState {
                             .map(|r| (r, "shared")),
                     )
                 {
-                    if row["kind"]=="proxy" {continue;}
+                    if row["kind"]=="proxy" || row["kind"]=="totp" {continue;}
+                    if matches!(row["kind"].as_str(),Some("vpn"|"vpn_auth")) {continue;}
                     let id: Uuid = serde_json::from_value(row["id"].clone())?;
                     let revision = row["revision"].as_i64().context("Invalid revision")?;
                     let label = (|| -> Result<String> {
@@ -1732,7 +1756,10 @@ impl DesktopState {
                     .client
                     .open_shared_credential(id, "export", None, identity)
                     .await?;
-                let export = if credential.kind == "ssh_key" {
+                let export = if credential.kind == "totp" {
+                    let token:crate::authenticator::Token=serde_json::from_slice(&credential.secret)?;
+                    Zeroizing::new(token.uri()?.as_bytes().to_vec())
+                } else if credential.kind == "ssh_key" {
                     let key: crate::connection::KeySecret =
                         serde_json::from_slice(&credential.secret)
                             .context("Invalid SSH key format")?;
@@ -1764,6 +1791,7 @@ impl DesktopState {
                 certificate,
             } => {
                 let secret = Zeroizing::new(secret);
+                ensure!(credential_kind!="totp","Use Authenticator provisioning for TOTP credentials");
                 ensure!(
                     !label.trim().is_empty() && label.len() <= 2048,
                     "Identity label required"
@@ -1810,6 +1838,16 @@ impl DesktopState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn configured_cache_root_preserves_the_default_and_disposable_override() {
+        let state = DesktopState::default();
+        assert!(state.configured_cache_root().unwrap().is_none());
+        let fixture = tempfile::tempdir().unwrap();
+        let root = fixture.path().join("client/data/team-v2-cache");
+        state.configure_cache(root.clone()).unwrap();
+        assert_eq!(state.configured_cache_root().unwrap(), Some(root.clone()));
+        assert!(!root.exists(), "Reading cache configuration must not create user data");
+    }
     #[tokio::test]
     async fn delayed_policy_cannot_close_a_new_session_epoch() {
         let state = DesktopState::default();

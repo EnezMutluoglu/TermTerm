@@ -1,0 +1,18 @@
+{
+  "productName": "TermTerm VPN Dev",
+  "identifier": "local.termterm.desktop.vpndev",
+  "mainBinaryName": "termterm-vpn-dev",
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "appimage"],
+    "createUpdaterArtifacts": false,
+    "shortDescription": "TermTerm isolated VPN development evaluation",
+    "linux": {
+      "deb": {
+        "conflicts": [],
+        "replaces": []
+      }
+    }
+  },
+  "plugins": { "updater": { "endpoints": [] } }
+}

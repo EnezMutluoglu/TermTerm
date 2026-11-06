@@ -5,7 +5,11 @@ edition = "2021"
 rust-version = "1.98"
 publish = false
 
+[features]
+vpn-candidate = []
+
 [dependencies]
+termterm-vpn-core = { path = "../vpn-core" }
 anyhow = "1"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
@@ -21,6 +25,8 @@ reqwest = { version = "0.12", default-features = false, features = ["native-tls"
 url = "2"
 rusqlite = { version = "0.37", features = ["bundled"] }
 sha2 = "0.10"
+hmac = "0.12"
+sha1 = "0.10"
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 tokio = { version = "1", features = ["sync", "rt"] }
 

@@ -4,6 +4,7 @@ mod personal;
 mod rotation;
 mod resources;
 mod sharing;
+mod vpn;
 mod compatibility;
 use anyhow::{ensure, Context, Result};
 use axum::{
@@ -24,7 +25,7 @@ use zeroize::{Zeroize, Zeroizing};
 
 // Migrations are an explicit operator action. An incompatible schema must not
 // report readiness and then fail halfway through an account/resource operation.
-const REQUIRED_SCHEMA_VERSION: i64 = 64;
+const REQUIRED_SCHEMA_VERSION: i64 = 66;
 const COMPATIBILITY: &str = include_str!("../compatibility.json");
 fn compatible_schema(version: &Value) -> bool {
     version.get("schemaVersion").and_then(Value::as_i64) == Some(REQUIRED_SCHEMA_VERSION)
@@ -200,6 +201,7 @@ impl ApiError {
         Self(StatusCode::SERVICE_UNAVAILABLE, "service_unavailable")
     }
     fn database(e: tokio_postgres::Error) -> Self {
+        if e.as_db_error().is_some_and(|e| e.message() == "vpn_client_required") { return Self(StatusCode::UNPROCESSABLE_ENTITY, "vpn_client_required"); }
         if e.as_db_error().is_some_and(|e| e.message() == "history_route_unavailable") { return Self(StatusCode::UNPROCESSABLE_ENTITY, "history_route_unavailable"); }
         match e.code().map(|c| c.code()) {
             Some("28000") => Self(StatusCode::UNAUTHORIZED, "invalid_session"),
@@ -456,6 +458,7 @@ pub fn router(app: App) -> Router {
         .merge(rotation::routes())
         .merge(resources::routes())
         .merge(sharing::routes())
+        .merge(vpn::routes())
         .merge(audit::routes())
         .layer(DefaultBodyLimit::max(256 * 1024))
         .layer(middleware::from_fn_with_state(app.clone(), boundary))
@@ -501,9 +504,10 @@ mod tests {
         let releases=manifest["clientVersions"].as_array().unwrap();
         assert!(!releases.is_empty());
         for release in releases { assert!(semver::Version::parse(release.as_str().unwrap()).unwrap().cmp_precedence(&floor).is_ge()); }
-        assert!(compatible_schema(&json!({"schemaVersion":64,"apiVersion":1})));
+        assert!(compatible_schema(&json!({"schemaVersion":66,"apiVersion":1})));
         for value in [json!({"schemaVersion":57,"apiVersion":1}),
             json!({"schemaVersion":65,"apiVersion":1}),
+            json!({"schemaVersion":64,"apiVersion":1}),
             json!({"schemaVersion":61,"apiVersion":2}),
             json!({"schemaVersion":"61","apiVersion":1}), json!({}), Value::Null] {
             assert!(!compatible_schema(&value));

@@ -17,6 +17,10 @@ pub struct ShareRecipient {
     pub connect: bool,
     pub reveal: bool,
     pub export: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub view: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edit: Option<bool>,
 }
 impl TeamClient {
     pub async fn shared_update_options(&self, id: Uuid) -> Result<Value> {
@@ -70,7 +74,7 @@ impl TeamClient {
             .context("Missing expected revision")?;
         let source = if p["sourceId"].is_null() {
             let value = self
-                .open_shared_credential(id, "reveal", None, identity)
+                .open_shared_credential(id, if p["kind"]=="vpn" {"edit"} else {"reveal"}, None, identity)
                 .await?;
             ensure!(
                 value.revision == expected,
@@ -91,6 +95,11 @@ impl TeamClient {
     pub(crate) async fn finish_shared_source(&self,p:&Value,identity:&Identity,source:&OpenCredential)->Result<Value> {
         if p["status"]=="applied" {return Ok(p.clone());}
         let plan:Uuid=serde_json::from_value(p["id"].clone())?;
+        let body=self.prepare_shared_source(p,identity,source)?;
+        self.request(Method::POST,&format!("v1/credentials/updates/{plan}/finish"),Some(&body),true).await
+    }
+    pub(crate) fn prepare_shared_source(&self,p:&Value,identity:&Identity,source:&OpenCredential)->Result<Value> {
+        if p["status"]=="applied" {return Ok(p.clone());}
         let id:Uuid=serde_json::from_value(p["credentialId"].clone())?;
         let expected=p["expectedRevision"].as_i64().context("Missing expected revision")?;
         let revision = expected.checked_add(1).context("Revision exhausted")?;
@@ -122,9 +131,9 @@ impl TeamClient {
                 "data":keys::rewrap(team,id,revision,Purpose::Data,&data.user_envelope,identity,key)?,
                 "secret":keys::rewrap(team,id,revision,Purpose::Secret,&secret.user_envelope,identity,key)?}))
         }).collect::<Result<Vec<_>>>()?;
-        self.request(Method::POST,&format!("v1/credentials/updates/{plan}/finish"),Some(&json!({
+        Ok(json!({
             "encryptedData":data.ciphertext,"encryptedSecret":secret.ciphertext,"recoveryData":data.recovery_envelope,
-            "recoverySecret":secret.recovery_envelope,"envelopes":envelopes})),true).await
+            "recoverySecret":secret.recovery_envelope,"envelopes":envelopes}))
     }
     pub async fn share_candidates(&self, scope: Uuid) -> Result<Value> {
         self.request(
@@ -231,7 +240,7 @@ impl TeamClient {
         identity: &Identity,
     ) -> Result<OpenCredential> {
         ensure!(
-            ["connect", "reveal", "export"].contains(&purpose),
+            ["connect", "reveal", "export", "otp", "vpn", "edit"].contains(&purpose),
             "Invalid credential purpose"
         );
         let value = self

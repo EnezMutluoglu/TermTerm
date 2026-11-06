@@ -225,6 +225,7 @@ async fn connection_target(
     RoutePath(id): RoutePath<Uuid>,
 ) -> ApiResult {
     let token = bearer(&headers)?;
+    super::vpn::check_client(&app,&headers,token.as_str(),id).await?;
     app.query(
         "SELECT termterm_team_v2.api_connection_target($1,$2)",
         &[&token.as_str(), &id],
@@ -585,6 +586,7 @@ async fn connection_plan(
     RoutePath(id): RoutePath<Uuid>,
 ) -> ApiResult {
     let token = bearer(&headers)?;
+    super::vpn::check_client(&app,&headers,token.as_str(),id).await?;
     app.query(
         "SELECT termterm_team_v2.api_connection_plan($1,$2)",
         &[&token.as_str(), &id],
@@ -646,6 +648,7 @@ async fn connection_credential(
     Json(p): Json<ConnectionCredential>,
 ) -> ApiResult {
     let token = bearer(&headers)?;
+    super::vpn::check_client(&app,&headers,token.as_str(),id).await?;
     app.query(
         "SELECT termterm_team_v2.api_connection_credential($1,$2,$3,$4)",
         &[&token.as_str(), &id, &p.hop_id, &p.credential_id],

@@ -1,4 +1,7 @@
 import TeamIdentities, { type TeamIdentity } from "./TeamIdentities";
+import VpnWorkspace from "./VpnWorkspace";
+import TeamVpnBinding from "./TeamVpnBinding";
+import Authenticator, {type AuthenticatorEntry} from "./Authenticator";
 import TeamCompatibility, { useTeamCompatibility } from "./TeamCompatibility";
 import TeamUpdatePolicy from "./TeamUpdatePolicy";
 import type { MenuAction } from "./ContextMenu";
@@ -114,6 +117,10 @@ export default function TeamService({
     setRecoveryOpen(false);
     setRotationOpen(false);
     setProfileEditor(null);
+    setVpnResource(null);
+    setDialog(null);
+    setEditing(null);
+    setMenu(null);
     setConnectionRequest(null);
     setDocumentRequest(null);
     setTerminalActive(false);
@@ -139,6 +146,8 @@ export default function TeamService({
   } | null>(null);
   const [tab, setTab] = useState<
     | "vaults"
+    | "vpn"
+    | "authenticator"
     | "documents"
     | "members"
     | "identities"
@@ -164,6 +173,8 @@ export default function TeamService({
     [selected, setSelected] = useState<Resource | null>(null),
     [members, setMembers] = useState<Member[]>([]);
   const [identities, setIdentities] = useState<TeamIdentity[]>([]);
+  const [authenticatorVersion,setAuthenticatorVersion]=useState(0);
+  const [authenticatorSources,setAuthenticatorSources]=useState<AuthenticatorEntry[]>([]);
   const [sharedRecoveryPicker, setSharedRecoveryPicker] = useState(false);
   const [shareSource, setShareSource] = useState<{
     id: string;
@@ -203,6 +214,7 @@ export default function TeamService({
     [staged, setStaged] = useState(0);
   const [draftId, setDraftId] = useState(() => crypto.randomUUID());
   const [routeHost, setRouteHost] = useState<string | null>(null);
+  const [vpnResource, setVpnResource] = useState<Resource | null>(null);
   const [chainHost, setChainHost] = useState<(typeof rows)[number] | null>(null);
   const [movingRow,setMovingRow]=useState<(typeof rows)[number]|null>(null);
   const [profileEditor, setProfileEditor] = useState<
@@ -290,6 +302,9 @@ export default function TeamService({
       row,
     });
   }
+  useEffect(() => {
+    setVpnResource(null);
+  }, [phase, overview?.accountId, profile.serviceUrl, profile.teamId, profile.caPem, vault, rows, tab, parent]);
   function folderPath(id: string) {
     const result: string[] = [];
     let current: string | null = id;
@@ -366,10 +381,15 @@ export default function TeamService({
   }, [phase]);
   async function leave(next = onBack) {
     epoch.current++;
+    setPhase("login");
     setTemporary("");
     setSecret("");
     setPassword("");
     setConfirm("");
+    setVpnResource(null);
+    setDialog(null);
+    setEditing(null);
+    setMenu(null);
     await call("team_v2_logout").catch(() => {});
     next();
   }
@@ -843,6 +863,7 @@ export default function TeamService({
             )}
             <div className="nav-label">ÇALIŞMA ALANI</div>
             <nav className="main-nav">
+              <button className={tab==="vpn" && !terminalActive?"active":""} onClick={()=>navigate("vpn")}><ShieldCheck size={17}/><span>VPN</span></button>
               <button
                 className={tab === "vaults" && !terminalActive ? "active" : ""}
                 onClick={() => {
@@ -1019,7 +1040,7 @@ export default function TeamService({
               )}
               <div
                 className="ts-toolbar"
-                style={{ display: tab === "sftp" ? "none" : undefined }}
+                style={{ display: ["sftp","authenticator","vpn"].includes(tab) ? "none" : undefined }}
               >
                 <h1>
                   {tab === "updates" ? "Team güncelleme yönetimi" : tab === "documents" ? "Komutlar ve çalışma alanları" : tab === "audit"
@@ -1110,6 +1131,15 @@ export default function TeamService({
               {tab === "documents" && <TeamDocuments key={vault??"none"} rows={rows} vault={vault} owner={owner || overview?.role==="owner"} parent={parent}
                 onFolder={id=>setPath(id?folderPath(id):[])} onSaved={async()=>{if(vault)await loadVault(vault);}}
                 onStart={setDocumentRequest} onHistory={setHistoryResource} onManage={rowMenu}/>}
+              <div hidden={tab!=="vpn" || terminalActive} style={{height:"100%"}}><VpnWorkspace key={`${profile.serviceUrl}:${profile.teamId}:${overview?.accountId}`} vaultId={`${profile.serviceUrl}:${profile.teamId}:${overview?.accountId}`} team onOpenAuthenticator={()=>navigate("authenticator")} scopes={rows.filter(r=>r.content && !r.content.deleted && ["host","folder"].includes(r.content.kind) && r.permissions?.includes("edit")).map(r=>({id:r.id,name:r.content!.name}))}/></div>
+              {tab === "authenticator" && <Authenticator key={`${profile.serviceUrl}:${profile.teamId}:${overview?.accountId}:${vault}:${authenticatorVersion}`} team visible={!terminalActive} onShare={item => void run(async()=>{
+                const snapshot=await rpc({kind:"authenticator",action:{kind:"list"}});
+                setAuthenticatorSources(snapshot.entries);
+                setShareSource({...item,kind:"totp"});
+              })} onExport={item => void run(async()=>{
+                const path=await saveFile("txt","authenticator.txt");
+                if(path){await rpc({kind:"exportShared",id:item.id,path});setNotice("Kurulum sırrı seçtiğin dosyaya aktarıldı.");}
+              })} onRecover={item => {if(item.visibility==="shared")setSharedRecoveryId(item.id);else setRecoveryMember("verify");}} />}
               {tab === "decisions" && <TeamDecisions />}
               {tab === "audit" && owner && <TeamAudit />}
               {tab === "updates" && owner && <TeamUpdatePolicy />}
@@ -1392,6 +1422,11 @@ export default function TeamService({
         <button onClick={() => setSharedRecoveryPicker(false)}>Vazgeç</button>
       </section></div>}
       {routeHost && <TeamRouteProfiles id={routeHost} rpc={rpc} onClose={() => setRouteHost(null)} />}
+      {vpnResource && <div className="ts-overlay"><section className="ts-dialog" role="dialog" aria-modal="true" aria-label="Kişisel VPN bağlantısı">
+        <h2>{vpnResource.content?.name}</h2>
+        <TeamVpnBinding resourceId={vpnResource.id} canEdit={!!vpnResource.permissions?.includes("edit")}/>
+        <button type="button" onClick={() => setVpnResource(null)}>Kapat</button>
+      </section></div>}
       {chainHost && <TeamChain host={chainHost} rows={rows} rpc={rpc} onClose={() => setChainHost(null)} onSaved={() => setNotice("Host chain kaydedildi.")} />}
       {movingRow && <TeamMove row={movingRow} rows={rows} rpc={rpc} onClose={()=>setMovingRow(null)} onSaved={()=>void run(async()=>{await refresh();if(vault)await loadVault(vault);setNotice("Kayıt taşındı; erişimler ve chain anahtarları yenilendi.");})} />}
       {menu && (
@@ -1487,6 +1522,7 @@ export default function TeamService({
               </button>
             )}
           {menu.row.content?.kind === "host" && menu.row.permissions?.includes("connect") && <button role="menuitem" onClick={() => {setRouteHost(menu.row.id);setMenu(null);}}>Zincirdeki kişisel profillerim</button>}
+          {(menu.row.content?.kind === "host" || menu.row.content?.kind === "folder") && menu.row.permissions?.includes("connect") && !overview?.offline && <button role="menuitem" onClick={() => {setVpnResource(menu.row);setMenu(null);}}>Kişisel VPN bağlantım</button>}
           {manageable(menu.row).length > 0 && (
             <button role="menuitem" onClick={() => openAccess(menu.row)}>
               Üye izinleri
@@ -1512,6 +1548,7 @@ export default function TeamService({
           member={recoveryMember === "verify" ? null : recoveryMember}
           onClose={() => setRecoveryMember(null)}
           onSaved={() => {
+            setAuthenticatorVersion(v=>v+1);
             setNotice(
               "Kurtarma adımı kaydedildi. Kimlik listesini yenileyebilirsin.",
             );
@@ -1521,7 +1558,7 @@ export default function TeamService({
       {shareSource && (
         <TeamShare
           source={shareSource}
-          privateSources={identities
+          privateSources={(shareSource.kind==="totp" ? authenticatorSources.map(i=>({...i,kind:"totp"})) : identities)
             .filter(
               (i) =>
                 i.visibility !== "shared" &&
@@ -1534,6 +1571,7 @@ export default function TeamService({
               (r) =>
                 r.content &&
                 !r.content.deleted &&
+                ["host","folder"].includes(r.content.kind) &&
                 r.permissions?.includes("edit"),
             )
             .map((r) => ({ id: r.id, name: r.content!.name }))}
@@ -1541,6 +1579,7 @@ export default function TeamService({
           onClose={() => setShareSource(null)}
           onSaved={() => {
             setShareSource(null);
+            setAuthenticatorVersion(v=>v+1);
             void run(async () => {
               setIdentities(await rpc({ kind: "credentials" }));
               setNotice("Ortak kimlik kaydedildi. Özel kimliğin korunuyor.");
@@ -1826,6 +1865,7 @@ export default function TeamService({
                       )}
                     </>
                   )}
+                  {editing?.id && <TeamVpnBinding resourceId={editing.id} canEdit={!!editing.permissions?.includes("edit")}/>}
                 </>
               ) : (
                 <label>
@@ -1924,7 +1964,7 @@ export default function TeamService({
           </section>
         </div>
       )}
-      {sharedRecoveryId && <TeamSharedRecovery id={sharedRecoveryId} onClose={() => setSharedRecoveryId(null)} onSaved={() => void run(async () => {setIdentities(await rpc({kind:"credentials"}));setNotice("Ortak kimlik yeni revizyon olarak kurtarıldı.");})} />}
+      {sharedRecoveryId && <TeamSharedRecovery id={sharedRecoveryId} onClose={() => setSharedRecoveryId(null)} onSaved={() => void run(async () => {setAuthenticatorVersion(v=>v+1);setIdentities(await rpc({kind:"credentials"}));setNotice("Ortak kimlik yeni revizyon olarak kurtarıldı.");})} />}
       {rotationOpen && <TeamRotation onClose={() => setRotationOpen(false)} />}
       {recoveryOpen && (
         <div className="ts-overlay">

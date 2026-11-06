@@ -38,3 +38,28 @@ it('requires Team service and operator guides starting with 0.4.1',()=>{
   }
   expect(releaseAssets('0.4.0').required.some((name:string)=>name.includes('Team-Service'))).toBe(false);
 });
+
+it('keeps published 0.4.1/0.4.2 asset contracts unchanged',()=>{
+  for(const version of ['0.4.1','0.4.2']) {
+    const common = [`TermTerm_${version}_x64-setup.exe`, `TermTerm_${version}_x64-setup.exe.sig`,
+      `TermTerm_${version}_amd64.AppImage`, `TermTerm_${version}_amd64.AppImage.sig`,
+      `TermTerm-${version}-windows-x64-portable.zip`, `TermTerm-${version}-source.zip`,
+      `TermTerm_${version}_amd64.deb`, `TermTerm-${version}-1.x86_64.rpm`, 'RELEASE-OKU.md', `VALIDATION_${version}.md`,
+      `TermTerm-Team-Service-${version}-linux-x64.tar.gz`, 'TEAM_SERVICE_INSTALL_TR.md', 'TEAM_041_GUIDE_TR.md', 'TEAM_UPGRADES_TR.md', 'SOURCE_FINGERPRINT.json'];
+    if(version==='0.4.2') common.push(`TermTerm-Team-Image-${version}-linux-x64.tar.gz`, `TermTerm-Team-Image-${version}-linux-x64.json`, 'TEAM_SOCKET_KURULUM_TR.md', 'TEAM_DB_OWNER_TEMPLATE_TR.md');
+    expect(releaseAssets(version).required).toEqual(common);
+  }
+});
+
+it('requires the exact 0.4.3 VPN source, broker, service and installer scope',()=>{
+  const plan=releaseAssets('0.4.3');
+  expect(plan.required).toContain('termterm-vpn-broker_0.4.3_amd64.deb');
+  expect(plan.required).toContain('TermTerm-0.4.3-APPIMAGE-INSTALL.json');
+  expect(plan.required).toContain('install-vpn-appimage.py');
+  expect(plan.required).toContain('TermTerm-Team-Service-0.4.2-vpn-0.4.3-linux-x64.tar.gz');
+  expect(plan.required).toContain('TermTerm-0.4.3-linux-dependency-source.tar.gz');
+  expect(plan.required).toContain('TermTerm-0.4.3-macos-source-preparation.zip');
+  expect(plan.required.some((name:string)=>/\.rpm$|\.dmg$|\.app\./.test(name))).toBe(false);
+  expect(new Set(plan.required).size).toBe(plan.required.length);
+  expect(()=>releaseAssets('0.4.3',{includeMacos:true})).toThrow('source only');
+});

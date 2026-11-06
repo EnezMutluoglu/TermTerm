@@ -1,0 +1,31 @@
+[package]
+name = "termterm-vpn-windows-broker"
+version = "0.4.3-dev.1"
+edition = "2021"
+publish = false
+
+[features]
+production-candidate = []
+privileged-validation = []
+auth-only-test = []
+
+[[bin]]
+name = "termterm-vpn-broker"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+zeroize = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+termterm-vpn-core = { path = "../vpn-core" }
+tokio = { version = "1", features = ["net", "time", "io-util", "sync", "rt", "macros"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Devices_DeviceAndDriverInstallation", "Win32_Devices_Properties", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Registry", "Win32_System_Threading", "Win32_System_Console", "Win32_System_Pipes", "Win32_System_IO", "Win32_System_LibraryLoader", "Win32_System_Environment", "Win32_System_JobObjects", "Win32_Storage_FileSystem", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Networking_WinSock", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+
+[dev-dependencies]
+tempfile = "3"
+

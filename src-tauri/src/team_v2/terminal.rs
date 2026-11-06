@@ -70,7 +70,10 @@ impl NativeConnections {
         {
             return Ok(existing);
         }
-        let root = app.path().app_data_dir()?.join("team-v2-cache");
+        let root = match app.state::<DesktopState>().configured_cache_root()? {
+            Some(root) => root,
+            None => app.path().app_data_dir()?.join("team-v2-cache"),
+        };
         let store = app
             .state::<DesktopState>()
             .local_store(&root, epoch)
@@ -275,6 +278,8 @@ async fn run(
      _=async {while let Some(msg)=rx.recv().await {match msg{SessionInput::Close=>break,SessionInput::Resize(cols,rows)=>size=(cols,rows),_=>{}}}}=>return Ok(())
     };
     let connection = Arc::new(connection);
+    let vpn = connection.vpn.clone();
+    crate::vpn_lifecycle::run(&vpn, async {
     let mut check = tokio::time::interval(Duration::from_secs(10));
     check.tick().await;
     let mut permission = Box::pin(async {
@@ -333,6 +338,7 @@ async fn run(
         .disconnect(russh::Disconnect::ByApplication, "TermTerm closed", "en")
         .await;
     Ok(())
+    }).await
 }
 
 pub(super) async fn connect_target(
@@ -354,6 +360,21 @@ async fn connect_transport(
     let (resolved_epoch, plan) = desktop.connection_target(host_id).await?;
     ensure!(epoch == resolved_epoch, "Team session changed");
     ensure!(plan.target_id == host_id && !plan.steps.is_empty(), "Connection target mismatch");
+    let mut requirements = Vec::new();
+    for target in &plan.steps {
+        let profile = desktop.required_vpn_for_plan(host_id, target.id, epoch).await?;
+        requirements.push((target.id, profile));
+    }
+    let required = required_vpn(&requirements)?;
+    let vpn = if let Some((host, _)) = required {
+        let bound = crate::vpn::ensure_team_required_for_plan(app, state, host_id, host, epoch).await?.context("Required VPN requirement changed")?;
+        Some(crate::vpn_lifecycle::Lease::acquire(app, state, bound)?)
+    } else { None };
+    crate::vpn_lifecycle::run(&vpn, async {
+    for (host, expected) in &requirements {
+        ensure!(desktop.required_vpn_for_plan(host_id, *host, epoch).await? == *expected, "Host VPN requirement changed");
+    }
+    desktop.check_connection(host_id, epoch).await?;
     let mut hosts=ConnectionHosts(Vec::new());
     for (index, target) in plan.steps.into_iter().enumerate() {
     target.authentication.validate()?;
@@ -403,8 +424,13 @@ async fn connect_transport(
     }
     let last=hosts.0.last().context("Empty connection plan")?;
     let (label,protocol,address)=(last.label.clone(),last.protocol.clone(),last.address.clone());
+    ensure!(vpn.is_none() || protocol != "mosh", "Required VPN Mosh transport is not supported; use SSH");
     let trust = app.state::<NativeConnections>().trust(app, epoch).await?;
     let known = trust.records()?;
+    for (host, expected) in &requirements {
+        ensure!(desktop.required_vpn_for_plan(host_id, *host, epoch).await? == *expected, "Host VPN requirement changed");
+    }
+    desktop.check_connection(host_id, epoch).await?;
     let connection = connections::connect_hops(
         app,
         state,
@@ -415,8 +441,35 @@ async fn connect_transport(
         remote,
         Some(trust),
         true,
+        vpn.clone(),
     )
     .await?;
     desktop.check_connection(host_id, epoch).await?;
+    for (host, expected) in &requirements {
+        ensure!(desktop.required_vpn_for_plan(host_id, *host, epoch).await? == *expected, "Host VPN requirement changed");
+    }
     Ok((connection, label, protocol, address))
+    }).await
+}
+fn required_vpn(requirements: &[(Uuid,Option<Uuid>)]) -> Result<Option<(Uuid,Uuid)>> {
+    let mut required = None;
+    for &(host, profile) in requirements {
+        if let Some(profile) = profile {
+            ensure!(required.is_none_or(|(_, previous)|previous == profile), "Host chain requires incompatible VPN profiles");
+            required = Some((host,profile));
+        }
+    }
+    Ok(required)
+}
+#[cfg(test)]
+mod vpn_tests {
+    use super::*;
+    #[test]
+    fn chain_requires_one_compatible_vpn() {
+        let (first,second,vpn,other) = (Uuid::new_v4(),Uuid::new_v4(),Uuid::new_v4(),Uuid::new_v4());
+        assert!(required_vpn(&[(first,None),(second,None)]).unwrap().is_none());
+        assert_eq!(required_vpn(&[(first,Some(vpn)),(second,None)]).unwrap(),Some((first,vpn)));
+        assert!(required_vpn(&[(first,Some(vpn)),(second,Some(vpn))]).is_ok());
+        assert!(required_vpn(&[(first,Some(vpn)),(second,Some(other))]).is_err());
+    }
 }

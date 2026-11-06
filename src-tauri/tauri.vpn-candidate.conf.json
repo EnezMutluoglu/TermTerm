@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "TermTerm",
+  "version": "0.4.3",
+  "identifier": "local.termterm.desktop",
+  "mainBinaryName": "termterm",
+  "build": {
+    "beforeDevCommand": "pnpm dev --mode vpn-candidate",
+    "beforeBuildCommand": "pnpm build --mode vpn-candidate",
+    "frontendDist": "../dist-vpn-candidate",
+    "features": ["vpn-candidate"]
+  },
+  "app": {
+    "security": {
+      "capabilities": [{
+        "identifier": "vpn-candidate-main",
+        "webviews": ["main"],
+        "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save", "clipboard-manager:allow-read-text", "clipboard-manager:allow-write-text"]
+      }]
+    }
+  },
+  "bundle": {
+    "active": false,
+    "createUpdaterArtifacts": false,
+    "resources": []
+  },
+  "plugins": { "updater": { "endpoints": [] } }
+}

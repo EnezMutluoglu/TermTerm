@@ -27,6 +27,7 @@ const packages = [
   "terminfo",
 ];
 const inventory = [];
+const approvedFiles = new Set(["packages.json", "NOTICE.txt"]);
 for (const name of packages) {
   const section = manifest
     .split(`\n@ ${name}\n`)[1]
@@ -68,36 +69,61 @@ for (const name of packages) {
     execFileSync("tar", ["-xf", archive, "-C", dest, ...files], {
       stdio: "pipe",
     });
+  for (const file of files) approvedFiles.add(file);
+  const sourceEntry = (() => {
+    const direct = section.match(/^source: (\S+) (\d+) ([a-f0-9]{128})$/m);
+    if (direct) return direct;
+    const external = section.match(/^external-source: (\S+)/m)?.[1];
+    return external && manifest.split(`\n@ ${external}\n`)[1]?.split(/\n@ /)[0]?.split(/\n\[(?:prev|test)\]/)[0]?.match(/^source: (\S+) (\d+) ([a-f0-9]{128})$/m);
+  })();
+  if (!sourceEntry) throw new Error(`Missing matching source: ${name}`);
   inventory.push({
     name,
     version: section.match(/^version: (.+)$/m)?.[1],
     url: "https://cygwin.com/pub/cygwin/" + file,
     sha512: sha,
-    source: (() => {
-      const sourceName = section.match(/^source: (\S+) /m)?.[1];
-      if (sourceName) return "https://cygwin.com/pub/cygwin/" + sourceName;
-      const external = section.match(/^external-source: (\S+)/m)?.[1];
-      const source =
-        external &&
-        manifest
-          .split(`\n@ ${external}\n`)[1]
-          ?.split(/\n@ /)[0]
-          ?.match(/^source: (\S+) /m)?.[1];
-      return source ? "https://cygwin.com/pub/cygwin/" + source : null;
-    })(),
+    source: "https://cygwin.com/pub/cygwin/" + sourceEntry[1],
+    sourceBytes: Number(sourceEntry[2]),
+    sourceSha512: sourceEntry[3],
   });
   console.log(`Packaged ${name}`);
 }
+const sourceCache = path.join(cache, "sources");
+await fs.mkdir(sourceCache, {recursive: true});
+const sources = {};
+for (const pkg of inventory) {
+  const file = path.posix.basename(new URL(pkg.source).pathname);
+  const pin = {url: pkg.source, bytes: pkg.sourceBytes, sha512: pkg.sourceSha512};
+  if (sources[file]) {
+    if (JSON.stringify(sources[file]) !== JSON.stringify(pin)) throw new Error("Conflicting Mosh source pins");
+    continue;
+  }
+  const archive = path.join(sourceCache, file);
+  let bytes;
+  try { bytes = await fs.readFile(archive); }
+  catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    const response = await fetch(pkg.source);
+    if (!response.ok) throw new Error(`Source download failed: ${pkg.name}`);
+    bytes = Buffer.from(await response.arrayBuffer());
+    await fs.writeFile(archive, bytes);
+  }
+  if (bytes.length !== pin.bytes || crypto.createHash("sha512").update(bytes).digest("hex") !== pin.sha512)
+    throw new Error(`Source archive integrity check failed: ${pkg.name}`);
+  sources[file] = pin;
+}
+await fs.writeFile(path.join(sourceCache, "SOURCES.json"), JSON.stringify({version: 1, sources}, null, 2));
 // Cygwin locates its DLLs alongside the executable. Archives use both bin and usr/bin.
 await fs.mkdir(path.join(dest, "bin"), { recursive: true });
-for (const name of await fs
-  .readdir(path.join(dest, "usr", "bin"))
-  .catch(() => [])) {
-  if (name.endsWith(".dll") || name === "mosh-client.exe")
+for (const file of [...approvedFiles]) {
+  const name = path.posix.basename(file);
+  if (file.startsWith("usr/bin/") && (name.endsWith(".dll") || name === "mosh-client.exe")) {
     await fs.copyFile(
-      path.join(dest, "usr", "bin", name),
+      path.join(dest, file),
       path.join(dest, "bin", name),
     );
+    approvedFiles.add("bin/" + name);
+  }
 }
 await fs.writeFile(
   path.join(dest, "packages.json"),
@@ -107,4 +133,9 @@ await fs.writeFile(
   path.join(dest, "NOTICE.txt"),
   "Mosh (GPL-3.0): https://mosh.org/ and https://github.com/mobile-shell/mosh\nCygwin runtime and libraries: https://cygwin.com/licensing.html\nPackage versions, source locations and checksums are recorded in packages.json.\nOriginal license files are in share/doc or usr/share/doc.\n",
 );
+const approvedHashes = {};
+for (const file of [...approvedFiles].sort()) {
+  approvedHashes[file] = crypto.createHash("sha256").update(await fs.readFile(path.join(dest, file))).digest("hex");
+}
+await fs.writeFile(path.join(dest, "runtime-files.json"), JSON.stringify({version: 1, files: approvedHashes}, null, 2));
 console.log("Mosh runtime ready.");

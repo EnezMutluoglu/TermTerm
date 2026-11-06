@@ -61,14 +61,21 @@ async fn start(
     };
     let (ssh, _) = connect_target(app, state, &id, host, epoch, remote).await?;
     let connection = Arc::new(ssh);
-    tunnels::start_connected(
+    let vpn = connection.vpn.clone();
+    let registration = vpn.as_ref().map(|lease|lease.register()).transpose()?;
+    let started = tunnels::start_connected(
         app.clone(),
         state.clone(),
         id.clone(),
         tunnel,
         connection.clone(),
     )
-    .await?;
+    .await;
+    if let Err(error) = started {
+        let task = state.tunnels.lock().map_err(|_|anyhow::anyhow!("Tunnel lock"))?.remove(&id);
+        if let Some(task) = task { task.abort(); let _ = task.await; }
+        return Err(error);
+    }
     let task_id = state
         .tunnels
         .lock()
@@ -79,6 +86,7 @@ async fn start(
     let state = state.clone();
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
+        let _registration = registration;
         let desktop = app.state::<DesktopState>();
         let monitor = async {
             let mut ticks = tokio::time::interval(Duration::from_millis(250));
@@ -106,22 +114,25 @@ async fn start(
                 }
             }
         };
-        tokio::select! {_=monitor=>{},_=desktop.cancelled(epoch)=>{}}
-        if let Ok(mut tasks) = state.tunnels.lock() {
+        let vpn_closed = tokio::select! {biased;_=crate::vpn_lifecycle::cancelled(&vpn)=>true,_=monitor=>false,_=desktop.cancelled(epoch)=>false};
+        let task = if let Ok(mut tasks) = state.tunnels.lock() {
             if tasks.get(&id).is_some_and(|t| t.id() == task_id) {
-                if let Some(task) = tasks.remove(&id) {
-                    task.abort();
-                }
-            }
+                tasks.remove(&id)
+            } else { None }
+        } else { None };
+        if let Some(task) = task {
+            if !vpn_closed { task.abort(); }
+            let _ = task.await;
         }
-        let _ = connection
+        let _ = tokio::time::timeout(Duration::from_secs(2), connection
             .handle
-            .disconnect(russh::Disconnect::ByApplication, "Team tunnel closed", "en")
+            .disconnect(russh::Disconnect::ByApplication, "Team tunnel closed", "en"))
             .await;
-        let _ = app.emit(
-            "tunnel-event",
-            serde_json::json!({"id":id,"status":"stopped"}),
-        );
+        if let Ok(tasks) = state.tunnels.lock() {
+            if tasks.get(&id).is_none_or(|task|task.id()==task_id) {
+                let _ = app.emit("tunnel-event",serde_json::json!({"id":id,"status":"stopped"}));
+            }
+        };
     });
     Ok(())
 }

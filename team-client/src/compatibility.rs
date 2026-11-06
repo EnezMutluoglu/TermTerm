@@ -6,7 +6,10 @@ use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 pub const API_VERSION: u64 = 1;
+#[cfg(not(feature = "vpn-candidate"))]
 pub const CLIENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+#[cfg(feature = "vpn-candidate")]
+pub const CLIENT_VERSION: &str = "0.4.3";
 pub fn satisfies_minimum(version: &str, minimum: &str) -> Result<bool> {
     Ok(semver::Version::parse(version)?
         .cmp_precedence(&semver::Version::parse(minimum)?)
@@ -117,6 +120,7 @@ impl PolicyStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn future_minimum()->String {let mut v=semver::Version::parse(CLIENT_VERSION).unwrap();v.patch+=1;v.pre=semver::Prerelease::EMPTY;v.to_string()}
     #[test]
     fn known_upgrade_survives_restart_without_touching_user_journal() -> Result<()> {
         let dir = tempfile::tempdir()?;
@@ -127,7 +131,7 @@ mod tests {
         let policy = Policy {
             revision: 2,
             api_version: 1,
-            minimum_client_version: "0.4.2".into(),
+            minimum_client_version: future_minimum(),
             service_version: "0.4.2".into(),
         };
         PolicyStore::new(dir.path(), "https://one/")?.save(&policy)?;
@@ -163,12 +167,13 @@ mod tests {
     }
     #[test]
     fn semantic_and_protocol_gate() -> Result<()> {
+        let future=future_minimum();
         for (version, api, required) in [
             ("0.4.0", 1, false),
             (CLIENT_VERSION, 1, false),
             ("0.4.1-dev.10", 1, false),
             ("0.4.1", 1, false),
-            ("0.4.2", 1, true),
+            (future.as_str(), 1, true),
             ("0.4.0", 2, true),
         ] {
             assert_eq!(

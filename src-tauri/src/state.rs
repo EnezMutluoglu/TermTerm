@@ -12,6 +12,7 @@ pub enum SessionInput {
 }
 #[derive(Default)]
 pub struct AppState {
+    pub vpn: crate::vpn::Runtime,
     pub team: Mutex<Option<crate::team::Account>>,
     pub team_gate: tokio::sync::Mutex<()>,
     pub team_rpc_gate: tokio::sync::Mutex<()>,

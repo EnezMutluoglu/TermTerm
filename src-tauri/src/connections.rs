@@ -65,10 +65,13 @@ pub struct SshHandler {
     pub vault_id: String,
     pub remote_target: Option<(String, u16)>,
     pub team_trust: Option<Arc<crate::team_v2::TrustState>>,
+    pub(crate) vpn: Option<crate::vpn_lifecycle::Lease>,
 }
 impl client::Handler for SshHandler {
     type Error = anyhow::Error;
     async fn check_server_key(&mut self, key: &PublicKeyOrCertificate) -> Result<bool> {
+        let vpn = self.vpn.clone();
+        crate::vpn_lifecycle::run(&vpn, async {
         if let Some(trust)=&self.team_trust {return trust.verify(&self.app,&self.state,&self.session,&self.address,self.port,key).await;}
         let public = key.public_key();
         let fingerprint = public.fingerprint(HashAlg::Sha256).to_string();
@@ -98,6 +101,7 @@ impl client::Handler for SshHandler {
         ensure!(vault.id == self.vault_id, "Vault changed");
         vault.put(&[Record::new("knownHost",json!({"label":address,"address":address,"publicKey":public_key,"fingerprint":fingerprint}))])?;
         Ok(true)
+        }).await
     }
     async fn server_channel_open_forwarded_tcpip(
         &mut self,
@@ -110,13 +114,17 @@ impl client::Handler for SshHandler {
         _session: &mut client::Session,
     ) -> Result<()> {
         if let Some((host, port)) = self.remote_target.clone() {
-            let stream = TcpStream::connect((host.as_str(), port)).await?;
-            reply.accept().await;
-            tokio::spawn(async move {
+            // This is the user's local forward target, not the VPN-carried SSH peer.
+            let work = async move {
+                let Ok(mut local) = TcpStream::connect((host.as_str(), port)).await else {
+                    reply.reject(russh::ChannelOpenFailure::ConnectFailed).await;
+                    return;
+                };
+                reply.accept().await;
                 let mut remote = channel.into_stream();
-                let mut local = stream;
                 let _ = tokio::io::copy_bidirectional(&mut remote, &mut local).await;
-            });
+            };
+            if let Some(vpn) = &self.vpn { vpn.spawn(work)?; } else { tokio::spawn(work); }
         } else {
             reply
                 .reject(russh::ChannelOpenFailure::AdministrativelyProhibited)
@@ -129,6 +137,7 @@ pub struct SshConnection {
     pub handle: client::Handle<SshHandler>,
     pub _parents: Vec<client::Handle<SshHandler>>,
     pub _audit: Option<crate::team::ConnectionAudit>,
+    pub(crate) vpn: Option<crate::vpn_lifecycle::Lease>,
 }
 pub struct SftpConnection {
     pub sftp: russh_sftp::client::SftpSession,
@@ -253,14 +262,17 @@ pub async fn connect_ssh(
     }
     let mut hops = vec![];
     expand(&records, host_id, &mut vec![], &mut hops)?;
-    let connection = connect_hops(app,state,id,&vault_id,&hops,&records,remote_target,None,false).await?;
+    let connection = connect_hops(app,state,id,&vault_id,&hops,&records,remote_target,None,false,None).await?;
     Ok(SshConnection {_audit:crate::team::connection_opened(state,&vault_id,host_id)?,..connection})
 }
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn connect_hops(
  app:&AppHandle,state:&Shared,id:&str,vault_id:&str,hops:&[Host],records:&[Record],
- remote_target:Option<(String,u16)>,team_trust:Option<Arc<crate::team_v2::TrustState>>,strict_auth:bool
+ remote_target:Option<(String,u16)>,team_trust:Option<Arc<crate::team_v2::TrustState>>,strict_auth:bool,
+ vpn:Option<crate::vpn_lifecycle::Lease>
 )->Result<SshConnection>{
+    let lifetime = vpn.clone();
+    crate::vpn_lifecycle::run(&lifetime, async move {
     let mut handles: Vec<client::Handle<SshHandler>> = vec![];
     for (index, host) in hops.iter().enumerate() {
         event(
@@ -290,11 +302,10 @@ pub(crate) async fn connect_hops(
                     .into_stream(),
             )
         } else {
-            Box::new(
-                tokio::time::timeout(Duration::from_secs(20), TcpStream::connect(dest))
-                    .await
-                    .context("TCP connection timed out")??,
-            )
+            tokio::time::timeout(Duration::from_secs(20), async {
+                if let Some(vpn) = &vpn { vpn.connect(app,state,dest.0,dest.1).await }
+                else { Ok(Box::new(TcpStream::connect(dest).await?) as BoxStream) }
+            }).await.context("TCP connection timed out")??
         };
         let stream = if let Some(proxy) = host.proxy.as_ref().filter(|p| !p.host.is_empty()) {
             tokio::time::timeout(
@@ -323,6 +334,7 @@ pub(crate) async fn connect_hops(
             port: host.port,
             vault_id: vault_id.to_string(),
             team_trust: team_trust.clone(),
+            vpn: vpn.clone(),
             remote_target: if index + 1 == hops.len() {
                 remote_target.clone()
             } else {
@@ -409,7 +421,9 @@ pub(crate) async fn connect_hops(
         handle,
         _parents: handles,
         _audit: None,
+        vpn,
     })
+    }).await
 }
 fn output(app: &AppHandle, id: &str, data: &[u8], log: &mut Vec<u8>) {
     if log.len() < 4 * 1024 * 1024 {

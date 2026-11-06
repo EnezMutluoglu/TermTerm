@@ -1,0 +1,21 @@
+--- a/library.c
++++ b/library.c
+@@ -1876,6 +1876,18 @@
+ 		if (!ret) {
+ 			for (opt = form->opts; opt; opt = opt->next) {
+ 				if (opt->type == OC_FORM_OPT_SSO_TOKEN) {
++					/* GP returns the destination form field with the browser token. */
++					if (!strcmp(vpninfo->proto->name, "gp") && vpninfo->sso_token_cookie &&
++					    (!strcasecmp(vpninfo->sso_token_cookie, "prelogin-cookie") ||
++					     !strcasecmp(vpninfo->sso_token_cookie, "portal-userauthcookie"))) {
++						char *name = strdup(vpninfo->sso_token_cookie);
++						if (!name) {
++							ret = -ENOMEM;
++							break;
++						}
++						free(opt->name);
++						opt->name = name;
++					}
+ 					free(opt->_value);
+ 					opt->_value = vpninfo->sso_cookie_value;
+ 					vpninfo->sso_cookie_value = NULL;

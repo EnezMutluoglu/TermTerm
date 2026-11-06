@@ -42,12 +42,12 @@ pub(super) fn migrate_settled(tx: &Transaction<'_>) -> Result<()> {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Clock {
-    device: Uuid,
-    sequence: i64,
-    last_wall_ms: i64,
-    remaining_ms: i64,
-    verified: bool,
+pub(super) struct Clock {
+    pub(super) device: Uuid,
+    pub(super) sequence: i64,
+    pub(super) last_wall_ms: i64,
+    pub(super) remaining_ms: i64,
+    pub(super) verified: bool,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Permissions {
@@ -109,7 +109,7 @@ fn open<T: for<'a> Deserialize<'a>>(key: &[u8; 32], aad: &str, bytes: &[u8]) -> 
         aad.as_bytes(),
     )?)?)
 }
-fn clock(tx: &Transaction<'_>, key: &[u8; 32], scope: &str, now: i64) -> Result<Clock> {
+pub(super) fn clock(tx: &Transaction<'_>, key: &[u8; 32], scope: &str, now: i64) -> Result<Clock> {
     ensure!(now >= 0, "Invalid local clock");
     let row: Option<Vec<u8>> = tx
         .query_row("SELECT ciphertext FROM journal_state WHERE id=1", [], |r| {
@@ -136,7 +136,7 @@ fn clock(tx: &Transaction<'_>, key: &[u8; 32], scope: &str, now: i64) -> Result<
     c.last_wall_ms = c.last_wall_ms.max(now);
     Ok(c)
 }
-fn write_clock(tx: &Transaction<'_>, key: &[u8; 32], scope: &str, c: &Clock) -> Result<()> {
+pub(super) fn write_clock(tx: &Transaction<'_>, key: &[u8; 32], scope: &str, c: &Clock) -> Result<()> {
     tx.execute("INSERT INTO journal_state VALUES(1,?1) ON CONFLICT(id) DO UPDATE SET ciphertext=excluded.ciphertext",
         [seal(key, &format!("{scope}:journal:clock"), c)?])?;
     Ok(())
@@ -817,6 +817,7 @@ impl Store {
             [id.to_string()],
         )?;
         super::connections::invalidate_for(&tx, &self.key, &self.context, id)?;
+        tx.execute("DELETE FROM vpn_requirements WHERE root_id=?1 OR hop_id=?1",[id.to_string()])?;
         tx.commit()?;
         Ok(())
     }
@@ -875,6 +876,7 @@ impl Store {
         let mut c = clock(&tx, &self.key, &self.context, 0)?;
         c.verified = false;
         c.remaining_ms = 0;
+        super::vpn::revoke(&tx,&self.key,&self.context,None)?;
         write_clock(&tx, &self.key, &self.context, &c)?;
         tx.commit()?;
         Ok(())
@@ -1327,15 +1329,15 @@ mod tests {
         let identity = Identity::generate();
         let mut s = Store::open(dir.path(), "scope", &identity)?;
         s.replace("known-hosts", 0, b"existing trust")?;
-        s.db.execute_batch("DROP TABLE journal_operations; DROP TABLE cached_resources; DROP TABLE journal_state; PRAGMA user_version=1;")?;
+        s.db.execute_batch("DROP TABLE journal_operations; DROP TABLE cached_resources; DROP TABLE journal_state; DROP TABLE cached_vpn; DROP TABLE vpn_operations; DROP TABLE vpn_requirements; PRAGMA user_version=1;")?;
         drop(s);
         let s = Store::open(dir.path(), "scope", &identity)?;
         assert_eq!(&*s.read("known-hosts")?.bytes, b"existing trust");
         assert_eq!(
             s.db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?,
-            8
+            9
         );
-        s.db.execute_batch("PRAGMA user_version=9")?;
+        s.db.execute_batch("PRAGMA user_version=10")?;
         drop(s);
         assert!(Store::open(dir.path(), "scope", &identity).is_err());
         Ok(())

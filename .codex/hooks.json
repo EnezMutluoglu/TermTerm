@@ -1,0 +1,14 @@
+{
+  "description": "TermTerm fast baseline checks; review and trust in Codex before automatic use.",
+  "hooks": {
+    "Stop": [{
+      "hooks": [{
+        "type": "command",
+        "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/check.sh\"",
+        "commandWindows": "powershell.exe -NoProfile -NonInteractive -Command \"$repo = git rev-parse --show-toplevel; if ($LASTEXITCODE -ne 0) { exit 1 }; & 'C:/Program Files/Git/bin/bash.exe' ($repo + '/.codex/hooks/check.sh'); exit $LASTEXITCODE\"",
+        "timeout": 300,
+        "statusMessage": "TermTerm: typecheck and unit tests"
+      }]
+    }]
+  }
+}

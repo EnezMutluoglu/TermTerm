@@ -1,5 +1,5 @@
 import { tr } from "./i18n";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   Terminal,
@@ -99,7 +99,12 @@ import DataTools, { type DataMode } from "./DataTools";
 import { t } from "./i18n";
 import SharedTerminal from "./SharedTerminal";
 import PasswordBoard from "./PasswordBoard";
+import VpnWorkspace from "./VpnWorkspace";
+import Authenticator from "./Authenticator";
+const vpnEnabled = import.meta.env.DEV || (import.meta.env.MODE === "vpn-dev" && import.meta.env.VITE_VPN_DEV === "1") || (import.meta.env.MODE === "vpn-candidate" && import.meta.env.VITE_VPN_CANDIDATE === "0.4.3");
 type Nav =
+  | "authenticator"
+  | "vpn"
   | "team"
   | "hosts"
   | "sftp"
@@ -428,9 +433,9 @@ export default function App() {
       }
       if (action === "tabNext" || action === "tabPrevious") {
         e.preventDefault();
-        const tabs = ["vault", "sftp", ...sessions.map((s) => s.id)];
+        const tabs = ["vault", "sftp", ...(!teamMode ? ["authenticator"] : []), ...sessions.map((s) => s.id)];
         const current =
-          nav === "terminal" ? active : nav === "sftp" ? "sftp" : "vault";
+          nav === "terminal" ? active : nav === "sftp" ? "sftp" : nav === "authenticator" ? "authenticator" : "vault";
         const next =
           tabs[
             (tabs.indexOf(current) +
@@ -440,6 +445,7 @@ export default function App() {
           ];
         if (next === "vault") navigate("hosts");
         else if (next === "sftp") navigate("sftp");
+        else if (next === "authenticator") navigate("authenticator");
         else {
           setActive(next);
           setNav("terminal");
@@ -549,6 +555,10 @@ export default function App() {
       records: [...previewGroups, ...hosts],
     });
     setInfo({ home: "C:\\Users", defaultVaultPath: "", version: "0.1.0" });
+    if (new URLSearchParams(location.search).has("previewVpn")) {
+      setNav("vpn");
+      setInfo({ home: "", defaultVaultPath: "", version: "0.4.3-dev.1" });
+    }
   }, []);
   function navigate(n: Nav) {
     cancelDetailsClick();
@@ -1385,7 +1395,7 @@ export default function App() {
           aria-label={tr("Workspace tabs")}
         >
           <button
-            className={nav !== "terminal" && nav !== "sftp" ? "active" : ""}
+            className={!["terminal","sftp","authenticator"].includes(nav) ? "active" : ""}
             onClick={() => navigate("hosts")}
           >
             <HardDrive size={14} />
@@ -1398,6 +1408,7 @@ export default function App() {
             <ArrowLeftRight size={14} />
             SFTP
           </button>
+          {!teamMode && <button className={nav === "authenticator" ? "active" : ""} onClick={() => navigate("authenticator")}><ShieldCheck size={14} />Authenticator</button>}
           {sessions.map((s) => (
             <div
               key={s.id}
@@ -1525,6 +1536,7 @@ export default function App() {
               </button>
             )}
             {navItems.map((n) => (
+              <Fragment key={n.id}>
               <button
                 key={n.id}
                 className={nav === n.id ? "active" : ""}
@@ -1545,6 +1557,8 @@ export default function App() {
                   </small>
                 )}
               </button>
+              {n.id === "sftp" && vpnEnabled && !teamMode && <button className={nav === "vpn" ? "active" : ""} onClick={() => navigate("vpn")}><ShieldCheck size={17} /><span>VPN</span></button>}
+              </Fragment>
             ))}
           </nav>
           <div className="nav-label with-action">
@@ -1629,6 +1643,8 @@ export default function App() {
               }}
             />
           )}
+          {vpnEnabled && !teamMode && <div hidden={nav !== "vpn"} style={{ height: "100%" }}><VpnWorkspace key={vault.id} vaultId={vault.id} onOpenAuthenticator={() => navigate("authenticator")} /></div>}
+          {!teamMode && nav === "authenticator" && <Authenticator key={vault.id} visible />}
           <div
             hidden={nav !== "sftp"}
             style={{
@@ -1791,7 +1807,7 @@ export default function App() {
               </div>
             </div>
           </div>
-          {!["terminal", "sftp", "settings", "team"].includes(nav) && (
+          {!["terminal", "sftp", "settings", "team", "vpn", "authenticator"].includes(nav) && (
             <div
               className="records-page"
               onContextMenu={(e) => {

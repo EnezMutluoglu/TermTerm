@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "version": "0.4.3",
+  "identifier": "local.termterm.desktop",
+  "mainBinaryName": "termterm",
+  "bundle": { "createUpdaterArtifacts": false },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/EnezMutluoglu/TermTerm/releases/latest/download/latest.json"]
+    }
+  }
+}

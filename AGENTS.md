@@ -8,6 +8,12 @@
 - Never commit user vaults, backups, exported hosts, private credentials, signing keys, local lab files or build caches. Public disposable fixtures under `tests/ssh-keys` are the only SSH private-key test material permitted in source.
 - Do not mark macOS, hardware keys, production-server authentication or other unavailable environments as tested.
 
+## VPN development isolation
+
+- The owner explicitly requires the installed stable TermTerm to remain untouched. Do not run a stable installer, uninstaller, upgrade, shortcut replacement or stable-vault test as part of VPN development.
+- Use `tauri.vpn-dev.conf.json` with the distinct `local.termterm.desktop.vpndev` identity and disposable data. Do not use the generic packaging command for VPN development.
+- Current VPN engine helpers are isolated Linux lab builds, not production privileged services. Keep their namespace guard until an authenticated, narrowly scoped network broker and cleanup policy have been implemented and tested.
+
 ## Team upgrade compatibility
 
 - Treat applied Team migrations as immutable. Add a new numbered migration; never rewrite an applied SQL file or silently adopt a changed checksum.
@@ -18,3 +24,11 @@
 - The owner removed unused v0.4.0 Team transfer from scope on 8 Oct 2026. Preserve existing archive/preview source but do not treat its completion as a release gate. Future in-place v2 upgrades and data preservation remain mandatory.
 - Team owners select a required client release via Team administration; personal updates stay optional. Keep technical compatibility floor separate from this team policy. Do not add nonexistent/unverified client versions to the packaged clientVersions catalogue.
 - Follow `docs/TEAM_UPGRADES_TR.md`; retain previous binaries and verified backups. No automatic destructive rollback or publication is authorized by development work.
+
+## Coding task routing
+
+- For every coding task, the root agent acts only as router: delegate read-only triage first, then delegate implementation; workers must not recursively triage or spawn agents.
+- Map triage routes to profiles: quick = gpt-6-luna/medium, build = gpt-6.1-sol/medium, deep = gpt-6.1-sol/xhigh; triage uses gpt-6-luna/low and emits only route, risk and relevant checks as JSON.
+- Escalate only with evidence after at most two failed focused attempts on the same blocker, or unresolved high-risk ambiguity: quick → build → deep → escalate (gpt-6-astra/medium). Keep escalation bounded; report unresolved decisions instead of looping or broadening scope.
+- Before completion, delegate independent verification to verifier (gpt-6.1-sol/high), which reviews and runs checks without editing source/config/docs/fixtures; ordinary generated test outputs are allowed. Route findings back to an implementer, rerun affected checks, then summarize changes, evidence and limitations.
+- Read ROUTING-LESSONS.md before routing; append only dated, proven, reusable lessons with evidence, never secrets or private user data. Preserve all existing application work, release protections and worktree-specific rules.

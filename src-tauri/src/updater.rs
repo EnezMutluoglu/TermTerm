@@ -7,8 +7,12 @@ use tauri_plugin_updater::{Update, UpdaterExt};
 
 pub const REPOSITORY: &str = "https://github.com/EnezMutluoglu/TermTerm";
 pub fn channel() -> &'static str {
-    if env!("CARGO_PKG_VERSION").contains('-') { return "development"; }
-    option_env!("TERMTERM_RELEASE_CHANNEL").unwrap_or("development")
+    build_channel(env!("CARGO_PKG_VERSION"), cfg!(feature = "vpn-candidate"), option_env!("TERMTERM_RELEASE_CHANNEL"))
+}
+fn build_channel(version: &str, candidate: bool, requested: Option<&'static str>) -> &'static str {
+    if candidate { return if requested == Some("stable") { "stable" } else { "candidate" }; }
+    if version.contains('-') { return "development"; }
+    requested.unwrap_or("development")
 }
 
 #[derive(Default)]
@@ -18,9 +22,18 @@ pub struct UpdateState {
 }
 
 #[tauri::command]
-pub fn update_info() -> Value {
-    json!({"version":env!("CARGO_PKG_VERSION"),"channel":channel(),"enabled":channel()=="stable", "repository":REPOSITORY,
-        "platform":std::env::consts::OS, "packageSupported": cfg!(any(windows, target_os="macos")) || std::env::var_os("APPIMAGE").is_some()})
+pub fn update_info(app: AppHandle) -> Value {
+    json!({"version":app.package_info().version.to_string(),"channel":channel(),"enabled":channel()=="stable", "repository":REPOSITORY,
+        "platform":std::env::consts::OS, "administratorAppImage":administrator_appimage(),
+        "packageSupported": !administrator_appimage() && (cfg!(any(windows, target_os="macos")) || std::env::var_os("APPIMAGE").is_some())})
+}
+#[cfg(any(test, all(target_os="linux", feature="vpn-candidate")))]
+fn root_appdir_executable(path: &std::path::Path) -> bool { path == std::path::Path::new("/opt/termterm-appimage/usr/bin/termterm") }
+fn administrator_appimage() -> bool {
+    #[cfg(all(target_os="linux", feature="vpn-candidate"))]
+    return std::env::current_exe().is_ok_and(|path| root_appdir_executable(&path));
+    #[cfg(not(all(target_os="linux", feature="vpn-candidate")))]
+    false
 }
 
 fn approved_download(version: &str, url: &url::Url, raw: &Value) -> bool {
@@ -89,6 +102,9 @@ pub async fn update_install(
 ) -> Result<(), String> {
     if channel() != "stable" {
         return Err("Development builds cannot install updates.".into());
+    }
+    if administrator_appimage() {
+        return Err("This root-owned AppImage requires an administrator to stop VPN, install the reviewed replacement and update the broker executable pin. In-app replacement is disabled.".into());
     }
     #[cfg(target_os = "linux")]
     if std::env::var_os("APPIMAGE").is_none() {
@@ -186,6 +202,23 @@ pub async fn update_install(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn production_candidate_updates_require_the_explicit_release_build_channel() {
+        for requested in [None, Some("candidate"), Some("development"), Some("unknown")] {
+            assert_eq!(build_channel("0.4.3", true, requested), "candidate");
+        }
+        assert_eq!(build_channel("0.4.3", true, Some("stable")), "stable");
+        assert_eq!(build_channel("0.4.3-dev.4", false, Some("stable")), "development");
+        assert_eq!(build_channel("0.4.2", false, None), "development");
+        assert_eq!(build_channel("0.4.2", false, Some("stable")), "stable");
+    }
+    #[test]
+    fn administrator_appimage_path_is_exact_and_does_not_authorize_transient_mounts() {
+        assert!(root_appdir_executable(std::path::Path::new("/opt/termterm-appimage/usr/bin/termterm")));
+        for path in ["/tmp/.mount_termterm/usr/bin/termterm", "/usr/bin/termterm", "/opt/termterm-appimage/usr/bin/termterm-other"] {
+            assert!(!root_appdir_executable(std::path::Path::new(path)));
+        }
+    }
     #[test]
     #[ignore = "Requires TERMTERM_VERIFY_ARTIFACT pointing to a signed release installer"]
     fn release_signature_and_tamper_check() {
