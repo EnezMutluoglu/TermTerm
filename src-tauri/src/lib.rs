@@ -1,3 +1,5 @@
+#[cfg(all(feature = "vpn-candidate", feature = "e2e"))]
+compile_error!("The production VPN candidate cannot include the development test driver");
 pub mod archive;
 pub mod authenticator;
 pub mod commands;
@@ -32,7 +34,7 @@ mod vpn_lifecycle;
 mod vpn_sso;
 #[cfg(all(target_os = "linux", feature = "vpn-webkit-fixture"))]
 pub use vpn_sso::native_webkit_response_fixture;
-#[cfg(any(windows, test))]
+#[cfg(windows)]
 mod vpn_bundle;
 pub fn run() {
     use commands::*;

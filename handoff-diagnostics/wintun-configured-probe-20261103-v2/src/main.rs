@@ -5,14 +5,14 @@ use termterm_vpn_windows_broker::{policy::{Assignment, Cidr, Plan}, transaction:
 use uuid::Uuid;
 use windows_sys::Win32::{Devices::DeviceAndDriverInstallation::*, NetworkManagement::IpHelper::*, Networking::WinSock::AF_INET};
 
-const GUID: &str = "f4ce9462-cc63-4f3f-9d59-916ed5d8541a";
+const GUID: &str = "eaef05e1-3a78-4a42-a44f-bb94b6e8c7bc";
 const CAP: Duration = Duration::from_secs(60);
 const HOLD: Duration = Duration::from_secs(150);
 
 fn plan() -> Result<Plan> {
     Ok(Plan {addresses:vec![Assignment {cidr:Cidr::parse("10.97.0.2/32")?,gateway:None}],
         routes:vec![Cidr::parse("10.97.0.1/32")?,Cidr::parse("10.88.0.53/32")?],mtu:1420,
-        dns_servers:vec!["10.88.0.53".parse()?],search_domain:"d3366f27b0f1e5a7.termterm.test".into(),
+        dns_servers:vec!["10.88.0.53".parse()?],search_domain:"9af1ab39baf74118.termterm.test".into(),
         excluded_routes:vec![],remote:None,full_tunnel:false})
 }
 
@@ -110,7 +110,7 @@ fn probe() -> Result<()> {
     let mut journal = Journal::new(Uuid::new_v4(), 1)?;
     let mut disk = root.store(&journal);
     let started = Instant::now();
-    emit(json!({"stage":"before","sessionId":journal.session_id,"snapshot":snapshot(guid,None)?,"plan":plan,"preDnsHoldSeconds":HOLD.as_secs(),"noEngineOrApplicationTraffic":true,"watchdog":false}))?;
+    emit(json!({"stage":"before","sessionId":journal.session_id,"snapshot":snapshot(guid,None)?,"plan":plan,"postDnsHoldSeconds":HOLD.as_secs(),"noEngineOrApplicationTraffic":true,"watchdog":false}))?;
     journal.apply(Object::Adapter { guid, name:format!("TermTerm VPN {}",guid.simple()) }, &mut disk, &mut network)?;
     let adapter = network.adapters.get(&guid).context("probe_adapter_missing")?.clone();
     let luid = adapter.luid;
@@ -120,7 +120,8 @@ fn probe() -> Result<()> {
         journal.apply(Object::Address {guid,luid,cidr:plan.addresses[0].cidr.clone()},&mut disk,&mut network)?;
         let before=OwnedNetwork::mtu(guid,luid,false)?;
         journal.apply(Object::Mtu {guid,luid,ipv6:false,before,after:plan.mtu},&mut disk,&mut network)?;
-        for destination in network::route_apply_order(&plan.routes) {
+        // Both fixed routes are /32s; match the broker's address ordering locally.
+        for destination in [&plan.routes[1], &plan.routes[0]] {
             journal.apply(Object::Route {guid,luid,destination:destination.clone(),metric:5},&mut disk,&mut network)?;
         }
         session=Some(adapter.start(plan.mtu as usize)?);
@@ -129,9 +130,6 @@ fn probe() -> Result<()> {
             ensure!(dad.elapsed()<Duration::from_secs(10),"configured_probe_dad_timeout");
             std::thread::sleep(Duration::from_millis(200));
         }
-        emit(json!({"stage":"pre_dns_hold_begin","elapsedMs":started.elapsed().as_millis(),"holdSeconds":HOLD.as_secs(),"configuredDns":false,"snapshot":snapshot(guid,Some(luid))?}))?;
-        std::thread::sleep(HOLD);
-        emit(json!({"stage":"pre_dns_hold_finished","elapsedMs":started.elapsed().as_millis(),"configuredDns":false,"snapshot":snapshot(guid,Some(luid))?}))?;
         network::verify_dns_routes(&plan.dns_servers,luid)?;
         let before=OwnedNetwork::metric(guid,luid)?;
         journal.apply(Object::Metric {guid,luid,before,after:Metric {automatic:false,value:1}},&mut disk,&mut network)?;
@@ -139,7 +137,9 @@ fn probe() -> Result<()> {
         ensure!(before==DnsSettings::default(),"new_adapter_dns_already_configured");
         let after=DnsSettings {servers:plan.dns_servers.clone(),search_domain:plan.search_domain.clone(),search_list:vec![plan.search_domain.clone()]};
         journal.apply(Object::Dns {guid,luid,before,after},&mut disk,&mut network)?;
-        emit(json!({"stage":"dns_applied_immediate_cleanup_next","elapsedMs":started.elapsed().as_millis(),"unfinishedEntries":journal.entries.iter().filter(|e|!e.undone).count()}))?;
+        emit(json!({"stage":"post_dns_hold_begin","elapsedMs":started.elapsed().as_millis(),"holdSeconds":HOLD.as_secs(),"configuredDns":true,"snapshot":snapshot(guid,Some(luid))?}))?;
+        std::thread::sleep(HOLD);
+        emit(json!({"stage":"post_dns_hold_finished_immediate_cleanup_next","elapsedMs":started.elapsed().as_millis(),"configuredDns":true,"snapshot":snapshot(guid,Some(luid))?,"unfinishedEntries":journal.entries.iter().filter(|e|!e.undone).count()}))?;
         Ok(())
     })();
     drop(session); drop(adapter);
@@ -172,7 +172,7 @@ fn probe() -> Result<()> {
 fn main() -> Result<()> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     match args.as_slice() {
-        [action] if action == "--describe" => emit(json!({"readOnly":true,"guid":GUID,"probeCommand":"--probe-single-owned-adapter","observationCapSeconds":60,"preDnsHoldSeconds":150,"configuredAddressesRoutesDns":true,"plan":plan()?,"dnsDwell":"apply then immediate reverse cleanup; no deliberate resolver queries","safety":"existing production driver hash/sweep/host-route overlap guards, exclusive broker lock, empty protected journal preflight; never recovers existing journals"})),
+        [action] if action == "--describe" => emit(json!({"readOnly":true,"guid":GUID,"probeCommand":"--probe-single-owned-adapter","observationCapSeconds":60,"postDnsHoldSeconds":150,"configuredAddressesRoutesDns":true,"plan":plan()?,"dnsDwell":"apply then hold 150 seconds before reverse cleanup; no deliberate resolver queries","safety":"existing production driver hash/sweep/host-route overlap guards, exclusive broker lock, empty protected journal preflight; never recovers existing journals"})),
         [action] if action == "--probe-single-owned-adapter" => probe(),
         [action, guid] if action == "--observe" => emit(snapshot(guid.parse()?,None)?),
         _ => anyhow::bail!("expected --describe, --observe GUID, or --probe-single-owned-adapter"),
@@ -197,7 +197,7 @@ mod tests {
         assert_eq!(plan.mtu,1420);assert!(!plan.full_tunnel);assert!(plan.excluded_routes.is_empty());
         assert_eq!(plan.routes.iter().map(Cidr::text).collect::<Vec<_>>(),["10.97.0.1/32","10.88.0.53/32"]);
         assert_eq!(plan.dns_servers,["10.88.0.53".parse::<std::net::IpAddr>().unwrap()]);
-        assert_eq!(plan.search_domain,"d3366f27b0f1e5a7.termterm.test");
+        assert_eq!(plan.search_domain,"9af1ab39baf74118.termterm.test");
         for existing in ["10.97.0.2/32","10.97.0.1/32","10.88.0.53/32","10.0.0.0/8"] {
             for connected in [false,true] {assert!(plan.host_route_conflicts(&Cidr::parse(existing).unwrap(),connected));}
         }

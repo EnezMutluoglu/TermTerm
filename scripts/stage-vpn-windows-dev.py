@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage an inert local VPN development desktop; never elevate, load DLLs or install."""
+"""Stage a local VPN development/candidate desktop; never elevate, load DLLs or install."""
 import argparse
 import hashlib
 import json
@@ -21,15 +21,22 @@ def nsis_bytes(data):
     return data.replace(unknown, nsis, 1)
 
 
-def verify_installer(installer, stage):
-    manifest = (stage / "vpn-dev-bundle.json").read_bytes()
+def contract(candidate=None):
+    if candidate not in (None, "0.4.3"):
+        raise ValueError("Unsupported production candidate version")
+    return ("termterm.exe", "vpn-bundle.json", "local.termterm.desktop") if candidate else (DESKTOP, "vpn-dev-bundle.json", "local.termterm.desktop.vpndev")
+
+
+def verify_installer(installer, stage, candidate=None):
+    desktop, manifest_name, _ = contract(candidate)
+    manifest = (stage / manifest_name).read_bytes()
     files = json.loads(manifest)["files"]
     sevenzip = TOOLS / "downloads/tools/7zip-26.03-windows/7z.exe"
-    for name, expected in [(DESKTOP, (stage / DESKTOP).read_bytes()), ("vpn-dev-bundle.json", manifest)]:
+    for name, expected in [(desktop, (stage / desktop).read_bytes()), (manifest_name, manifest)]:
         actual = subprocess.run([str(sevenzip), "x", "-so", str(installer), name], check=True, capture_output=True).stdout
         if actual != expected:
             raise ValueError("NSIS payload differs from its exact staged inventory: " + name)
-    if digest(stage / DESKTOP) != files[DESKTOP]:
+    if digest(stage / desktop) != files[desktop]:
         raise ValueError("NSIS desktop inventory hash mismatch")
     print("Verified exact NSIS desktop payload and inventory; installer was not executed")
 
@@ -49,17 +56,18 @@ def inside(path, parent):
     return path
 
 
-def stage(application, broker, destination, bundle_type="portable"):
+def stage(application, broker, destination, bundle_type="portable", candidate=None):
+    desktop, manifest_name, identity = contract(candidate)
     application = inside(application, ROOT)
     broker = inside(broker, ROOT)
     destination = inside(destination, TOOLS)
-    if application.name != DESKTOP or broker.name != "termterm-vpn-broker.exe":
+    if application.name != desktop or broker.name != "termterm-vpn-broker.exe":
         raise ValueError("Use the fixed desktop and default broker executable names")
     if destination.exists():
         raise ValueError("Use a new destination; previous test bundles are preserved")
     lock = json.loads((ROOT / "scripts/vpn-windows-dependencies.json").read_bytes())
     sources = {
-        DESKTOP: application,
+        desktop: application,
         "termterm-vpn-broker.exe": broker,
         "termterm-openvpn.exe": TOOLS / "engine/termterm-openvpn.exe",
         "termterm-openconnect.exe": TOOLS / "engine/termterm-openconnect.exe",
@@ -98,15 +106,17 @@ def stage(application, broker, destination, bundle_type="portable"):
         raise ValueError("OpenConnect license SHA256 mismatch")
     destination.mkdir(parents=True, exist_ok=False)
     for name, source in sources.items():
-        if name == DESKTOP and bundle_type == "nsis":
+        if name == desktop and bundle_type == "nsis":
             # Tauri patches only the installer copy; its exact hash differs from the portable executable.
             (destination / name).write_bytes(nsis_bytes(source.read_bytes()))
         else:
             shutil.copyfile(source, destination / name)
-    manifest = {"version": 1, "applicationIdentifier": "local.termterm.desktop.vpndev",
-                "developmentOnly": True,
+    manifest = {"version": 1, "applicationIdentifier": identity,
+                "developmentOnly": not bool(candidate),
                 "files": {name: digest(destination / name) for name in sorted(sources)}}
-    path = destination / "vpn-dev-bundle.json"
+    if candidate:
+        manifest["candidateVersion"] = candidate
+    path = destination / manifest_name
     path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"directory": str(destination), "files": len(sources),
                       "manifestSha256": digest(path), "privilegedReadinessEnabled": False,
@@ -119,11 +129,12 @@ if __name__ == "__main__":
     parser.add_argument("--broker", type=Path)
     parser.add_argument("--destination", type=Path)
     parser.add_argument("--bundle-type", choices=["portable", "nsis"], default="portable")
+    parser.add_argument("--candidate", choices=["0.4.3"])
     parser.add_argument("--verify-installer", type=Path)
     args = parser.parse_args()
     if args.verify_installer and args.destination:
-        verify_installer(args.verify_installer, args.destination)
+        verify_installer(args.verify_installer, args.destination, args.candidate)
     elif args.application and args.broker and args.destination:
-        stage(args.application, args.broker, args.destination, args.bundle_type)
+        stage(args.application, args.broker, args.destination, args.bundle_type, args.candidate)
     else:
         parser.error("Provide application/broker/destination or verify-installer/destination")

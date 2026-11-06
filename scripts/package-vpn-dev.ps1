@@ -3,9 +3,12 @@ param(
   [Parameter(Mandatory=$true)][string]$Runtime,
   [Parameter(Mandatory=$true)][string]$WebViewRuntime,
   [Parameter(Mandatory=$true)][string]$WebViewSha256,
-  [string]$BuildCache
+  [string]$BuildCache,
+  [ValidateSet('0.4.3')][string]$Candidate,
+  [switch]$ReleaseCandidate
 )
 $ErrorActionPreference = 'Stop'
+if ($ReleaseCandidate -and !$Candidate) { throw 'A release candidate requires the explicit -Candidate 0.4.3 contract.' }
 $project = Split-Path $PSScriptRoot -Parent
 Set-Location -LiteralPath $project
 $outputPath = if ([IO.Path]::IsPathRooted($Output)) { [IO.Path]::GetFullPath($Output) } else { [IO.Path]::GetFullPath((Join-Path $project $Output)) }
@@ -18,13 +21,38 @@ if (!$runtimePath.StartsWith($tools, [StringComparison]::OrdinalIgnoreCase)) { t
 $preflightText = python scripts/collect-vpn-runtime.py --package-preflight --runtime $runtimePath --output $outputPath
 if ($LASTEXITCODE -ne 0) { throw 'VPN package preflight failed before any build or output creation.' }
 $preflight = ($preflightText -join "`n") | ConvertFrom-Json
-$config = Get-Content -LiteralPath 'src-tauri/tauri.vpn-dev.conf.json' -Raw | ConvertFrom-Json
+$configPath = if ($Candidate) { 'src-tauri/tauri.vpn-candidate.conf.json' } else { 'src-tauri/tauri.vpn-dev.conf.json' }
+$config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
 $windows = Get-Content -LiteralPath 'src-tauri/tauri.vpn-windows-package.conf.json' -Raw | ConvertFrom-Json
-if ($config.identifier -ne 'local.termterm.desktop.vpndev' -or $config.productName -ne 'TermTerm VPN Dev' -or $config.bundle.active -or $config.bundle.createUpdaterArtifacts -or $config.plugins.updater.endpoints.Count) {
+if ($Candidate) {
+  if ($config.identifier -ne 'local.termterm.desktop' -or $config.productName -ne 'TermTerm' -or $config.version -ne $Candidate -or $config.mainBinaryName -ne 'termterm' -or $config.build.features.Count -ne 1 -or $config.build.features[0] -ne 'vpn-candidate') { throw 'Exact production candidate build contract required.' }
+  $windows = $config
+} elseif ($config.identifier -ne 'local.termterm.desktop.vpndev' -or $config.productName -ne 'TermTerm VPN Dev') {
+  throw 'Isolated VPN development identity is required.'
+}
+if ($config.bundle.active -or $config.bundle.createUpdaterArtifacts -or $config.plugins.updater.endpoints.Count) {
   throw 'Isolated VPN development identity and disabled updater are required.'
 }
 $desktopName = $windows.mainBinaryName + '.exe'
-if ($desktopName -ne 'termterm-vpn-dev.exe') { throw 'Windows packages require the distinct development executable name.' }
+if ($desktopName -ne $(if ($Candidate) {'termterm.exe'} else {'termterm-vpn-dev.exe'})) { throw 'Windows executable differs from the selected build contract.' }
+$configs = @('--config', $configPath)
+$updaterEndpoints = @()
+if (!$Candidate) { $configs += @('--config', 'src-tauri/tauri.vpn-windows-package.conf.json') }
+if ($ReleaseCandidate) {
+  $releasePath = 'src-tauri/tauri.vpn-release-candidate.conf.json'
+  $release = Get-Content -LiteralPath $releasePath -Raw | ConvertFrom-Json
+  $stable = Get-Content -LiteralPath 'src-tauri/tauri.conf.json' -Raw | ConvertFrom-Json
+  if ($release.version -ne $Candidate -or $release.identifier -ne $config.identifier -or $release.mainBinaryName -ne $config.mainBinaryName -or
+      ($release.plugins.updater.endpoints -join '`n') -ne ($stable.plugins.updater.endpoints -join '`n') -or $release.plugins.updater.pubkey -or $release.bundle.createUpdaterArtifacts) {
+    throw 'Release candidate must preserve the existing signed stable updater contract.'
+  }
+  $configs += @('--config', $releasePath)
+  $updaterEndpoints = @($release.plugins.updater.endpoints)
+}
+$candidateArgs = if ($Candidate) { @('--candidate', $Candidate) } else { @() }
+$brokerFeatures = if ($Candidate) { @('--features', 'production-candidate') } else { @() }
+$manifestName = if ($Candidate) { 'vpn-bundle.json' } else { 'vpn-dev-bundle.json' }
+$packageName = if ($ReleaseCandidate) { 'TermTerm-Release-Candidate' } elseif ($Candidate) { 'TermTerm-Candidate' } else { 'TermTerm-VPN-Dev' }
 $webview = (Resolve-Path -LiteralPath $WebViewRuntime).Path
 if ($WebViewSha256 -notmatch '^[a-f0-9]{64}$' -or (Get-FileHash -LiteralPath $webview -Algorithm SHA256).Hash.ToLower() -ne $WebViewSha256) { throw 'Offline WebView2 prerequisite hash mismatch.' }
 $signature = Get-AuthenticodeSignature -LiteralPath $webview
@@ -65,22 +93,23 @@ $oldE2e = $env:VITE_E2E
 $oldPath = $env:PATH
 try {
   $env:CARGO_TARGET_DIR = $target
-  $env:TERMTERM_RELEASE_CHANNEL = 'development'
+  $env:TERMTERM_RELEASE_CHANNEL = if ($ReleaseCandidate) { 'stable' } elseif ($Candidate) { 'candidate' } else { 'development' }
   Remove-Item Env:VITE_E2E -ErrorAction SilentlyContinue
   $env:PATH = "$env:USERPROFILE/.cargo/bin;$env:PATH"
-  cargo build --locked --release --manifest-path vpn-windows-broker/Cargo.toml --target-dir (Join-Path $outputPath 'broker-target')
+  cargo build --locked --release --manifest-path vpn-windows-broker/Cargo.toml --target-dir (Join-Path $outputPath 'broker-target') @brokerFeatures
   if ($LASTEXITCODE -ne 0) { throw 'Default broker build failed.' }
-  pnpm.cmd exec tauri build --no-bundle --config src-tauri/tauri.vpn-dev.conf.json --config src-tauri/tauri.vpn-windows-package.conf.json
+  pnpm.cmd exec tauri build --no-bundle @configs
   if ($LASTEXITCODE -ne 0) { throw 'Isolated VPN desktop build failed.' }
   $binary = Join-Path $target ('release/' + $desktopName)
   $versionInfo = (Get-Item -LiteralPath $binary).VersionInfo
   if ($versionInfo.ProductName -ne $config.productName -or $versionInfo.ProductVersion -ne $config.version) { throw 'Built executable has the wrong identity/version.' }
-  if (Get-ChildItem -LiteralPath 'dist-vpn-dev/assets' -Filter '*.js' | Select-String -Pattern '__nativeEvents|__E2E__') { throw 'Frontend test hook found.' }
+  $assets = if ($Candidate) { 'dist-vpn-candidate/assets' } else { 'dist-vpn-dev/assets' }
+  if (Get-ChildItem -LiteralPath $assets -Filter '*.js' | Select-String -Pattern '__nativeEvents|__E2E__') { throw 'Frontend test hook found.' }
   $stage = Join-Path $outputPath 'desktop'
-  python scripts/stage-vpn-windows-dev.py --application $binary --broker (Join-Path $outputPath 'broker-target/release/termterm-vpn-broker.exe') --destination $stage
+  python scripts/stage-vpn-windows-dev.py --application $binary --broker (Join-Path $outputPath 'broker-target/release/termterm-vpn-broker.exe') --destination $stage @candidateArgs
   if ($LASTEXITCODE -ne 0) { throw 'Pinned VPN desktop staging failed.' }
   $nsisStage = Join-Path $outputPath 'installer-desktop'
-  python scripts/stage-vpn-windows-dev.py --application $binary --broker (Join-Path $outputPath 'broker-target/release/termterm-vpn-broker.exe') --destination $nsisStage --bundle-type nsis
+  python scripts/stage-vpn-windows-dev.py --application $binary --broker (Join-Path $outputPath 'broker-target/release/termterm-vpn-broker.exe') --destination $nsisStage --bundle-type nsis @candidateArgs
   if ($LASTEXITCODE -ne 0) { throw 'NSIS-specific desktop staging failed.' }
   $freshText = python scripts/collect-vpn-runtime.py --package-preflight --runtime $runtimePath
   if ($LASTEXITCODE -ne 0 -or ($freshText -join "`n") -ne ($preflightText -join "`n")) { throw 'Verified package inputs changed during the build.' }
@@ -102,6 +131,19 @@ Keep all helpers, DLLs, licenses and notices beside the application.
 This separate development identity does not use the stable update feed.
 VPN connections require the separate Windows UAC flow; native tests and installation are on hold.
 '@ | Set-Content -LiteralPath (Join-Path $stage 'START_HERE.txt') -Encoding utf8
+  if ($Candidate) {
+    @"
+TermTerm production candidate $Candidate — local evaluation only; not an approved release.
+Extract the complete folder and open termterm.exe. Keep every helper, DLL and notice beside it.
+This uses the production application identity. Evaluate only in a disposable machine; never install over the protected stable app.
+The updater is disabled. VPN elevation pairs the exact same-directory desktop/broker bundle and current unelevated Windows logon.
+Native package acceptance remains required. The installer has not been run by this packaging script.
+"@ | Set-Content -LiteralPath (Join-Path $stage 'START_HERE.txt') -Encoding utf8
+    if ($ReleaseCandidate) {
+      $readme = Join-Path $stage 'START_HERE.txt'
+      (Get-Content -LiteralPath $readme -Raw).Replace('The updater is disabled.', 'Optional updates use the existing owner-controlled feed and existing signature verification. This local candidate has not been published; publication requires separate approval of these exact bytes.') | Set-Content -LiteralPath $readme -Encoding utf8
+    }
+  }
   $resources = @{}
   Get-ChildItem -LiteralPath $nsisStage | Where-Object { $_.Name -ne $desktopName } | ForEach-Object { $resources[$_.FullName.Replace('\','/')] = $_.Name + $(if ($_.PSIsContainer) {'/'} else {''}) }
   $overlay = @{
@@ -109,23 +151,23 @@ VPN connections require the separate Windows UAC flow; native tests and installa
     productName = $config.productName
     version = $config.version
     mainBinaryName = $windows.mainBinaryName
-    bundle = @{ active=$true; targets=@('nsis'); createUpdaterArtifacts=$false; resources=$resources; windows=@{ nsis=@{ installMode='currentUser'; displayLanguageSelector=$false; startMenuFolder='TermTerm VPN Dev' } } }
-    plugins = @{ updater=@{ endpoints=@() } }
+    bundle = @{ active=$true; targets=@('nsis'); createUpdaterArtifacts=$false; resources=$resources; windows=@{ nsis=@{ installMode='currentUser'; displayLanguageSelector=$false; startMenuFolder=$config.productName } } }
+    plugins = @{ updater=@{ endpoints=$updaterEndpoints } }
   }
   $overlayPath = Join-Path $outputPath 'tauri.vpn-package.conf.json'
   $overlay | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $overlayPath -Encoding utf8
-  pnpm.cmd exec tauri bundle --ci --no-sign --bundles nsis --config src-tauri/tauri.vpn-dev.conf.json --config src-tauri/tauri.vpn-windows-package.conf.json --config $overlayPath
+  pnpm.cmd exec tauri bundle --ci --no-sign --bundles nsis @configs --config $overlayPath
   if ($LASTEXITCODE -ne 0) { throw 'Isolated VPN installer generation failed.' }
   if ($before -ne (Source-Receipt)) { throw 'Source changed during packaging; retain this output for diagnosis, do not accept it.' }
-  $manifest = Get-Content -LiteralPath (Join-Path $stage 'vpn-dev-bundle.json') -Raw | ConvertFrom-Json
+  $manifest = Get-Content -LiteralPath (Join-Path $stage $manifestName) -Raw | ConvertFrom-Json
   if ((Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLower() -ne $manifest.files.$desktopName) { throw 'Desktop changed after staging.' }
   $installers = @(Get-ChildItem -LiteralPath (Join-Path $target 'release/bundle/nsis') -Filter '*.exe')
   if ($installers.Count -ne 1) { throw 'Expected exactly one isolated development installer.' }
-  python scripts/stage-vpn-windows-dev.py --verify-installer $installers[0].FullName --destination $nsisStage
+  python scripts/stage-vpn-windows-dev.py --verify-installer $installers[0].FullName --destination $nsisStage @candidateArgs
   if ($LASTEXITCODE -ne 0) { throw 'Actual installer payload hash verification failed.' }
   Copy-Item -LiteralPath $installers[0].FullName -Destination $outputPath
-  Compress-Archive -LiteralPath $stage -DestinationPath (Join-Path $outputPath ("TermTerm-VPN-Dev-" + $config.version + "-windows-x64-portable.zip"))
-  Compress-Archive -LiteralPath $dependencyStage -DestinationPath (Join-Path $outputPath ("TermTerm-VPN-Dev-" + $config.version + "-dependency-source.zip"))
+  Compress-Archive -LiteralPath $stage -DestinationPath (Join-Path $outputPath ($packageName + '-' + $config.version + "-windows-x64-portable.zip"))
+  Compress-Archive -LiteralPath $dependencyStage -DestinationPath (Join-Path $outputPath ($packageName + '-' + $config.version + "-dependency-source.zip"))
   $before | Set-Content -LiteralPath (Join-Path $outputPath 'SOURCE-RECEIPT.json') -Encoding utf8
   Get-ChildItem -LiteralPath $outputPath -File | Where-Object { $_.Extension -in @('.exe','.zip') } | ForEach-Object {
     (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLower() + '  ' + $_.Name

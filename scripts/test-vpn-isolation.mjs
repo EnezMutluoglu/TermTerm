@@ -8,7 +8,7 @@ test("VPN development cannot use the installed product identity or stable feed",
   const dev = read("src-tauri/tauri.vpn-dev.conf.json");
   assert.notEqual(dev.identifier, stable.identifier);
   assert.notEqual(dev.productName, stable.productName);
-  assert.equal(dev.version, "0.4.3-dev.1");
+  assert.equal(dev.version, "0.4.3-dev.4");
   assert.equal(dev.bundle.active, false);
   assert.deepEqual(dev.bundle.resources, []);
   assert.equal(dev.bundle.createUpdaterArtifacts, false);
@@ -63,7 +63,29 @@ test("VPN UI is enabled only by development or the explicit isolated build mode"
   assert.equal(stable.build.frontendDist, "../dist");
   assert.equal(text(".env.vpn-dev").trim(), "VITE_VPN_DEV=1");
   assert.match(text("src/App.tsx"), /import\.meta\.env\.MODE === "vpn-dev" && import\.meta\.env\.VITE_VPN_DEV === "1"/);
-  assert.match(text("vite.config.ts"), /outDir: mode === "vpn-dev" \? "dist-vpn-dev" : "dist"/);
+  assert.match(text("vite.config.ts"), /outDir: mode === "vpn-dev" \? "dist-vpn-dev" : mode === "vpn-candidate" \? "dist-vpn-candidate" : "dist"/);
+});
+
+test("production candidate is an explicit versioned feature with no updater or test capability", () => {
+  const candidate = read("src-tauri/tauri.vpn-candidate.conf.json");
+  const text = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+  assert.equal(candidate.version, "0.4.3");
+  assert.equal(candidate.identifier, "local.termterm.desktop");
+  assert.equal(candidate.mainBinaryName, "termterm");
+  assert.deepEqual(candidate.build.features, ["vpn-candidate"]);
+  assert.equal(candidate.build.beforeBuildCommand, "pnpm build --mode vpn-candidate");
+  assert.equal(candidate.build.frontendDist, "../dist-vpn-candidate");
+  assert.deepEqual(candidate.plugins.updater.endpoints, []);
+  assert.equal(candidate.bundle.active, false);
+  assert.equal(candidate.bundle.createUpdaterArtifacts, false);
+  assert.equal(candidate.app.withGlobalTauri, undefined);
+  assert.equal(text(".env.vpn-candidate").trim(), "VITE_VPN_CANDIDATE=0.4.3");
+  assert.match(text("src/App.tsx"), /import\.meta\.env\.MODE === "vpn-candidate" && import\.meta\.env\.VITE_VPN_CANDIDATE === "0.4.3"/);
+  for (const capability of candidate.app.security.capabilities) {
+    assert.deepEqual(capability.webviews, ["main"]);
+    assert.equal(capability.remote, undefined);
+    assert.equal(capability.windows, undefined);
+  }
 });
 
 test("VPN native UI driver stays in an explicit debug test overlay", () => {

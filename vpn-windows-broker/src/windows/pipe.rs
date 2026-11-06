@@ -24,7 +24,7 @@ pub fn sid_string(sid: &[u8]) -> Result<String> {
     }
 }
 pub fn server(name: &str, owner: &Identity, packet: bool) -> Result<NamedPipeServer> {
-    ensure!(name.starts_with(r"\\.\pipe\TermTerm.VpnDev.") && name.len() <= 180, "invalid_pipe_name");
+    ensure!(name.starts_with(&format!(r"\\.\pipe\{}.", crate::PIPE_NAMESPACE)) && name.len() <= 180, "invalid_pipe_name");
     let descriptor = Descriptor::from_sddl(&format!("D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GRGW;;;{})", sid_string(&owner.logon_sid)?))?;
     let attributes = descriptor.attributes();
     let mut options = ServerOptions::new();
@@ -35,7 +35,7 @@ pub fn server(name: &str, owner: &Identity, packet: bool) -> Result<NamedPipeSer
 }
 /// Keep the inherited endpoint unregistered: IOCP association survives DuplicateHandle.
 pub fn packet_endpoint(name: &str) -> Result<Handle> {
-    ensure!(name.starts_with(r"\\.\pipe\TermTerm.VpnDev.packet."),"invalid_packet_pipe_name");
+    ensure!(name.starts_with(&format!(r"\\.\pipe\{}.packet.", crate::PIPE_NAMESPACE)) && name.len() <= 180,"invalid_packet_pipe_name");
     let endpoint = Handle::new(unsafe {CreateFileW(wide(name)?.as_ptr(),GENERIC_READ | GENERIC_WRITE,0,ptr::null(),OPEN_EXISTING,
         FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION,ptr::null_mut())})?;
     let mode = PIPE_READMODE_MESSAGE;
@@ -107,7 +107,7 @@ mod tests {
     #[tokio::test]
     async fn packet_peer_close_is_eof_but_nonempty_corruption_is_fatal_without_uac() {
         let owner=identity::process_identity(unsafe {GetCurrentProcess()}).unwrap();
-        let name=format!(r"\\.\pipe\TermTerm.VpnDev.packet.{}",uuid::Uuid::new_v4());
+        let name=format!(r"\\.\pipe\{}.packet.{}",crate::PIPE_NAMESPACE,uuid::Uuid::new_v4());
         let packet=server(&name,&owner,true).unwrap();
         let mut client=tokio::net::windows::named_pipe::ClientOptions::new().pipe_mode(PipeMode::Message).open(&name).unwrap();
         packet.connect().await.unwrap();client.write_all(&[0x45]).await.unwrap();
@@ -123,7 +123,7 @@ mod tests {
     #[tokio::test]
     async fn owner_pipe_authenticates_actual_process_and_rejects_wrong_pid_without_uac() {
         let owner = identity::process_identity(unsafe { GetCurrentProcess() }).unwrap();
-        let name = format!(r"\\.\pipe\TermTerm.VpnDev.test.{}", uuid::Uuid::new_v4());
+        let name = format!(r"\\.\pipe\{}.test.{}", crate::PIPE_NAMESPACE, uuid::Uuid::new_v4());
         let pipe_server = server(&name, &owner, false).unwrap();
         let mut client = tokio::net::windows::named_pipe::ClientOptions::new().open(&name).unwrap();
         pipe_server.connect().await.unwrap(); client.write_all(b"x").await.unwrap();
@@ -134,5 +134,20 @@ mod tests {
         // RevertToSelf succeeded; the current process identity remains available.
         assert_eq!(identity::process_identity(unsafe { GetCurrentProcess() }).unwrap(), owner);
         assert!(server(&name, &owner, false).is_err());
+    }
+    #[tokio::test]
+    async fn compiled_namespace_accepts_real_control_and_packet_endpoints_and_rejects_the_other_mode() {
+        let owner=identity::process_identity(unsafe {GetCurrentProcess()}).unwrap();
+        let other=if cfg!(feature="production-candidate") {"TermTerm.VpnDev"} else {"TermTerm.Vpn"};
+        assert!(server(&format!(r"\\.\pipe\{other}.control.{}",uuid::Uuid::new_v4()),&owner,false).is_err());
+        assert!(packet_endpoint(&format!(r"\\.\pipe\{other}.packet.{}",uuid::Uuid::new_v4())).is_err());
+        let control=format!(r"\\.\pipe\{}.control.{}",crate::PIPE_NAMESPACE,uuid::Uuid::new_v4());
+        let control_server=server(&control,&owner,false).unwrap();
+        let _control=tokio::net::windows::named_pipe::ClientOptions::new().open(&control).unwrap();
+        control_server.connect().await.unwrap();
+        let packet=format!(r"\\.\pipe\{}.packet.{}",crate::PIPE_NAMESPACE,uuid::Uuid::new_v4());
+        let packet_server=server(&packet,&owner,true).unwrap();
+        let _packet=packet_endpoint(&packet).unwrap();
+        packet_server.connect().await.unwrap();
     }
 }

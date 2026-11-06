@@ -1,4 +1,4 @@
-//! Personal encrypted VPN profiles and the namespace-only development broker bridge.
+//! Encrypted personal/Team VPN profiles and the authenticated broker bridge.
 use crate::{crypto, model::Record, state::Shared, vault::Vault};
 use anyhow::{anyhow, ensure, Context, Result};
 use rusqlite::params;
@@ -19,6 +19,19 @@ use zeroize::Zeroizing;
 
 type Api<T> = std::result::Result<T, String>;
 const DEV_ID: &str = "local.termterm.desktop.vpndev";
+fn enabled_application(identifier: &str, version: Option<&str>) -> bool {
+    if cfg!(feature = "vpn-candidate") {
+        identifier == "local.termterm.desktop" && version == Some("0.4.3")
+    } else {
+        identifier == DEV_ID
+    }
+}
+fn broker_hello(hello: &Value) -> bool {
+    let identity = if cfg!(feature = "vpn-candidate") { "local.termterm.desktop.broker" } else { "local.termterm.desktop.vpndev.broker" };
+    hello["ok"] == true && matches!(hello["result"]["version"].as_u64(), Some(1 | 2))
+        && ((!cfg!(feature = "vpn-candidate") && hello["result"]["labOnly"] == true)
+            || (hello["result"]["labOnly"] == false && hello["result"]["mode"] == "authenticatedNative" && hello["result"]["identity"] == identity))
+}
 #[derive(Default)]
 pub struct Runtime {
     imports: Mutex<HashMap<String, (String, Zeroizing<String>)>>,
@@ -112,7 +125,7 @@ fn personal(app: &AppHandle, state: &Shared) -> Result<String> {
         "VPN kasa kapanÄ±yor; kasayÄ± yeniden aÃ§Ä±n"
     );
     ensure!(
-        app.config().identifier == DEV_ID,
+        enabled_application(&app.config().identifier, app.config().version.as_deref()),
         "VPN yalnÄ±z ayrÄ± geliÅŸtirme uygulamasÄ±nda kullanÄ±labilir"
     );
     ensure!(!crate::team::active(state), "VPN kiÅŸisel kasa gerektiriyor");
@@ -127,7 +140,7 @@ fn personal(app: &AppHandle, state: &Shared) -> Result<String> {
 }
 
 pub(super) fn dev(app: &AppHandle, state: &Shared) -> Result<String> {
-    ensure!(app.config().identifier == DEV_ID && !state.vpn.closing.load(Ordering::SeqCst), "VPN development session unavailable");
+    ensure!(enabled_application(&app.config().identifier, app.config().version.as_deref()) && !state.vpn.closing.load(Ordering::SeqCst), "VPN session unavailable for this application build");
     let desktop = app.state::<termterm_team_client::desktop::DesktopState>();
     if desktop.active() {
         let owner = state.vpn.owner.lock().map_err(|_| anyhow!("VPN owner lock"))?;
@@ -140,7 +153,7 @@ fn ensure_team_context(app: &AppHandle, context: Option<&str>) -> Result<()> {
     Ok(())
 }
 async fn authorize(app: &AppHandle, state: &Shared, context: Option<&str>) -> Result<String> {
-    ensure!(app.config().identifier == DEV_ID && !state.vpn.closing.load(Ordering::SeqCst), "VPN development session unavailable");
+    ensure!(enabled_application(&app.config().identifier, app.config().version.as_deref()) && !state.vpn.closing.load(Ordering::SeqCst), "VPN session unavailable for this application build");
     let desktop = app.state::<termterm_team_client::desktop::DesktopState>();
     if !desktop.active() {
         ensure!(context.is_none(), "Team VPN session closed");
@@ -229,6 +242,9 @@ fn view(record: &Record) -> Value {
     data["id"] = record.id.clone().into();
     data["hasPassword"] = (!data["password"].as_str().unwrap_or_default().is_empty()).into();
     data["hasConfig"] = (!data["config"].as_str().unwrap_or_default().is_empty()).into();
+    if data["family"] == "openVpn" {
+        if let Ok(auth) = termterm_vpn_core::import::openvpn_authentication(data["config"].as_str().unwrap_or_default()) { data["authentication"] = json!(auth); }
+    }
     data.as_object_mut().unwrap().remove("password");
     data.as_object_mut().unwrap().remove("config");
     data
@@ -269,7 +285,7 @@ pub async fn vpn_status(app: AppHandle, state: State<'_, Shared>) -> Api<Value> 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     let lab_only = state.vpn.client.lock().await.as_ref().is_none_or(|client|client.lab_only);
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    let lab_only = true;
+    let lab_only = !cfg!(feature = "vpn-candidate");
     Ok(
         json!({"available":result.is_ok(),"platform":std::env::consts::OS,"reason":result.err().map(|e|e.to_string()).unwrap_or_default(),"bundle":bundle,"labOnly":lab_only,"maxConnections":3,"supportedFamilies":["openVpn","wireGuard","fortinet","globalProtect"],"authTestAvailable":cfg!(all(windows,feature="e2e",debug_assertions))}),
     )
@@ -284,6 +300,19 @@ pub fn vpn_profiles(app: AppHandle, state: State<'_, Shared>) -> Api<Vec<Value>>
     profiles_raw(vault)
         .map(|records| records.iter().map(view).collect())
         .map_err(error)
+}
+
+fn read_import_preview(path: &std::path::Path, app_identifier: &str) -> Result<(Family, termterm_vpn_core::import::Preview, Option<Value>)> {
+    let text = Zeroizing::new(std::fs::read_to_string(path)?);
+    let (family, preview) = termterm_vpn_core::import::configuration(
+        &text,
+        path.parent().context("VPN import directory unavailable")?,
+    )?;
+    let diagnostics = (app_identifier == DEV_ID).then(|| {
+        use sha2::Digest;
+        json!({"sha256":hex::encode(sha2::Sha256::digest(text.as_bytes())),"byteLength":text.len()})
+    });
+    Ok((family, preview, diagnostics))
 }
 
 #[tauri::command]
@@ -302,11 +331,8 @@ pub async fn vpn_import(app: AppHandle, state: State<'_, Shared>, path: String, 
             std::fs::metadata(path)?.len() <= 1024 * 1024,
             "VPN dosyasÄ± 1 MiB sÄ±nÄ±rÄ±nÄ± aÅŸÄ±yor"
         );
-        let text = Zeroizing::new(std::fs::read_to_string(path)?);
-        let (family, preview) = termterm_vpn_core::import::configuration(
-            &text,
-            path.parent().context("Dosya klasÃ¶rÃ¼ bulunamadÄ±")?,
-        )?;
+        let (family, preview, diagnostics) = read_import_preview(path, &app.config().identifier)?;
+        let authentication = if family == Family::OpenVpn {Some(termterm_vpn_core::import::openvpn_authentication(&preview.config)?)} else {None};
         let token = Uuid::new_v4().to_string();
         if !preview.blocked && preview.missing_files.is_empty() {
             if family == Family::OpenVpn { termterm_vpn_core::import::openvpn_embedded(&preview.config)?; }
@@ -323,9 +349,10 @@ pub async fn vpn_import(app: AppHandle, state: State<'_, Shared>, path: String, 
             );
             imports.insert(token.clone(), (vault_id, Zeroizing::new(preview.config)));
         }
-        Ok(
-            json!({"token":token,"family":family,"warnings":preview.warnings,"missingFiles":preview.missing_files,"blocked":preview.blocked}),
-        )
+        let mut result = json!({"token":token,"family":family,"warnings":preview.warnings,"missingFiles":preview.missing_files,"blocked":preview.blocked});
+        if let Some(diagnostics) = diagnostics { result["diagnostics"] = diagnostics; }
+        if let Some(authentication) = authentication { result["authentication"] = json!(authentication); }
+        Ok(result)
     })();
     result.map_err(error)
 }
@@ -646,8 +673,9 @@ fn save_answer_credentials(vault: &mut Vault, profile_id: &Value, username: &str
 }
 
 fn first_credential_answer(attempts: &mut HashMap<String, u64>, id: &str, generation: u64, challenge: &Value, values: &Value) -> Option<(Zeroizing<String>, Zeroizing<String>)> {
+    if termterm_vpn_core::private_key_challenge(challenge) { return None; }
     let fields = challenge["fields"].as_array()?;
-    if !fields.iter().any(|f| f["secret"] == true || matches!(f["purpose"].as_str(), Some("secret" | "password" | "otp"))) { return None; }
+    if !fields.iter().any(|f| f["secret"] == true || matches!(f["purpose"].as_str(), Some("secret" | "password" | "otp" | "keyPassword"))) { return None; }
     if attempts.get(id) == Some(&generation) { return None; }
     // Consume even a rejected/OTP form or opted-out attempt: later forms cannot replace a password.
     attempts.insert(id.to_owned(), generation);
@@ -701,11 +729,15 @@ async fn client(app: &AppHandle, state: &Shared) -> Result<()> {
     let vault_id = dev(app, state)?;
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     let mut stream: Box<dyn BrokerTransport> = {
-        let path = std::env::var_os("TERMTERM_VPN_LAB_SOCKET").unwrap_or_else(|| {
+        let path = if cfg!(feature = "vpn-candidate") {
+            #[cfg(target_os = "linux")] let path = "/run/termterm-vpn/broker.sock";
+            #[cfg(target_os = "macos")] let path = "/var/run/termterm-vpn/broker.sock";
+            std::ffi::OsString::from(path)
+        } else { std::env::var_os("TERMTERM_VPN_LAB_SOCKET").unwrap_or_else(|| {
             #[cfg(target_os = "linux")] let path = "/run/termterm-vpn-dev/broker.sock";
             #[cfg(target_os = "macos")] let path = "/var/run/termterm-vpn-dev/broker.sock";
             path.into()
-        });
+        }) };
         let path = std::path::Path::new(&path);
         ensure!(path.is_absolute(), "VPN broker path must be absolute");
         let parent = path.parent().context("Invalid broker path")?.metadata()?;
@@ -756,11 +788,7 @@ async fn client(app: &AppHandle, state: &Shared) -> Result<()> {
     .await??;
     let hello: Value = serde_json::from_slice(&initial)?;
     ensure!(
-        hello["ok"] == true
-            && matches!(hello["result"]["version"].as_u64(), Some(1 | 2))
-            && (hello["result"]["labOnly"] == true || (hello["result"]["labOnly"] == false
-                && hello["result"]["mode"] == "authenticatedNative"
-                && hello["result"]["identity"] == "local.termterm.desktop.vpndev.broker")),
+        broker_hello(&hello),
         "Unsupported VPN broker"
     );
     #[cfg(target_os = "linux")]
@@ -988,7 +1016,45 @@ pub fn activate(state: &Shared) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn vpn_build_contract_rejects_other_versions_and_cross_mode_brokers() {
+        use super::*;
+        let candidate = cfg!(feature = "vpn-candidate");
+        assert_eq!(enabled_application(DEV_ID, Some("0.4.3-dev.4")), !candidate);
+        assert_eq!(enabled_application("local.termterm.desktop", Some("0.4.3")), candidate);
+        assert!(!enabled_application("local.termterm.desktop", Some("0.4.2")));
+        assert!(!enabled_application("local.termterm.desktop", Some("0.4.4")));
+        let lab = json!({"ok":true,"result":{"version":2,"labOnly":true}});
+        assert_eq!(broker_hello(&lab), !candidate);
+        for (identity, accepted) in [("local.termterm.desktop.broker", candidate), ("local.termterm.desktop.vpndev.broker", !candidate), ("foreign.broker", false)] {
+            let hello = json!({"ok":true,"result":{"version":2,"labOnly":false,"mode":"authenticatedNative","identity":identity}});
+            assert_eq!(broker_hello(&hello), accepted);
+        }
+    }
     use super::*;
+    #[test]
+    fn personal_profile_view_exposes_authentication_hints_without_key_material() {
+        let record = Record {id:Uuid::new_v4().to_string(),kind:"vpn".into(),updated_at:0,data:json!({"family":"openVpn","password":"Disposable account password","config":"client\n<cert>\npublic certificate fixture\n</cert>\n<key>\n-----BEGIN ENCRYPTED PRIVATE KEY-----\npublic key fixture\n</key>\n"})};
+        let public = view(&record);
+        assert_eq!(public["authentication"],json!({"certificate":true,"usernamePassword":false,"privateKeyPassword":true,"staticChallenge":false}));
+        assert!(public.get("config").is_none() && public.get("password").is_none());
+        assert!(!public.to_string().contains("public key fixture"));
+    }
+    #[test]
+    fn import_diagnostics_fingerprint_the_same_raw_buffer_that_is_parsed_only_in_vpn_dev() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("test.ovpn");
+        std::fs::write(&path, "\u{feff}# tanı\r\nclient\r\nremote vpn.example 1194\r\n<ca>\r\nQUJD\r\n</ca>\r\nscript-security 2\r\n").unwrap();
+        let (family, preview, diagnostics) = read_import_preview(&path, DEV_ID).unwrap();
+        assert_eq!(family, Family::OpenVpn);
+        assert!(preview.blocked);
+        assert_eq!(preview.warnings, ["Satır 7: script-security desteklenmiyor; yürütülmedi"]);
+        assert_eq!(preview.config, "client\nremote vpn.example 1194\n<ca>\nQUJD\n</ca>\n");
+        assert_eq!(diagnostics, Some(json!({"sha256":"2c79ce148e98d550274138c01503301630f32678ca6e2fdacbb58e852560feaa","byteLength":83})));
+        for identifier in ["local.termterm.desktop", "local.termterm.desktop.teamdev", ""] {
+            assert!(read_import_preview(&path, identifier).unwrap().2.is_none());
+        }
+    }
     fn lease(generation:u64)->BoundVpn {
         BoundVpn {id:"00000000-0000-0000-0000-000000000001".into(),generation,interface_index:7,interface_name:Some("ttv0123456789ab".into()),interface_luid:None,interface_guid:None,address_families:vec!["ipv4".into()],addresses:vec!["10.97.0.2/32".into()],owner_scope:String::new(),team_epoch:None}
     }
@@ -1173,6 +1239,23 @@ mod tests {
 #[cfg(test)]
 mod remembered_credentials_tests {
     use super::*;
+    #[test]
+    fn key_unlock_never_persists_or_consumes_account_credentials_but_otp_still_does() {
+        let key = json!({"fields":[{"name":"privateKeyPassword","purpose":"keyPassword","secret":true}]});
+        let account = json!({"fields":[{"name":"username","purpose":"username"},{"name":"password","purpose":"password","secret":true}]});
+        let otp = json!({"fields":[{"name":"response","purpose":"otp","secret":true}]});
+        let mut attempts = HashMap::new();
+        assert!(first_credential_answer(&mut attempts,"key",1,&key,&json!({"privateKeyPassword":"Disposable key passphrase"})).is_none());
+        assert!(attempts.is_empty());
+        assert!(first_credential_answer(&mut attempts,"key",1,&account,&json!({"username":"fixture","password":"Disposable account password"})).is_some());
+        assert!(first_credential_answer(&mut attempts,"key",1,&otp,&json!({"response":"123456"})).is_none());
+        assert!(first_credential_answer(&mut attempts,"key",1,&account,&json!({"username":"fixture","password":"123456"})).is_none());
+        for bad in [json!({"fields":[{"name":"password","purpose":"keyPassword","secret":true}]}),json!({"fields":[{"name":"privateKeyPassword","purpose":"keyPassword","secret":false}]})] {
+            let mut attempts = HashMap::new();
+            assert!(first_credential_answer(&mut attempts,"bad",1,&bad,&json!({})).is_none());
+            assert!(first_credential_answer(&mut attempts,"bad",1,&account,&json!({"username":"fixture","password":"Disposable password"})).is_none());
+        }
+    }
     #[test]
     fn later_credential_shaped_otp_cannot_replace_initial_password_but_new_generation_can() {
         let mut attempts = HashMap::new();

@@ -57,7 +57,7 @@ impl Wintun {
         ensure!(lookup_guid(guid)?.is_none(), "adapter_guid_already_exists");
         super::driver::require_preinstalled().context("wintun_create_shared_driver_preflight")?;
         super::orphan::require_safe_dll_sweeps().context("wintun_create_global_sweep_preflight")?;
-        let raw = unsafe { (self.create)(wide(name)?.as_ptr(), wide("TermTerm VPN Development")?.as_ptr(), &native_guid) };
+        let raw = unsafe { (self.create)(wide(name)?.as_ptr(), wide(crate::TUNNEL_TYPE)?.as_ptr(), &native_guid) };
         ensure!(!raw.is_null(), "wintun_create_failed: {}", std::io::Error::last_os_error());
         let mut adapter = Adapter { api: self.clone(), raw, guid, luid: 0 };
         let mut luid = NET_LUID_LH { Value: 0 };

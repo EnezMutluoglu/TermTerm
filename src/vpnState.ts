@@ -1,4 +1,5 @@
 export type VpnFamily = "openVpn" | "wireGuard" | "fortinet" | "globalProtect";
+export type VpnAuthentication = {certificate: boolean; usernamePassword: boolean; privateKeyPassword: boolean; staticChallenge: boolean};
 export type VpnProfile = {
   id: string;
   version: number;
@@ -12,6 +13,7 @@ export type VpnProfile = {
   hasConfig: boolean;
   realm: string;
   remember: boolean;
+  authentication?: VpnAuthentication;
   pending?: boolean;
   revision?: number;
   visibility?: "private" | "shared";

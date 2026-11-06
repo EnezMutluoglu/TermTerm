@@ -46,6 +46,24 @@ pub fn validate_progress(detail: Value) -> Result<()> {
     let progress: Progress = serde_json::from_value(detail)?;
     ensure!(!progress.error && !progress.name.is_empty() && progress.name.len() <= 256,"invalid_progress_event"); Ok(())
 }
+pub fn engine_failure(detail: &Value) -> Option<&str> {
+    if let Some(reason) = detail.as_str() { return Some(reason); }
+    let fields = detail.as_object()?;
+    if fields.len() != 2 || fields.get("error") != Some(&Value::Bool(true)) { return None; }
+    let name = fields.get("name")?.as_str()?;
+    // Pinned OpenVPN Core event enums only; arbitrary engine info can contain authentication cookies.
+    match name {
+        "TRANSPORT_ERROR" | "TUN_ERROR" | "CLIENT_RESTART" | "AUTH_FAILED" | "CERT_VERIFY_FAIL"
+        | "TLS_VERSION_MIN" | "TLS_ALERT_PROTOCOL_VERSION" | "TLS_ALERT_UNKNOWN_CA" | "TLS_ALERT_MISC"
+        | "TLS_ALERT_HANDSHAKE_FAILURE" | "TLS_ALERT_CERTIFICATE_EXPIRED" | "TLS_ALERT_CERTIFICATE_REVOKED"
+        | "TLS_ALERT_BAD_CERTIFICATE" | "TLS_ALERT_UNSUPPORTED_CERTIFICATE" | "TLS_SIGALG_DISALLOWED_OR_UNSUPPORTED"
+        | "CLIENT_HALT" | "CLIENT_SETUP" | "TUN_HALT" | "CONNECTION_TIMEOUT" | "INACTIVE_TIMEOUT"
+        | "PROXY_NEED_CREDS" | "PROXY_ERROR" | "TUN_SETUP_FAILED" | "TUN_IFACE_CREATE" | "TUN_IFACE_DISABLED"
+        | "EPKI_ERROR" | "EPKI_INVALID_ALIAS" | "RELAY_ERROR" | "COMPRESS_ERROR" | "NTLM_MISSING_CRYPTO"
+        | "SESSION_EXPIRED" | "NEED_CREDS" => Some(name),
+        _ => None,
+    }
+}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all="camelCase", deny_unknown_fields)]
 pub struct Challenge {
@@ -207,6 +225,20 @@ mod tests {
             validate_progress(serde_json::json!({"name":name,"error":false})).unwrap();
         }
         assert!(validate_progress(serde_json::json!({"name":"AUTH_FAILED","error":true})).is_err());
+    }
+    #[test]
+    fn failed_openvpn_events_expose_only_known_error_enums_and_keep_string_failures() {
+        for name in ["AUTH_FAILED", "CERT_VERIFY_FAIL", "CONNECTION_TIMEOUT", "TLS_ALERT_UNKNOWN_CA", "TLS_ALERT_HANDSHAKE_FAILURE", "TRANSPORT_ERROR"] {
+            assert_eq!(engine_failure(&serde_json::json!({"name":name,"error":true})), Some(name));
+        }
+        for reason in ["wireguard_peer_handshake_timeout", "vpn_transport_lost", "certificate_verification_failed"] {
+            assert_eq!(engine_failure(&serde_json::json!(reason)), Some(reason));
+        }
+        for detail in [serde_json::json!({"name":"cookie=private-fixture","error":true}), serde_json::json!({"name":"AUTH_FAILED","error":false}),
+                       serde_json::json!({"name":"AUTH_FAILED","error":true,"info":"private-cookie-fixture"}), serde_json::json!({"name":"CONNECTED","error":true}),
+                       serde_json::json!({"name":"TLS_ERROR","error":true}), serde_json::json!({"error":true}), serde_json::Value::Null] {
+            assert_eq!(engine_failure(&detail), None);
+        }
     }
     #[test]
     fn validation_targets_cannot_escape_disposable_loopback_fixtures() {

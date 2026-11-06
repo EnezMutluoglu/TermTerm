@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    outDir: mode === "vpn-dev" ? "dist-vpn-dev" : "dist",
+    outDir: mode === "vpn-dev" ? "dist-vpn-dev" : mode === "vpn-candidate" ? "dist-vpn-candidate" : "dist",
     target: "es2022",
     rollupOptions: {
       output: {

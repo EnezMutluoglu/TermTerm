@@ -49,3 +49,5 @@ __pycache__/
 
 /dist-vpn-dev/
 !.env.vpn-dev
+!.env.vpn-candidate
+/dist-vpn-candidate/

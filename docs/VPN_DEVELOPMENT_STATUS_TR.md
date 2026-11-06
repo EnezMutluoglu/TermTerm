@@ -1,3 +1,23 @@
+## 6 Kasım 2026 — güncel 0.4.3 yerel kabul
+
+Windows 0.4.2 → 0.4.3 gerçek yerinde yükleyici testi ve özgün veri/yedek korunması geçti; kullanıcı verileri taşınmadı. Bu kabul Windows GUI/VPN veya kayıtlı/MSI yükseltme testi değildir. Linux broker v3 ile gerçek AppImage root AppDir kurulumu, UID1000/test kasası, kimliği doğrulanmış IPC, bağlı AppImage/DEB istemcileriyle temiz servis kapanışı ve aynı sürümde değiştirme/koruma geçti. Worker-thread SIGTERM hatası düzeltildi, yedi odaklı test geçti. Team 0.4.3 istemci kataloğu son ELF/imaj/API kabulünden geçti; yerel paket ve kabul kanıtları tamamlandı.
+
+Bekleyen Restore/Prepare yoktur; aşağıdaki özel eski vaka komutları tarihsel kanıttır ve tekrar çalıştırılmaz. Kullanıcının kaldırdığı gerçek sağlayıcı VPN tekrarı yapılmadı, önceki FAIL korunur. Bu kayıt yerel kabul sonuçlarını kapsar; dağıtılan sürüm ve kurulum dosyaları [GitHub Releases](https://github.com/EnezMutluoglu/TermTerm/releases) sayfasında görülür. Ayrı SQL0.5 korunur. [Güncel devir ve kapsam](HANDOFF_VPN_TR.md), [AppImage kabulü](../artifacts/vpn-delivery-20261106/candidate-0.4.3/appimage-validation/README_TR.md). Bu belge eki paketlerden sonra yazıldı; yeni paket derlenmedi. macOS, donanım anahtarları ve üretim VPN kimlik doğrulaması sınanmadı.
+
+---
+
+## 5 Kasım 2026 — tarihsel 0.4.3 aday durumu
+
+Özgün geliştirme AppData verilerinin tamamı geri yüklendi; bekleyen Martı testi veya Restore işlemi yoktur. Son gerçek Martı bağlantısı genel taşıma hatasıyla başarısız oldu. İstemci sertifikasının süresinin dolduğu metadata ile doğrulandı; sunucudaki kesin hata nedeni kanıtlanmadı. Kullanıcı tekrar bağlantı testinden açıkça vazgeçti (**USER_ACCEPTED / WAIVED**); önceki teknik FAIL kaydı PASS olarak değiştirilmez.
+
+0.4.3 üretim kimliği, sabit root AppDir yolu, Windows sahiplik/pipe ayrımı ve mevcut imzalı güncelleyici sözleşmesi kaynak incelemesinden geçti. Nihai aday paketlerinin derlenmesi ve bu kesin paketlerin yerel kurulum/broker bağlantısı kabulü henüz bekliyor. Kaynak GO, yayın veya yerel çalışma zamanı onayı değildir. Aşağıdaki önceki devir bölümleri tarihseldir; eski “Restore pending / Martı retry” yönergeleri güncel işlem değildir.
+
+---
+
+> **5 Kasım 2026 dev.4 güncel durum:** Explicit kullanıcı örneğinin değişmeyen native Rust parser kabulü ve dar OpenVPN compatibility/auth düzeltmesi bağımsız code GO aldı; yeni Windows/Linux paketleri aynı dfd source'tan üretildi. **Önce mevcut bdd… vakasının veri geri yüklenmesi:** portable PID 30648 başlatıldı, ilk CU fiziksel Escape ile durdu; GUI/vault/import/Save/Connect/UAC gözlemi yok. İki özgün dev AppData backup'ta, Restore pending. Bu tur CU/alternatif close yok; kullanıcı/sonraki izinli CU app'i kapatıp strict quiet sağlandıktan sonra reviewed Restore, ancak sonra yeni test. Admin/UAC/Connect kullanıcı dönene kadar WAIT. Exact komut/pinler ve statik teslim [HANDOFF_VPN_TR.md](HANDOFF_VPN_TR.md) dev.4 bölümünde. Stable/SQL0.5 korundu; yayın onayı yok. Eski restored/PASS/FAIL kayıtları aşağıda tarihseldir.
+
+> **5 Kasım 2026 güncel durum:** `0.4.3-dev.3` Windows/Linux yerel paketleri ve güncel Linux teknik source closure bağımsız GO aldı. Gerçek import hatasının kök nedeni çözülmedi; import-only GUI'da dosya seçimi tamamlanmadı, profil/VPN kaydedilmedi/başlatılmadı. App kapandı, iki özgün dev AppData dizini Restore exit0 ile geri yüklendi. Kurulu dev.3 GUI/VPN-close kabulü pending. Güncel kanıtlar, fixture durumu ve yeni vaka/recovery komutları [HANDOFF_VPN_TR.md](HANDOFF_VPN_TR.md) dosyasının 5 Kasım bölümündedir. Stable/SQL0.5 korundu; yayın onayı yok. Aşağıdaki kayıtlar tarihseldir.
+
 > **4 Kasım 2026 devir notu:** Güncel durum ve açık Windows engeli [HANDOFF_VPN_TR.md](HANDOFF_VPN_TR.md) dosyasındadır. Aşağıdaki kayıtlar tarihseldir; özel rapor bağlantıları Git ile taşınmaz.
 
 # VPN geliştirmesi — 30 Ekim 2026, son kabul ve temizlik

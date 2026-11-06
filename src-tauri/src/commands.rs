@@ -73,7 +73,7 @@ pub fn app_info(app: AppHandle) -> Api<Value> {
         .ok()
         .and_then(|s| serde_json::from_str::<Value>(&s).ok());
     Ok(
-        json!({"version":env!("CARGO_PKG_VERSION"),"defaultVaultPath":dir.join("Personal.ttvault").to_string_lossy(),"home":crate::platform::home(),"recent":recent,"platform":crate::platform::info()}),
+        json!({"version":app.package_info().version.to_string(),"defaultVaultPath":dir.join("Personal.ttvault").to_string_lossy(),"home":crate::platform::home(),"recent":recent,"platform":crate::platform::info()}),
     )
 }
 #[tauri::command]

@@ -29,6 +29,39 @@ SOCKET = "/run/termterm-vpn-dev/broker.sock" if sys.platform == "linux" else "/p
 CONFIG = "/etc/termterm-vpn-dev/broker.json" if sys.platform == "linux" else "/Library/Application Support/TermTerm VPN Dev/broker.json"
 
 
+def contract(candidate=None):
+    require(candidate in (None, "0.4.3"), "unsupported_candidate_version")
+    name = "termterm-vpn" if candidate else "termterm-vpn-dev"
+    identity = "local.termterm.desktop" if candidate else "local.termterm.desktop.vpndev"
+    return {"identity": identity, "socket": "/run/" + name + "/broker.sock" if sys.platform == "linux" else "/private/var/run/" + name + "/broker.sock",
+            "config": "/etc/" + name + "/broker.json" if sys.platform == "linux" else "/Library/Application Support/" + ("TermTerm VPN" if candidate else "TermTerm VPN Dev") + "/broker.json"}
+
+
+def validate_configuration(config, candidate=None):
+    selected = contract(candidate)
+    fields = {"uid", "client", "clientSha256", "engines", "pins", "journal"}
+    optional = {"caFile", "clientRequirement", "python", "pythonSha256"}
+    if candidate:
+        fields |= {"applicationIdentifier", "candidateVersion"}
+        if sys.platform == "linux":
+            optional |= {"clientInstall"}
+    require(isinstance(config, dict) and fields <= set(config) and not set(config) - fields - optional, "invalid_service_configuration")
+    require(type(config["uid"]) is int and config["uid"] > 0, "nonroot_client_uid_required")
+    if candidate:
+        require(config["applicationIdentifier"] == selected["identity"] and config["candidateVersion"] == candidate, "candidate_identity_version_mismatch")
+        helpers = {"vpn-policy-lab", "termterm-openvpn", "termterm-openconnect", "termterm-wireguard"} | ({"termterm-vpn-macos"} if sys.platform == "darwin" else set())
+        require(isinstance(config["pins"], dict) and set(config["pins"]) == helpers, "candidate_helper_pins_required")
+        if sys.platform == "linux":
+            installation = config.get("clientInstall", "deb")
+            require(installation in {"deb", "appimage"}, "unsupported_candidate_installation")
+            client = "/opt/termterm-appimage/usr/bin/termterm" if installation == "appimage" else "/usr/bin/termterm"
+            require(config["client"] == client and config["engines"] == "/opt/termterm-vpn/bin" and config["journal"] == "/var/lib/termterm-vpn", "candidate_installation_paths_required")
+        else:
+            require(config["client"] == "/Applications/TermTerm.app/Contents/MacOS/termterm"
+                    and config["engines"] == "/Library/PrivilegedHelperTools/local.termterm.desktop.broker"
+                    and config["journal"] == "/Library/Application Support/TermTerm VPN/journal", "candidate_installation_paths_required")
+
+
 def require(condition, error):
     if not condition:
         raise ValueError(error)
@@ -299,6 +332,7 @@ class DarwinNetwork:
         requested = [ipaddress.ip_network(value) for value in network["routes"]]
         requested += [ipaddress.ip_network(value, strict=False) for value in network["addresses"]]
         owned = {entry["interface"] for entry in active}
+        # shortcut: netstat flags do not prove a physical connected route; keep overlaps blocked until native provenance and Mac acceptance exist.
         for row in command("/usr/sbin/netstat", "-rn", "-f", "inet").decode().splitlines():
             fields = row.split()
             if len(fields) < 4 or fields[0] == "default" or not fields[0][0].isdigit() or fields[3] in owned:
@@ -381,7 +415,7 @@ class NativeBroker(lab.Broker):
         self.families = ("openVpn", "fortinet", "globalProtect", "cisco", "wireGuard")
 
     def hello(self):
-        return {"version": 2, "labOnly": False, "mode": "authenticatedNative", "identity": "local.termterm.desktop.vpndev.broker", "maxConnections": 3, "networkLease": True, "quiesce": True}
+        return {"version": 2, "labOnly": False, "mode": "authenticatedNative", "identity": self.config.get("applicationIdentifier", "local.termterm.desktop.vpndev") + ".broker", "maxConnections": 3, "networkLease": True, "quiesce": True}
 
 
 class NativeSession(lab.Session):
@@ -489,7 +523,7 @@ class NativeSession(lab.Session):
                 require(detail.get("interface") == self.interface, "interface_mismatch")
         index = self.broker.network.identity(self.interface)
         self.entry = {"id": self.public["id"], "interface": self.interface, "index": index, "boot": self.broker.network.boot,
-                      "marker": "local.termterm.desktop.vpndev:" + self.public["id"], "plan": self.network_plan}
+                      "marker": self.broker.config.get("applicationIdentifier", "local.termterm.desktop.vpndev") + ":" + self.public["id"], "plan": self.network_plan}
         # Intent is durable before the first host-network mutation.
         self.broker.journal.entries[self.public["id"]] = self.entry
         self.broker.journal.save()
@@ -614,9 +648,14 @@ def serve(config):
         os.chmod(SOCKET, 0o600)
         os.chown(SOCKET, config["uid"], -1)
         listener.listen(4)
+        # Python runs signal handlers on the main thread even when an owner receives SIGTERM.
+        listener.settimeout(0.5)
         signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
         while True:
-            connection, _ = listener.accept()
+            try:
+                connection, _ = listener.accept()
+            except socket.timeout:
+                continue
             try:
                 require(len([owner for owner, thread in owners if thread.is_alive()]) < 4, "too_many_clients")
                 pidfd = authenticate(connection, config)
@@ -735,16 +774,20 @@ class NativeOwner(lab.Owner):
 
 
 def main():
+    global SOCKET
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--candidate", choices=["0.4.3"], help="Use the fixed production candidate identity and installation paths")
     parser.add_argument("--check", action="store_true", help="Verify immutable installed inputs without listening or network changes")
     arguments = parser.parse_args()
     require(os.geteuid() == 0, "root_service_required")
     trusted(Path(__file__).resolve())
     trusted(Path(__file__).with_name("vpn-lab-broker.py").resolve())
-    config_path = trusted(CONFIG)
+    selected = contract(arguments.candidate)
+    SOCKET = selected["socket"]
+    config_path = trusted(selected["config"])
     require(config_path.stat().st_size <= 65536, "configuration_too_large")
     config = json.loads(config_path.read_text())
-    require({"uid", "client", "clientSha256", "engines", "pins", "journal"} <= set(config) and not set(config) - {"uid", "client", "clientSha256", "engines", "pins", "journal", "caFile", "clientRequirement", "python", "pythonSha256"}, "invalid_service_configuration")
+    validate_configuration(config, arguments.candidate)
     if sys.platform == "darwin":
         require({"python", "pythonSha256"} <= set(config), "configured_python_runtime_required")
         require(Path(sys.executable).resolve() == pin(config["python"], config["pythonSha256"]), "configured_python_runtime_mismatch")

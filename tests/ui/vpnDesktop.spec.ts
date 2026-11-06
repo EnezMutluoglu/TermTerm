@@ -135,7 +135,7 @@ async function setup(page: Page, available = true, deferStatus = false, ssoBefor
               return;
             }
             if (command === "plugin:dialog|open")
-              return "/disposable/test.ovpn";
+              return (window as any).vpnTest.importPath || "/disposable/test.ovpn";
             if (command === "vpn_import")
               return (window as any).vpnTest.importResult || {
                 token: "opaque-test-token",
@@ -458,6 +458,97 @@ test("native import uses an opaque token and saves no config or OTP", async ({
   await expect(page.locator(".vpn-card")).toHaveCount(4);
 });
 
+for (const mode of ["certificate", "encryptedKey", "account", "staticOtp"]) test(`OpenVPN import shows ${mode} authentication and the optional DNS limitation`, async ({page}) => {
+  await setup(page);
+  await page.getByRole("button", {name:"Yeni VPN",exact:true}).click();
+  const dialog = page.getByRole("dialog", {name:"VPN profilini kaydet"});
+  await dialog.getByLabel("VPN türü").selectOption("openVpn");
+  await dialog.getByLabel("Profil adı").fill(`Public ${mode}`);
+  await page.evaluate(mode => {
+    (window as any).vpnTest.importResult = {token:"auth-token",family:"openVpn",blocked:false,missingFiles:[],
+      warnings:["Satır 19: İsteğe bağlı block-outside-dns uygulanmadı; DNS sızıntısı engelleme desteği yok."],
+      authentication:{certificate:mode!=="account",usernamePassword:["account","staticOtp"].includes(mode),privateKeyPassword:mode==="encryptedKey",staticChallenge:mode==="staticOtp"}};
+  }, mode);
+  await dialog.getByRole("button", {name:".ovpn / .conf içe aktar"}).click();
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  await expect(dialog.getByRole("status")).toContainText("DNS sızıntısı engelleme desteği yok");
+  if (mode === "certificate") await expect(dialog).toContainText("Sertifika/anahtar ile parolasız giriş.");
+  if (mode === "encryptedKey") await expect(dialog).toContainText("Özel anahtar parolası bağlantıda sorulur ve kaydedilmez.");
+  if (["certificate","encryptedKey"].includes(mode)) {
+    await expect(dialog.getByLabel("Kullanıcı adı", {exact:true})).toHaveCount(0);
+    await expect(dialog.getByLabel("Parolayı şifreli kasada hatırla")).toHaveCount(0);
+  } else await expect(dialog.getByLabel("Kullanıcı adı", {exact:true})).toBeVisible();
+  if (mode === "staticOtp") {
+    await expect(dialog).toContainText("bu formun yanıtlarından hesap parolası kaydedilmez veya otomatik doldurulmaz");
+    await expect(dialog.getByLabel("Parolayı şifreli kasada hatırla")).toHaveCount(0);
+    await expect(dialog.locator('input[type="password"]')).toHaveCount(0);
+  }
+  await dialog.getByRole("button", {name:"Kaydet",exact:true}).click();
+  await expect(dialog).toBeHidden();
+  const profile = await page.evaluate(() => (window as any).vpnTest.calls.find((call:any) => call.command === "vpn_profile_save").args.profile);
+  expect(profile).not.toHaveProperty("authentication");
+  expect(profile).not.toHaveProperty("otp");
+  if (mode !== "account") expect(profile).not.toHaveProperty("password");
+});
+
+test("OpenVPN key unlock, account login and OTP remain separate masked transient answers", async ({page}) => {
+  await setup(page);
+  await page.locator(".vpn-card").first().getByRole("button", {name:"Bağlan",exact:true}).click();
+  const stage = async (id:number, fields:unknown[]) => page.evaluate(({id,fields}) => {
+    const t = (window as any).vpnTest;t.emit({...t.sessions[0],state:"challenge",challenge:{id,fields}});
+  }, {id,fields});
+  const dialog = page.getByRole("dialog", {name:"VPN kimlik doğrulama"});
+  await stage(1,[{name:"privateKeyPassword",purpose:"keyPassword",label:"Özel anahtar parolası",secret:true}]);
+  await page.getByRole("button", {name:"Yanıtla",exact:true}).click();
+  await expect(dialog.locator('input[type="password"]')).toHaveCount(1);
+  await dialog.getByLabel("Özel anahtar parolası").fill("Disposable key password");
+  await dialog.getByRole("button", {name:"Gönder",exact:true}).click();
+  await expect(dialog).toBeHidden();
+  await stage(2,[{name:"username",purpose:"username",label:"Kullanıcı adı",secret:false},{name:"password",purpose:"password",label:"Parola",secret:true}]);
+  await page.getByRole("button", {name:"Yanıtla",exact:true}).click();
+  await dialog.getByLabel(/^Kullanıcı adı/).fill("public-user");
+  await dialog.getByLabel(/^Parola/).fill("Disposable account password");
+  await dialog.getByRole("button", {name:"Gönder",exact:true}).click();
+  await expect(dialog).toBeHidden();
+  await stage(3,[{name:"response",purpose:"otp",label:"Tek kullanımlık kod",secret:true}]);
+  await page.getByRole("button", {name:"Yanıtla",exact:true}).click();
+  await expect(dialog.locator('input[type="password"]')).toHaveCount(1);
+  await expect(dialog.getByLabel("Tek kullanımlık kod")).toHaveValue("");
+  await dialog.getByLabel("Tek kullanımlık kod").fill("123456");
+  await dialog.getByRole("button", {name:"Gönder",exact:true}).click();
+  const calls = await page.evaluate(() => (window as any).vpnTest.calls);
+  expect(calls.filter((call:any) => call.command === "vpn_answer").map((call:any) => call.args.values)).toEqual([
+    {privateKeyPassword:"Disposable key password"},{username:"public-user",password:"Disposable account password"},{response:"123456"},
+  ]);
+  expect(calls.some((call:any) => call.command === "vpn_profile_save")).toBe(false);
+});
+
+for (const mode of ["certificate", "staticOtp"]) for (const family of ["fortinet", "globalProtect"]) test(`changing imported ${mode} to ${family} restores account controls and preserves the entered password`, async ({page}) => {
+  await setup(page);
+  await page.getByRole("button", {name:"Yeni VPN",exact:true}).click();
+  const dialog = page.getByRole("dialog", {name:"VPN profilini kaydet"});
+  await dialog.getByLabel("VPN türü").selectOption("openVpn");
+  await dialog.getByLabel("Profil adı").fill("Family transition");
+  await page.evaluate(mode => {
+    (window as any).vpnTest.importResult = {token:"auth-token",family:"openVpn",blocked:false,missingFiles:[],warnings:[],
+      authentication:{certificate:true,usernamePassword:mode==="staticOtp",privateKeyPassword:false,staticChallenge:mode==="staticOtp"}};
+  }, mode);
+  await dialog.getByRole("button", {name:".ovpn / .conf içe aktar"}).click();
+  await dialog.getByLabel("VPN türü").selectOption(family);
+  await expect(dialog.getByLabel("Kullanıcı adı", {exact:true})).toBeVisible();
+  await expect(dialog.getByLabel("Parolayı şifreli kasada hatırla")).toBeChecked();
+  await dialog.getByLabel(family === "fortinet" ? "VPN sunucusu" : "Portal / gateway adresi").fill("https://vpn.example");
+  await dialog.getByLabel("Kullanıcı adı", {exact:true}).fill("public-user");
+  await dialog.getByLabel("Parola", {exact:true}).fill("Disposable transition password");
+  await dialog.getByRole("button", {name:"Kaydet",exact:true}).click();
+  await expect(dialog).toBeHidden();
+  const args = await page.evaluate(() => (window as any).vpnTest.calls.find((call:any) => call.command === "vpn_profile_save").args);
+  expect(args.profile.family).toBe(family);
+  expect(args.profile.password).toBe("Disposable transition password");
+  expect(args.profile).not.toHaveProperty("authentication");
+  expect(args.importToken).toBeUndefined();
+});
+
 test("editing metadata preserves hidden config and remembered password until explicitly cleared", async ({ page }) => {
   await setup(page);
   const card = (label: string) => page.locator(".vpn-card").filter({ has: page.getByRole("button", { name: `${label} profilini sil`, exact: true }) });
@@ -508,6 +599,32 @@ test("native drop rejects multiple files, wrong extensions and missing dependenc
   await page.evaluate(()=>(window as any).vpnTest.importResult={token:"blocked",family:"openVpn",warnings:[],missingFiles:["missing-ca.pem"],blocked:false});
   await drop(["a.ovpn"]); await expect(page.getByRole("alert")).toContainText("missing-ca.pem");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+for (const development of [true, false]) test(`blocked native import names the selected file, exposes only supplied development diagnostics and clears feedback on retry (${development})`, async ({page}) => {
+  await setup(page);
+  await page.getByRole("button", {name:"Yeni VPN",exact:true}).click();
+  const dialog = page.getByRole("dialog", {name:"VPN profilini kaydet"});
+  await dialog.getByLabel("VPN türü").selectOption("openVpn");
+  await page.evaluate(development => {
+    const t = (window as any).vpnTest;
+    t.importPath = "C:\\private-disposable\\İstanbul.ovpn";
+    t.importResult = {token:"blocked",family:"openVpn",warnings:["Satır 7: script-security desteklenmiyor; yürütülmedi"],missingFiles:[],blocked:true,
+      ...(development ? {diagnostics:{sha256:"2c79ce148e98d550274138c01503301630f32678ca6e2fdacbb58e852560feaa",byteLength:83}} : {})};
+  }, development);
+  await dialog.getByRole("button", {name:".ovpn / .conf içe aktar"}).click();
+  const alert = dialog.getByRole("alert");
+  await expect(alert).toContainText("İstanbul.ovpn: Dosya içe aktarılamadı.");
+  await expect(alert).toContainText("Satır 7: script-security");
+  await expect(alert).not.toContainText("private-disposable");
+  if (development) await expect(alert).toContainText("Tanı: SHA-256 2c79ce148e98d550274138c01503301630f32678ca6e2fdacbb58e852560feaa; 83 bayt.");
+  else await expect(alert).not.toContainText("SHA-256");
+  await page.evaluate(() => { (window as any).vpnTest.importResult = null; });
+  await dialog.getByRole("button", {name:".ovpn / .conf içe aktar"}).click();
+  await expect(dialog.getByText("İstanbul.ovpn", {exact:true})).toBeVisible();
+  await expect(alert).toHaveCount(0);
+  await expect(dialog.getByRole("status")).toContainText("Yapılandırma güvenli biçimde hazırlandı.");
+  expect(await page.evaluate(() => (window as any).vpnTest.calls.some((c:any) => c.command === "vpn_profile_save"))).toBe(false);
 });
 
 test("closing an import dialog discards a delayed native import result",async({page})=>{

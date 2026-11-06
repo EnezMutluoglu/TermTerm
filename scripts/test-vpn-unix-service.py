@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authenticated Unix service checks; invoked only by the isolated VPN lab fixture."""
+"""Pure policy checks and authenticated Unix service checks for the isolated VPN lab."""
 import hashlib
 import importlib.util
 import io
@@ -80,6 +80,14 @@ def credential_checks(source, policy):
             assert challenge["fields"][0]["value"] == "fixture-user" and "value" not in challenge["fields"][1]
         choice = {"fields": [{"name": "gateway", "purpose": "choice", "choices": []}]}
         assert len(run([choice, normal])[0]) == 1
+        key = {"fields": [{"name": "privateKeyPassword", "purpose": "keyPassword", "secret": True}]}
+        otp = {"fields": [{"name": "response", "purpose": "otp", "secret": True}]}
+        answers, messages = run([key, normal, otp, normal])
+        assert len(answers) == 1 and answers[0]["values"] == {"user": "fixture-user", "passwd": "Disposable saved password"}
+        assert sum(m["session"]["state"] == "challenge" for m in messages) == 3
+        for bad in [{"fields": [{"name": "password", "purpose": "keyPassword", "secret": True}]},
+                    {"fields": [{"name": "privateKeyPassword", "purpose": "keyPassword", "secret": False}]}]:
+            assert run([bad, normal])[0] == [], "Malformed key form must consume the account attempt"
         answers, messages = run([normal], broken_policy=True)
         assert not answers and messages[-1]["session"]["state"] == "failed"
         form = {**normal, "private": {"cookie": "fixture-private-cookie"},
@@ -180,7 +188,7 @@ def policy_checks(source):
                 return b""
             if args == ("-j", "-4", "route", "show", "table", "main"):
                 return json.dumps([physical_route if route is None else route]).encode()
-            if args == ("-j", "-4", "route", "get", full["remote"]):
+            if args == ("-j", "-4", "route", "get", candidate["remote"]):
                 return json.dumps([{"dev": "eth0"} if transport is None else transport]).encode()
             if args == ("-j", "-d", "link", "show", "dev", "eth0"):
                 return json.dumps([physical_link if link is None else link]).encode()
@@ -196,6 +204,7 @@ def policy_checks(source):
             ({**full, "fullTunnel": False}, None, None, None, None),
             (native.plan({**detail, "routes": ["10.0.0.0/8"], "dns": [], "dnsDomains": []}), None, None, None, None),
             (native.plan({**detail, "routes": ["0.0.0.0/1", "128.0.0.0/1"], "dns": [], "dnsDomains": []}), None, None, None, None),
+            (native.plan({**detail, "remote": "10.0.2.1", "dns": [], "dnsDomains": []}), None, None, None, None),
             ({**full, "addresses": ["10.0.2.100/24"]}, None, None, None, None),
             *[(full, {**physical_route, **change}, None, None, None) for change in [
                 {"protocol": "boot"}, {"scope": "global"}, {"gateway": "10.0.2.2"}, {"type": "blackhole"},
@@ -224,7 +233,15 @@ def policy_checks(source):
     mac = native.DarwinNetwork.__new__(native.DarwinNetwork)
     mac.helper, mac.boot = Path("/fixture-helper"), "current-boot"
     split = native.plan({**detail, "routes": ["10.72.0.0/24"]})
-    for candidate, rows in [(full, b"10.0.2/24 link#4 UCS en0\n"), (split, b"10.72/16 192.0.2.1 UGS en9\n")]:
+    # Connected-looking, cloned-neighbor and static rows all lack verified native provenance.
+    for candidate, rows in [
+            *[(full, row) for row in [b"10.0.2/24 link#4 UCS en0\n", b"10.0.2.0/24 link#4 UCSI en0\n",
+                                     b"10.0.2/24 link#4 UC en0\n", b"10.0.2/24 link#9 UCS utun9\n",
+                                     b"10.0.2.1 aa:bb:cc:dd:ee:ff UHLWIir en0 1192\n",
+                                     b"10.0.2.15 aa:bb:cc:dd:ee:ff UHLWI lo0\n"]],
+            (split, b"10.72/16 192.0.2.1 UGS en9\n"),
+            (split, b"10.72.0.53 192.0.2.1 UGHS utun9\n"),
+            ({**split, "addresses": ["10.0.2.100/24"]}, b"10.0.2/24 link#4 UCS en0\n")]:
         with patch.object(native, "command", return_value=rows):
             try:
                 mac.preflight(candidate, [])
@@ -232,8 +249,19 @@ def policy_checks(source):
                 assert str(error) == "existing_route_conflict", error
             else:
                 raise AssertionError("Unverified Darwin LAN or foreign route exception accepted")
-    with patch.object(native, "command", return_value=b"10.0.2/24 link#4 UCS en0\n"):
+    lan_rows = b"10.0.2/24 link#4 UCS en0\n10.0.2.1 aa:bb:cc:dd:ee:ff UHLWIir en0 1192\n10.0.2.15 aa:bb:cc:dd:ee:ff UHLWI lo0\n"
+    excluded_lan = native.plan({**detail, "excludedRoutes": ["10.50.0.0/16", "10.0.2.0/24"]})
+    with patch.object(native, "command", return_value=lan_rows) as command:
         mac.preflight(split, [])
+        mac.preflight(excluded_lan, [])
+        assert all(call.args == ("/usr/sbin/netstat", "-rn", "-f", "inet") for call in command.call_args_list), "Preflight must stay read-only"
+    with patch.object(native, "command", return_value=lan_rows + b"10.72.0.53 192.0.2.1 UGHS utun9\n"):
+        try:
+            mac.preflight(excluded_lan, [])
+        except ValueError as error:
+            assert str(error) == "existing_route_conflict", error
+        else:
+            raise AssertionError("LAN exclusion permitted an unrelated foreign VPN route")
     for domains, searches, expected in [
             (mixed["domains"], mixed["searchDomains"], ["search.example", "office.example", "~route.example"]),
             (["office.example"], None, ["~office.example"]),
@@ -242,7 +270,7 @@ def policy_checks(source):
         if searches is not None:
             network["searchDomains"] = searches
         entry = {"interface": "ttv000000000000", "marker": "fixture", "id": str(uuid.uuid4()), "boot": "old-boot", "plan": network}
-        with patch.object(native, "command") as command:
+        with patch.object(native, "command") as command, patch.object(native.Path, "exists", return_value=False):
             linux.apply(entry)
             assert command.call_args_list[-2].args == ("resolvectl", "domain", entry["interface"], *expected)
             assert command.call_args_list[-1].args == ("resolvectl", "default-route", entry["interface"], "no" if domains else "yes")
@@ -917,6 +945,10 @@ def exercise(source, args, root, client_ns, server_ns, profile, ns, results):
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--policy-checks"]:
+        policy_checks(Path(__file__).resolve().parents[1])
+        print("PASS: pure Unix policy checks; physical-underlay, foreign-route and DNS boundaries preserved; no native network mutation")
+        raise SystemExit()
     if len(sys.argv) == 3 and sys.argv[1] == "--credentials":
         credential_checks(Path(__file__).resolve().parents[1], Path(sys.argv[2]))
         print("PASS: remembered authentication uses shared policy; OTP/retry/metadata boundaries preserved")

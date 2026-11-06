@@ -161,10 +161,14 @@ class Session:
         self.write({"action": "answer", "id": request["challengeId"], "values": values})
 
     def initial_credential_fields(self, challenge):
+        fields = challenge["fields"]
+        if (challenge.get("kind") is None and all(challenge.get(key) in (None, "") for key in ("message", "error"))
+                and len(fields) == 1 and fields[0].get("name") == "privateKeyPassword"
+                and fields[0].get("purpose") == "keyPassword" and fields[0].get("secret") is True):
+            return None
         if self.credential_autofill_used:
             return None
-        fields = challenge["fields"]
-        if any(f.get("secret") is True or f.get("purpose") in ("secret", "password", "otp") for f in fields):
+        if any(f.get("secret") is True or f.get("purpose") in ("secret", "password", "otp", "keyPassword") for f in fields):
             self.credential_autofill_used = True
         # Reuse the Windows matcher, without sending values or private SSO data to policy.
         metadata = {"fields": [{key: f.get(key) for key in ("name", "purpose", "label")} for f in fields],

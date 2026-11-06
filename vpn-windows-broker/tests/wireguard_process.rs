@@ -22,7 +22,7 @@ async fn wireguard_helper_handshake_and_raw_pipe_payload_without_host_network_ch
         (serde_json::from_str::<Value>(&frame).unwrap()["config"].as_str().unwrap().to_string(),Some(Stop(fixture)))
     };
     let initial=termterm_vpn_core::wireguard::parse(&config).unwrap().engine_config().unwrap();
-    let name=format!(r"\\.\pipe\TermTerm.VpnDev.packet.{}",uuid::Uuid::new_v4());let packet=pipe::server(&name,&owner.identity,true).unwrap();let endpoint=pipe::packet_endpoint(&name).unwrap();packet.connect().await.unwrap();
+    let name=format!(r"\\.\pipe\{}.packet.{}",termterm_vpn_windows_broker::PIPE_NAMESPACE,uuid::Uuid::new_v4());let packet=pipe::server(&name,&owner.identity,true).unwrap();let endpoint=pipe::packet_endpoint(&name).unwrap();packet.connect().await.unwrap();
     let child=process::engine(&owner,&engine,endpoint.raw()).unwrap();drop(endpoint);
     let mut input=child.input.try_clone().unwrap();let output=child.output.try_clone().unwrap();let (sender,mut events)=tokio::sync::mpsc::channel(16);
     std::thread::spawn(move||{let mut reader=BufReader::new(output);loop{let event=read_sync(&mut reader);let closed=event.is_err();if sender.blocking_send(event).is_err()||closed{break;}}});

@@ -24,6 +24,10 @@ macOS DNS kaynağı arama soneklerini sırasıyla `SearchDomains` alanında, yö
 
 **Bilinen macOS kaynak eksiği:** Linux'taki doğrulanmış fiziksel bağlı ağ istisnası Darwin rota ön kontrolünde henüz uygulanmadı. Fiziksel LAN ile örtüşen tam tünel planı, sunucunun açık istisnaları bu örtüşmeyi kaldırmadıkça `existing_route_conflict` ile ağ değişmeden reddedilir. Bu yalnız test bekleyen bir davranış değildir; macOS tam tünel hazırlığı bu kaynak eksiği giderilmeden tamamlanmış sayılmaz. Arayüz adına güvenen veya mevcut yerel/komşu/statik rotaları genel olarak izinli sayan bir gevşetme eklenmedi.
 
+4 Kasım kaynak incelemesinde bu sınır korundu: [Apple netstat belgesi](https://github.com/apple-oss-distributions/network_cmds/blob/main/netstat.tproj/netstat.1) `C`/`W` işaretlerinin cloning/klonlanmış rota, `S` işaretinin statik rota olduğunu açıklar; [route belgesi](https://github.com/apple-oss-distributions/network_cmds/blob/main/route.tproj/route.8) ise `-cloning`, `-iface`, `-llinfo` ve `-nostatic` ile elle rota işaretlerinin değiştirilebildiğini gösterir. Bu nedenle yalnız `UCS`, `UHLWI`, `link#` veya `en0` görünümü fiziksel bağlı önek kanıtı değildir. Gerçek arayüz tipi/adres öneki ve bağlı/yerel/komşu rota ilişkisi birlikte doğrulanmadan Linux istisnası Darwin'e taşınmadı. Linux bridge/bond/VLAN için de alt arayüz zinciri doğrulanmış değildir; Ethernet gibi görünmesi bu türlere izin açmaz.
+
+`python3 scripts/test-vpn-unix-service.py --policy-checks` root veya çalışan broker gerektirmeyen saf kontrolleri çalıştırır. Komut, işletim sistemi komutlarını fixture ile değiştirir; rota/DNS/ağ değişikliği veya servis kurulumu yapmaz. Darwin bağlı/komşu/statik/yabancı VPN rotalarında güvenli reddi, açık LAN istisnasının yalnız o örtüşmeyi kaldırmasını, Linux sınıflandırma ve DNS çakışma engellerini sınar. Bu kaynak testi macOS derlemesi veya gerçek Mac kabulü değildir; yukarıdaki kaynak eksiği ve yerel kabul kapısı açık kalır.
+
 ## Derleme ve paket hazırlığı
 
 Linux laboratuvarı Ubuntu 24.04, Python 3.12, OpenConnect `9.12-1ubuntu1.24.04.1`, OpenVPN sunucusu `2.6.19-0ubuntu0.24.04.4`, ocserv `1.2.4-1build2` ve `vpn-engine/dependencies.json` içindeki sabitlenmiş OpenVPN Core kaynağıyla doğrulanır. WireGuard Go sürüm ve kaynak sabitlemeleri `docs/VPN_WIREGUARD_TR.md` içindedir. GlobalProtect SSO için gönderilen OpenConnect sürümünün ilgili SSO düzeltmeleri ayrıca bulunmalıdır; dağıtım manifesti laboratuvar 9.12 paketini bu koşul için doğrulanmış saymaz.
@@ -86,6 +90,29 @@ python3 scripts/test-vpn-webkit.py \
 ```
 
 WebKit komutundaki dosya, `src-tauri` dizininde `TAURI_CONFIG="$(cat tauri.vpn-dev.conf.json)" CARGO_TARGET_DIR=/root/termterm-vpn-native-build/desktop cargo test --locked --test vpn_webkit_fixture --features vpn-webkit-fixture --no-run` çıktısından alınır; dosya son eki farklı derlemede değişebilir. Özel hedef libtest worker'ı kullanmaz; fixture process main thread kimliğini ayrıca doğrular. Testler root WSL laboratuvarında çalışır, servis veya kararlı masaüstü kurulumu yapmaz.
+
+## 0.4.3 üretim adayı sözleşmesi
+
+`tauri.vpn-candidate.conf.json` ve `vpn-candidate` özelliği yalnız `local.termterm.desktop` / `0.4.3` birleşimini açar. Yerel önizleme adayında güncelleyici kapalıdır. Nihai yerel yayın adayı için ayrıca `tauri.vpn-release-candidate.conf.json` ve `TERMTERM_RELEASE_CHANNEL=stable` seçilir: mevcut kararlı feed ve imza doğrulama anahtarı korunur; bu seçim yayın onayı değildir. Windows'ta aday yalnız ayrı bir Windows test profili veya sanal makinede değerlendirilmelidir; mevcut kararlı uygulamanın verileri kullanılmaz.
+
+Linux paket hazırlığı `scripts/package-vpn-linux.py --candidate 0.4.3 --uid <yöneticinin seçtiği nonroot UID>` ile yapılır. Nihai yerel yayın adayı için aynı komuta `--release-candidate` eklenir; Windows adaptöründe karşılığı `-Candidate 0.4.3 -ReleaseCandidate` seçimidir. Bu adaptörler yükleyici çalıştırmaz, imza anahtarı kullanmaz, feed değiştirmez veya yayın yapmaz. Önizleme adayından yayın adayına geçiş farklı binary hash üretir; yayın onayı yalnız son doğrulanan paketlere verilmelidir. Eşleşen DEB, `/usr/bin/termterm` dosyasını; broker paketi `/opt/termterm-vpn`, `/etc/termterm-vpn/broker.json`, `/var/lib/termterm-vpn` ve `termterm-vpn.service` adlarını kullanır. Servis `--candidate 0.4.3` ile başlar; root tarafından seçilen UID, kurulu masaüstünün kesin SHA256 değeri, üretim kimliği/sürümü ve sabit kurulum yolları doğrulanır. Paket servis başlatmaz; yönetici, doğru UID, root sahipliği, bağımlılıklar ve DNS önkoşullarını doğrulamalıdır. Geliştirme soketi ve laboratuvar override'ı bu adayda kabul edilmez.
+
+Üretim AppImage VPN yolu, geçici mount yerine sabit root sahipliğindeki AppDir kurulumudur. Broker DEB, masaüstü DEB'e zorunlu bağımlı değildir; iki masaüstü seçeneğinden yalnız yönetici tarafından seçilen kesin dosya yetkilendirilir. Yönetici broker DEB'i kurup `systemctl daemon-reload` yaptıktan sonra şu aracı kullanır:
+
+```sh
+sudo python3 /opt/termterm-vpn/bin/install-vpn-appimage.py \
+  --appimage ./TermTerm_0.4.3_amd64.AppImage \
+  --manifest ./APPIMAGE-INSTALL.json --manifest-sha256 <doğrulanmış_manifest_SHA256> \
+  --uid <broker_yapılandırmasındaki_nonroot_UID>
+```
+
+Manifest SHA256 değeri bağımsız incelenen paket kaydından alınmalıdır. Araç, kesin AppImage hash'ini doğrular; salt okunur root kopyasından çıkarma işlemini belirtilen nonroot kullanıcıyla yapar. Tüm dosya hash'leri, yalnız ağaç içinde kalan göreli sembolik bağlantılar ve izinler doğrulanır. Aygıt/FIFO, setuid/setgid ve dışarı çıkan bağlantılar reddedilir. Tam kopya yeniden doğrulanır; dinamik bağımlılıklar da nonroot `ldd` ile, yalnız root sahipliğindeki kütüphane yollarında kontrol edilir. Eksik bağımlılık veya kopya değişikliği, mevcut kurulum değiştirilmeden işlemi durdurur.
+
+Kurulum `/opt/termterm-appimage` ve `/usr/bin/termterm-appimage` başlatıcısını üretir; normal kullanıcı bu sabit başlatıcıyı açar. Broker, `clientInstall=appimage` ile yalnız `/opt/termterm-appimage/usr/bin/termterm` dosyasının kesin hash'ini kabul eder. Doğrudan `.AppImage` geçici mount'u, kullanıcı tarafından yazılabilen AppDir veya geliştirme uygulaması yetkilendirilmez. Yardımcı servis otomatik başlatılmaz.
+
+Güncelleme yöneticinin açık işlemidir: VPN'i durdurun, broker servisini durdurun ve sabit AppDir uygulamasını kapatın. Yeni paket/manifest ile aynı komuta mevcut istemci hash'ini `--expected-client-sha256` olarak ekleyin. Araç kendi önceki kurulum kaydı, eşleşen eski hash, değişmemiş başlatıcılar, servis kapalı ve kilitli boş sahiplik günlüğü şartlarını arar; eski AppDir ve private broker yapılandırması yedeklerini korur. Kesinti sonrasında otomatik silme veya rollback yapılmaz; servis kapalı tutulup korunan dosyalar yönetici tarafından incelenmelidir. Uygulama bu root kurulumunda otomatik dosya değiştirmeyi reddeder ve yöneticiyle güncelleme gerektiğini gösterir; mevcut imzalı feed kontrolü korunur.
+
+macOS aday servis/launchd kaynakları `prepare-vpn-unix.py --platform macos --candidate 0.4.3 --source-only` ile hazırlanabilir; bu makinede macOS imza, kurulum veya yerel VPN testi yapılmış sayılmaz. AppDir kaynak/fixture kontrolleri gerçek aday paketinin yerel kurulum/bağlantı kabulünün yerine geçmez. Yükleyici/otomatik güncelleme varlıklarının sahibi tarafından geçerli anahtarla imzalanması hâlâ yayın öncesi ayrı şarttır; bu geliştirme işlemi imza anahtarına erişmez ve yayın yapmaz.
 
 ## Linux tam tünel ve fiziksel ağın korunması
 

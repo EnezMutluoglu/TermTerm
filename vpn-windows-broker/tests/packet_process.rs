@@ -6,7 +6,7 @@ use windows_sys::Win32::{Foundation::WAIT_OBJECT_0,System::Threading::{GetCurren
 async fn probe(scenario: &str) {
     let owner = identity::process_identity(unsafe {GetCurrentProcess()}).unwrap();
     assert!(!owner.elevated,"these tests must stay unelevated");
-    let name = format!(r"\\.\pipe\TermTerm.VpnDev.packet.{}",uuid::Uuid::new_v4());
+    let name = format!(r"\\.\pipe\{}.packet.{}",termterm_vpn_windows_broker::PIPE_NAMESPACE,uuid::Uuid::new_v4());
     let server = pipe::server(&name,&owner,true).unwrap(); let endpoint = pipe::packet_endpoint(&name).unwrap(); server.connect().await.unwrap();
     let helper = Path::new(env!("CARGO_BIN_EXE_termterm-vpn-broker"));
     let child = process::packet_probe(helper,&endpoint,scenario).unwrap(); drop(endpoint);

@@ -29,6 +29,13 @@ pub fn password_challenge_fields(challenge:&serde_json::Value)->Option<(&'static
     password_fields(&challenge["fields"])
 }
 
+/// Unlocking a key is separate from the first account-credential attempt.
+pub fn private_key_challenge(challenge: &serde_json::Value) -> bool {
+    challenge["kind"].is_null() && ["message", "error"].iter().all(|key| challenge[key].is_null() || challenge[key] == "")
+        && challenge["fields"].as_array().is_some_and(|fields| fields.len() == 1 && fields[0]["name"] == "privateKeyPassword"
+        && fields[0]["purpose"] == "keyPassword" && fields[0]["secret"] == true)
+}
+
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
@@ -163,6 +170,16 @@ mod tests {
 mod credential_tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn only_the_explicit_private_key_form_preserves_the_account_attempt() {
+        let key = json!({"fields":[{"name":"privateKeyPassword","purpose":"keyPassword","secret":true}]});
+        assert!(private_key_challenge(&key));
+        for field in [json!({"name":"privateKeyPassword","purpose":"otp","secret":true}), json!({"name":"password","purpose":"keyPassword","secret":true}), json!({"name":"privateKeyPassword","purpose":"keyPassword","secret":false})] {
+            assert!(!private_key_challenge(&json!({"fields":[field]})));
+        }
+        assert!(!private_key_challenge(&json!({"fields":[key["fields"][0],key["fields"][0]]})));
+        let mut otp = key; otp["message"] = "Enter OTP".into(); assert!(!private_key_challenge(&otp));
+    }
     #[test]
     fn remembered_forms_require_an_unambiguous_username_password_pair() {
         let initial = json!([{"name":"user","purpose":"text"},{"name":"passwd","purpose":"secret","label":"Password: "}]);

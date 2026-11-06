@@ -29,7 +29,7 @@ fn verify_acl(path: &Path, expected: &str) -> Result<()> {
 pub struct ProtectedRoot { path: PathBuf, _directory: Handle }
 impl ProtectedRoot {
     pub fn open() -> Result<Self> {
-        Self::open_named("TermTermVpnDevBroker-v1")
+        Self::open_named(if cfg!(feature="production-candidate") { "TermTermVpnBroker-v1" } else { "TermTermVpnDevBroker-v1" })
     }
     #[cfg(feature="privileged-validation")]
     pub(super) fn diagnostics() -> Result<Self> {Self::open_named("TermTermVpnDevBrokerDiagnostics-v1")}
@@ -132,7 +132,8 @@ impl Store for DiskStore {
 pub fn machine_lock() -> Result<Handle> {
     let descriptor = Descriptor::from_sddl("O:BAG:BAD:P(A;;GA;;;SY)(A;;GA;;;BA)")?;
     let attributes = descriptor.attributes();
-    let lock = Handle::new(unsafe { CreateMutexW(&attributes, 0, wide(r"Global\TermTerm.VpnDev.Broker.v1")?.as_ptr()) })?;
+    let name = if cfg!(feature="production-candidate") { r"Global\TermTerm.Vpn.Broker.v1" } else { r"Global\TermTerm.VpnDev.Broker.v1" };
+    let lock = Handle::new(unsafe { CreateMutexW(&attributes, 0, wide(name)?.as_ptr()) })?;
     ensure!(unsafe { GetLastError() } != ERROR_ALREADY_EXISTS, "another_windows_vpn_manager_is_active");
     Ok(lock)
 }

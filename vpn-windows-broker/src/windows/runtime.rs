@@ -35,7 +35,7 @@ fn read_engine_events(reader:impl BufRead,id:Uuid,generation:u64,events:mpsc::Se
         if let Ok(event)=&event {
             if event.session_id!=id || event.generation!=generation || !matches!(event.kind.as_str(),"progress"|"connecting"|"challenge"|"network-plan"|"tunnel-ready"|"connected"|"failed"|"disconnected") {diagnostic.take();}
             else if event.kind=="failed" {
-                if let Some(sender)=diagnostic.take() {if let Some(reason)=event.detail.as_str() {let _=sender.send(format!("engine_failed: {reason}"));}}
+                if let Some(sender)=diagnostic.take() {if let Some(reason)=crate::protocol::engine_failure(&event.detail) {let _=sender.send(format!("engine_failed: {reason}"));}}
             }
         } else {diagnostic.take();}
         let closed=event.is_err();
@@ -43,10 +43,12 @@ fn read_engine_events(reader:impl BufRead,id:Uuid,generation:u64,events:mpsc::Se
     }
 }
 fn initial_credential_fields(challenge:&Challenge,used:&mut bool)->Option<(&'static str,&'static str)> {
+    let metadata = json!({"fields":challenge.fields,"message":challenge.message,"error":challenge.error});
+    if termterm_vpn_core::private_key_challenge(&metadata) {return None;}
     let first=!*used;
-    if challenge.fields.iter().any(|field|field.secret || matches!(field.purpose.as_str(),"secret"|"password"|"otp")) {*used=true;}
+    if challenge.fields.iter().any(|field|field.secret || matches!(field.purpose.as_str(),"secret"|"password"|"otp"|"keyPassword")) {*used=true;}
     if !first {return None;}
-    termterm_vpn_core::password_challenge_fields(&json!({"fields":challenge.fields,"message":challenge.message,"error":challenge.error}))
+    termterm_vpn_core::password_challenge_fields(&metadata)
 }
 #[derive(Default)]
 struct ConnectionReadiness {stopping:bool,engine_connected:bool,addresses_ready:bool}
@@ -119,7 +121,7 @@ impl Broker {
                 peer_paths.push((peer,path));
             }
         }
-        let packet_name = format!(r"\\.\pipe\TermTerm.VpnDev.packet.{}", Uuid::new_v4());
+        let packet_name = format!(r"\\.\pipe\{}.packet.{}", crate::PIPE_NAMESPACE, Uuid::new_v4());
         let packet = pipe::server(&packet_name, &self.owner.identity, true)?;
         let endpoint = pipe::packet_endpoint(&packet_name)?;
         packet.connect().await?;
@@ -311,7 +313,7 @@ impl Broker {
     }
     async fn request(&mut self, request: Request) -> Result<(Value,bool)> {
         match request {
-            Request::Hello { vault_id, .. } => { ensure!(self.vault.is_none(), "hello_already_received"); self.vault = Some(vault_id); Ok((json!({"version":crate::PROTOCOL_VERSION,"labOnly":true,"maxConnections":3,"dns":true,"fullTunnel":true,"networkLease":true,"quiesce":true}),false)) }
+            Request::Hello { vault_id, .. } => { ensure!(self.vault.is_none(), "hello_already_received"); self.vault = Some(vault_id); Ok((json!({"version":crate::PROTOCOL_VERSION,"labOnly":!cfg!(feature="production-candidate"),"mode":"authenticatedNative","identity":crate::BROKER_ID,"maxConnections":3,"dns":true,"fullTunnel":true,"networkLease":true,"quiesce":true}),false)) }
             Request::Connect { id,generation,profile_id,profile,.. } => Ok((self.start(id,generation,profile_id,profile).await?,false)),
             Request::Answer { id,generation,challenge_id,values,.. } => Ok((self.answer(id,generation,challenge_id,values)?,false)),
             Request::SsoAnswer { id,generation,challenge_id,result,.. } => Ok((self.sso_answer(id,generation,challenge_id,result)?,false)),
@@ -416,7 +418,7 @@ impl Broker {
                 session.write(json!({"action":"network-configured","packetHandle":session.child.packet_handle}))?;
             }
             "connected" => { ensure!(session.tun.is_some() && session.reserved, "unconfigured_connection");session.readiness.engine_connected();self.publish_connected(id)?; }
-            "failed" => anyhow::bail!("engine_failed: {}", event.detail.as_str().unwrap_or("vpn_transport_failed")),
+            "failed" => anyhow::bail!("engine_failed: {}", crate::protocol::engine_failure(&event.detail).unwrap_or("vpn_transport_failed")),
             "disconnected" => { let generation = session.generation; self.stop(id,generation,None).await?; }
             _ => anyhow::bail!("unknown_engine_event"),
         }
@@ -487,15 +489,23 @@ pub async fn serve(pipe_id: Uuid, parent: u32, birth: u64, validation: bool) -> 
     ensure!(crate::PRIVILEGED_PATH_VALIDATED || (cfg!(feature="privileged-validation") && validation), "privileged_windows_path_not_validated");
     let owner = Process::open(parent)?; ensure!(owner.birth == birth && !owner.identity.elevated, "invalid_manager_process");
     let current = identity::process_identity(unsafe {GetCurrentProcess()})?; ensure!(current.elevated,"elevated_broker_required"); identity::verify_elevated_peer(&owner.identity,unsafe {GetCurrentProcess()})?;
+    let helper = std::env::current_exe()?.canonicalize()?; let bundle = helper.parent().unwrap().to_path_buf();
+    let _manager_image = if cfg!(feature="production-candidate") {
+        ensure!(!validation, "candidate_refuses_validation_mode");
+        let manager = owner.image_path()?;
+        crate::bundle::require_manager_path(&bundle, &manager)?;
+        let image = process::lock_image(&manager)?;
+        crate::bundle::inspect(&bundle)?;
+        Some(image)
+    } else { None };
     let lock = super::store::machine_lock()?; let root = ProtectedRoot::open()?;
     if validation {ensure!(root.journal_count()? == 0,"validation_refuses_existing_owned_journals");}
-    let helper = std::env::current_exe()?.canonicalize()?; let bundle = helper.parent().unwrap().to_path_buf();
     let watchdog = process::watchdog(&helper,&lock)?;
     if !validation {recover(&root,&mut OwnedNetwork::recovering())?;}
     let api = Wintun::load(&bundle.join("wintun.dll"))?; let network = OwnedNetwork::new(api);
     #[cfg(feature="privileged-validation")]
     let network={let mut network=network;if validation {network.diagnostics=Some(Arc::new(super::diagnostics::Diagnostics::open()?));}network};
-    let mut server = pipe::server(&format!(r"\\.\pipe\TermTerm.VpnDev.control.{pipe_id}"),&owner.identity,false)?;
+    let mut server = pipe::server(&format!(r"\\.\pipe\{}.control.{pipe_id}",crate::PIPE_NAMESPACE),&owner.identity,false)?;
     tokio::time::timeout(Duration::from_secs(30),server.connect()).await??;
     let mut preamble = [0]; tokio::time::timeout(Duration::from_secs(5),server.read_exact(&mut preamble)).await??;
     ensure!(preamble == [1],"invalid_authentication_preamble"); pipe::verify_client(&server,&owner)?; server.write_all(&[1]).await?;
@@ -606,6 +616,19 @@ mod tests {
     fn packet_eof()->anyhow::Error {std::io::Error::new(std::io::ErrorKind::UnexpectedEof,"packet_channel_closed").into()}
     fn pending_stop(error:Option<&str>)->PendingStop {PendingStop{error:error.map(str::to_owned),deadline:std::time::Instant::now()+Duration::from_secs(10),timed_out:false}}
     #[tokio::test]
+    async fn openvpn_error_object_reaches_actor_and_packet_eof_without_raw_info() {
+        let id=Uuid::new_v4();
+        let frame=format!("{}\n",json!({"kind":"failed","sessionId":id,"generation":7,"detail":{"name":"CERT_VERIFY_FAIL","error":true}}));
+        let (events,mut inputs)=mpsc::channel(2);let (sender,receiver)=oneshot::channel();let mut diagnostic=Some(receiver);
+        let reader=std::thread::spawn(move||read_engine_events(std::io::Cursor::new(frame),id,7,events,Some(sender)));
+        let mut pending=pending_stop(Some("packet_channel_closed"));
+        pending.packet_failure(false,&packet_eof(),&mut diagnostic).await;
+        assert_eq!(pending.error.as_deref(),Some("engine_failed: CERT_VERIFY_FAIL"));
+        let Some(Input::Engine(_,_,Ok(event)))=inputs.recv().await else {panic!("missing engine failure");};
+        assert_eq!(crate::protocol::engine_failure(&event.detail),Some("CERT_VERIFY_FAIL"));
+        drop(inputs);reader.join().unwrap();
+    }
+    #[tokio::test]
     async fn wireguard_eof_waits_for_held_reader_before_blocked_actor_delivery() {
         let id=Uuid::new_v4();
         let raw=serde_json::to_vec(&json!({"kind":"failed","sessionId":id,"generation":7,"detail":"wireguard_peer_handshake_timeout"})).unwrap();
@@ -680,6 +703,16 @@ mod tests {
         let mut used=false;let gateway=form("Select gateway",json!([{"name":"gateway","purpose":"choice","label":"Gateway:","secret":false}]));
         assert_eq!(initial_credential_fields(&gateway,&mut used),None);assert!(!used);
         assert_eq!(initial_credential_fields(&normal,&mut used),Some(("user","passwd")));
+        let key=form("",json!([{"name":"privateKeyPassword","purpose":"keyPassword","label":"Key passphrase","secret":true}]));
+        let mut used=false;assert_eq!(initial_credential_fields(&key,&mut used),None);assert!(!used);
+        assert_eq!(initial_credential_fields(&normal,&mut used),Some(("user","passwd")));
+        let otp=form("",json!([{"name":"response","purpose":"otp","label":"One-time code","secret":true}]));
+        assert_eq!(initial_credential_fields(&otp,&mut used),None);assert!(used);
+        assert_eq!(initial_credential_fields(&normal,&mut used),None);
+        assert_eq!(initial_credential_fields(&key,&mut used),None);assert!(used);
+        let mut used=false;let bad=form("",json!([{"name":"privateKeyPassword","purpose":"keyPassword","label":"Key passphrase","secret":false}]));
+        assert_eq!(initial_credential_fields(&bad,&mut used),None);assert!(used);
+        assert_eq!(initial_credential_fields(&normal,&mut used),None);
     }
     #[test]
     fn readiness_requires_both_proofs_and_cancellation_timeout_or_failed_cleanup_stays_terminal() {

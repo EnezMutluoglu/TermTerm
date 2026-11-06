@@ -94,6 +94,12 @@ pub struct Process {
     pub identity: Identity,
 }
 impl Process {
+    pub fn image_path(&self) -> Result<std::path::PathBuf> {
+        let mut path = vec![0_u16; 32768];
+        let mut size = path.len() as u32;
+        unsafe { win(QueryFullProcessImageNameW(self.handle.raw(), 0, path.as_mut_ptr(), &mut size))?; }
+        Ok(std::path::PathBuf::from(String::from_utf16(&path[..size as usize])?).canonicalize()?)
+    }
     pub fn open(pid: u32) -> Result<Self> {
         let handle = Handle::new(unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SYNCHRONIZE, 0, pid) })?;
         let birth = birth_time(handle.raw())?; let identity = process_identity(handle.raw())?;

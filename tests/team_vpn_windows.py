@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import secrets
 import shutil
+import signal
 import socket
 import socketserver
 import ssl
@@ -37,11 +38,55 @@ def write_json(path, value):
     path.chmod(0o600)
 
 
+def peer_socket_absent():
+    return not lab.run('ss', '-Hlun', 'sport = :31820').stdout.strip()
+
+
+def stop_namespace_processes(namespace, inode):
+    def members():
+        assert os.stat('/run/netns/' + namespace).st_ino == inode, 'Owned namespace identity changed'
+        return [int(pid) for pid in lab.run('ip', 'netns', 'pids', namespace).stdout.split()]
+
+    # SSH children create new sessions, so terminating the sshd master is insufficient.
+    for action, seconds in [(signal.SIGTERM, 8), (signal.SIGKILL, 3)]:
+        for pid in members():
+            try:
+                descriptor = os.pidfd_open(pid)
+            except ProcessLookupError:
+                continue
+            try:
+                if os.stat(f'/proc/{pid}/ns/net').st_ino == inode:
+                    signal.pidfd_send_signal(descriptor, action)
+            except (FileNotFoundError, ProcessLookupError):
+                pass
+            finally:
+                os.close(descriptor)
+        deadline = time.monotonic() + seconds
+        while members():
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(.05)
+        else:
+            return True
+    return False
+
+
+def remove_owned_peer(namespace, inode, public_key):
+    assert os.stat('/run/netns/' + namespace).st_ino == inode, 'Owned namespace identity changed'
+    def query(*command): return lab.run('ip', 'netns', 'exec', namespace, *command).stdout
+    assert query('wg', 'show', 'ttwg0', 'public-key').decode().strip() == public_key, 'Owned WireGuard key differs'
+    assert query('wg', 'show', 'ttwg0', 'listen-port').strip() == b'31820', 'Owned WireGuard port differs'
+    address = json.loads(query('ip', '-j', '-4', 'address', 'show', 'dev', 'ttwg0'))
+    assert len(address) == 1 and address[0]['ifname'] == 'ttwg0' and [(value['local'], value['prefixlen']) for value in address[0]['addr_info']] == [('10.97.0.1', 32)], 'Owned WireGuard address differs'
+    assert os.stat('/run/netns/' + namespace).st_ino == inode, 'Owned namespace identity changed'
+    lab.run('ip', '-n', namespace, 'link', 'delete', 'ttwg0')
+
+
 def fixture(args):
     assert os.geteuid() == 0, 'Disposable root WSL lab required'
     directory = destination(args.directory)
     assert 120 <= args.duration <= 14400
-    assert not lab.run('ss', '-Hlun', 'sport = :31820').stdout.strip(), 'Preserve existing UDP listener'
+    assert peer_socket_absent(), 'Preserve existing UDP listener'
     directory.mkdir(parents=True, mode=0o700)
     before = lab.snapshot()
     identity = uuid.uuid4().hex[:16]
@@ -57,6 +102,7 @@ def fixture(args):
     relay_module = importlib.util.module_from_spec(spec); spec.loader.exec_module(relay_module)
     processes, streams = [], []
     namespace_created = interface_created = moved = database_created = False
+    namespace_inode = None
     https = https_thread = None
     report = {'version': 1, 'fixtureId': identity, 'result': 'failed', 'scope': 'WSL fixture only; Windows acceptance is separate'}
 
@@ -97,6 +143,7 @@ def fixture(args):
         address = next(value['local'] for value in addresses if value['scope'] == 'global')
         assert any(ipaddress.ip_address(address) in ipaddress.ip_network(prefix) for prefix in ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'])
         lab.run('ip', 'netns', 'add', namespace); namespace_created = True
+        namespace_inode = os.stat('/run/netns/' + namespace).st_ino
         # The kernel UDP socket stays on WSL; cleartext SSH exists only in this namespace.
         lab.run('ip', 'link', 'add', birth, 'type', 'wireguard'); interface_created = True
         lab.run('ip', 'link', 'set', birth, 'netns', namespace); moved = True
@@ -170,17 +217,24 @@ def fixture(args):
                 except subprocess.TimeoutExpired: process.kill(); process.wait(timeout=3)
         for stream in streams: stream.close()
         if interface_created and not moved: lab.run('ip', 'link', 'delete', birth)
-        if namespace_created: lab.run('ip', 'netns', 'delete', namespace)
+        namespace_processes_exited = not namespace_created or stop_namespace_processes(namespace, namespace_inode)
+        if namespace_created and namespace_processes_exited:
+            if moved: remove_owned_peer(namespace, namespace_inode, public.decode())
+            lab.run('ip', 'netns', 'delete', namespace)
+        kernel_peer_socket_removed = peer_socket_absent()
+        if not namespace_processes_exited or not kernel_peer_socket_removed: report['result'] = 'failed'
         if database_created: sql('postgres', f'DROP DATABASE {db}')
-        report.update(namespaceRemoved=not Path('/run/netns', namespace).exists(), hostNetworkUnchanged=lab.snapshot() == before, disposableDatabaseRemoved=database_created, fixtureProcessesExited=all(p.poll() is not None for p in processes),
+        report.update(namespaceRemoved=not Path('/run/netns', namespace).exists(), namespaceProcessesExited=namespace_processes_exited, kernelPeerSocketRemoved=kernel_peer_socket_removed, hostNetworkUnchanged=lab.snapshot() == before, disposableDatabaseRemoved=database_created, fixtureProcessesExited=namespace_processes_exited and all(p.poll() is not None for p in processes),
                       sourceSha256=pins, sourceUnchanged=pins == {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in sources}, productionInstallationTouched=False)
         write_json(directory / 'stopped.json', report)
         assert stage.parent == Path('/run') and stage.name.startswith('termterm-team-win-')
-        shutil.rmtree(stage)
-    assert report['namespaceRemoved'] and report['hostNetworkUnchanged'] and report['sourceUnchanged']
+        if namespace_processes_exited and kernel_peer_socket_removed: shutil.rmtree(stage)
+    assert report['namespaceRemoved'] and report['kernelPeerSocketRemoved'] and report['hostNetworkUnchanged'] and report['sourceUnchanged']
 
 
 def self_test():
+    from types import SimpleNamespace
+    from unittest.mock import Mock, call, patch
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary); (root / '.lab').mkdir()
         assert destination(root / '.lab/new', root) == root / '.lab/new'
@@ -190,7 +244,65 @@ def self_test():
             except ValueError: pass
             else: raise AssertionError('Unsafe or existing fixture destination accepted')
         assert (existing / 'preserved').read_text() == 'keep'
-    print('PASS: fixture path containment, traversal rejection and preservation; no network operations')
+    owned = SimpleNamespace(st_ino=7)
+    fake_os = SimpleNamespace(stat=Mock(return_value=owned), pidfd_open=Mock(side_effect=lambda pid: pid + 100), close=Mock())
+    fake_signal = SimpleNamespace(SIGTERM=15, SIGKILL=9, pidfd_send_signal=Mock())
+    fake_time = SimpleNamespace(monotonic=Mock(return_value=0), sleep=Mock())
+    output = lambda value: SimpleNamespace(stdout=value)
+    with patch.dict(globals(), os=fake_os, signal=fake_signal, time=fake_time), patch.object(lab, 'run') as run:
+        run.side_effect = [output(b'10\n11\n'), output(b'')]
+        assert stop_namespace_processes('owned', 7)
+        assert fake_signal.pidfd_send_signal.call_args_list == [call(110, 15), call(111, 15)]
+        assert fake_os.close.call_count == 2
+        fake_signal.pidfd_send_signal.reset_mock()
+        fake_os.stat.side_effect = lambda path: owned if path.startswith('/run/netns/') else SimpleNamespace(st_ino=8)
+        run.side_effect = [output(b'10\n'), output(b'')]
+        assert stop_namespace_processes('owned', 7)
+        fake_signal.pidfd_send_signal.assert_not_called()
+        fake_os.stat.side_effect = None
+        fake_os.pidfd_open.side_effect = ProcessLookupError
+        run.side_effect = [output(b'10\n'), output(b'')]
+        assert stop_namespace_processes('owned', 7)
+        fake_signal.pidfd_send_signal.assert_not_called()
+        fake_os.pidfd_open.side_effect = lambda pid: pid + 100
+        run.side_effect = None; run.return_value = output(b'10\n')
+        fake_time.monotonic.side_effect = [0, 8, 8, 11]
+        assert not stop_namespace_processes('owned', 7)
+        assert fake_signal.pidfd_send_signal.call_args_list == [call(110, 15), call(110, 9)]
+        fake_time.sleep.assert_not_called()
+        fake_signal.pidfd_send_signal.reset_mock()
+        fake_os.stat.return_value = SimpleNamespace(st_ino=8)
+        try: stop_namespace_processes('replaced', 7)
+        except AssertionError: pass
+        else: raise AssertionError('Replaced namespace was accepted')
+        fake_signal.pidfd_send_signal.assert_not_called()
+        run.return_value = output(b'')
+        assert peer_socket_absent()
+        run.return_value = output(b'UNCONN 0 0 0.0.0.0:31820 0.0.0.0:*\n')
+        assert not peer_socket_absent()
+        key, port, address = b'fixture-public-key\n', b'31820\n', b'[{"ifname":"ttwg0","addr_info":[{"local":"10.97.0.1","prefixlen":32}]}]'
+        fake_os.stat.return_value = owned
+        run.reset_mock(); run.side_effect = [output(key), output(port), output(address), output(b'')]
+        remove_owned_peer('owned', 7, 'fixture-public-key')
+        assert run.call_args_list == [call('ip','netns','exec','owned','wg','show','ttwg0','public-key'), call('ip','netns','exec','owned','wg','show','ttwg0','listen-port'), call('ip','netns','exec','owned','ip','-j','-4','address','show','dev','ttwg0'), call('ip','-n','owned','link','delete','ttwg0')]
+        for values in [(b'other-key',port,address), (key,b'31821',address), (key,port,b'[{"ifname":"ttwg0","addr_info":[]}]')]:
+            run.reset_mock(); run.side_effect = [output(value) for value in values]
+            try: remove_owned_peer('owned', 7, 'fixture-public-key')
+            except AssertionError: pass
+            else: raise AssertionError('Mismatched WireGuard ownership accepted')
+            assert call('ip','-n','owned','link','delete','ttwg0') not in run.call_args_list
+        fake_os.stat.return_value = SimpleNamespace(st_ino=8)
+        run.reset_mock()
+        try: remove_owned_peer('replaced', 7, 'fixture-public-key')
+        except AssertionError: pass
+        else: raise AssertionError('Replaced namespace device accepted')
+        run.assert_not_called()
+        fake_os.stat.return_value = owned
+        run.side_effect = [output(key), output(port), output(address), OSError('fixture deletion failed')]
+        try: remove_owned_peer('owned', 7, 'fixture-public-key')
+        except OSError: pass
+        else: raise AssertionError('Failed WireGuard deletion was ignored')
+    print('PASS: fixture path safety, pidfd descendant teardown, 8/3-second bounds, owned WireGuard deletion order/guards and strict UDP absence; no network operations')
 
 
 if __name__ == '__main__':

@@ -8,7 +8,7 @@ use windows_sys::{core::GUID,Win32::{Devices::{DeviceAndDriverInstallation::*,Pr
 
 const NET_CLASS:GUID=GUID::from_u128(0x4d36e972_e325_11ce_bfc1_08002be10318);
 const WINTUN_NAME:DEVPROPKEY=DEVPROPKEY {fmtid:GUID::from_u128(0x3361c968_2f2e_4660_b47e_699cdc4c32b9),pid:3};
-const DESCRIPTION:&str="TermTerm VPN Development Tunnel";
+const DESCRIPTION:&str=crate::TUNNEL_DESCRIPTION;
 struct DeviceSet(HDEVINFO);
 impl Drop for DeviceSet {fn drop(&mut self){unsafe {SetupDiDestroyDeviceInfoList(self.0);}}}
 struct Key(HKEY);
@@ -277,6 +277,11 @@ mod tests {
         let expected=Expected{guid:Uuid::new_v4(),name:"TermTerm VPN test".into(),luid:Some((53<<48)|(32772<<24))};
         let good=DeviceIdentity {class:from_guid(NET_CLASS),name:expected.name.clone(),friendly:DESCRIPTION.into(),description:DESCRIPTION.into(),service:"wintun".into(),hardware:"Wintun".encode_utf16().chain([0,0]).collect(),cfg:expected.guid,luid_index:32772,if_type:53,component:"wintun".into(),matching:"wintun".into(),provider:"WireGuard LLC".into()};
         require_identity(&expected,&good).unwrap();
+        assert_eq!(DESCRIPTION,format!("{} Tunnel",crate::TUNNEL_TYPE));
+        let mut other_mode=good.clone();
+        let other=if cfg!(feature="production-candidate") {"TermTerm VPN Development Tunnel"} else {"TermTerm VPN Tunnel"};
+        other_mode.friendly=other.into();other_mode.description=other.into();
+        assert!(require_identity(&expected,&other_mode).is_err(),"another build's adapter description must not authorize cleanup");
         let early=Expected{luid:None,..expected.clone()};assert_eq!(require_identity(&early,&good).unwrap(),expected.luid.unwrap());
         for change in 0..14 {let mut bad=good.clone();match change {0=>bad.class=Uuid::nil(),1=>bad.name="other".into(),2=>bad.friendly="other".into(),3=>bad.description="other".into(),4=>bad.service="other".into(),5=>bad.hardware=vec![0,0],6=>bad.cfg=Uuid::nil(),7=>bad.luid_index+=1,8=>bad.if_type=6,9=>bad.component="other".into(),10=>bad.matching="other".into(),11=>bad.provider="other".into(),12=>bad.luid_index=0,_=>bad.luid_index=0x1000000};assert!(require_identity(&expected,&bad).is_err());if change!=7 {assert!(require_identity(&early,&bad).is_err());}}
         let mut removals=0;let result=validate_then_apply(&[true,false],|valid|{ensure!(*valid,"bad_later_target");Ok(())},|_|{removals+=1;Ok(())});assert!(result.is_err());assert_eq!(removals,0);

@@ -20,7 +20,7 @@ if (-not $SelfTest -and $validatorHash -ne $ExpectedValidatorSha256) {throw 'Rev
 $parseErrors=$null
 $ast=[Management.Automation.Language.Parser]::ParseInput([Text.Encoding]::UTF8.GetString($validatorBytes),$validatorPath,[ref]$null,[ref]$parseErrors)
 if ($parseErrors) {throw 'Shared validator did not parse'}
-$functionNames=@('Read-LockedFile','Assert-NativeInventory','Send-BrokerRequest','Resolve-FixtureAnswer','Receive-BrokerMessage','Wait-BrokerReply','Confirm-BrokerCleanup','Wait-AllConnected')
+$functionNames=@('Read-LockedFile','Assert-NativeInventory','Send-BrokerRequest','Resolve-FixtureAnswer','Receive-BrokerMessage','Wait-BrokerReply','Confirm-BrokerCleanup','Assert-PendingCleanupSessions','Wait-BrokerCleanup','Wait-AllConnected')
 foreach ($name in $functionNames) {
     $definitions=@($ast.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst]},$false) | Where-Object {$_.Name -ceq $name})
     if ($definitions.Count -ne 1) {throw 'Reviewed shared validator function missing or duplicated'}
@@ -468,7 +468,7 @@ try {
     } else {
         $brokerDeadline=[DateTime]::UtcNow.AddSeconds($(if ($ManyRoutes) {185} else {20}))
         $brokerReport['cleanupPriorFailures']=@()
-        Confirm-BrokerCleanup (Wait-BrokerReply (Send-BrokerRequest @{action='close'}) -Cleanup)
+        Wait-BrokerCleanup
         $brokerProcess.StandardInput.Close();Require ($brokerProcess.WaitForExit(10000)) 'Normal client exit timed out'
         Require ($brokerProcess.ExitCode -eq 0) 'Normal client failed'
     }

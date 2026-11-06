@@ -74,7 +74,7 @@ pub(crate) async fn connect_inner(helper: &Path, validation: bool) -> Result<Ver
     ensure!(!owner.identity.elevated,"vpn_manager_must_be_unelevated");
     let owner_identity = owner.identity.clone(); let pipe_id = uuid::Uuid::new_v4();
     let server = tokio::task::spawn_blocking(move || process::elevate(&helper,pipe_id,&owner,validation)).await??;
-    let name = format!(r"\\.\pipe\TermTerm.VpnDev.control.{pipe_id}");
+    let name = format!(r"\\.\pipe\{}.control.{pipe_id}", crate::PIPE_NAMESPACE);
     let mut stream = tokio::time::timeout(std::time::Duration::from_secs(30),async {
         loop {
             server.verify(server.pid)?;

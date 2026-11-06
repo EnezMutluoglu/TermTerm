@@ -99,6 +99,17 @@ if ($SelfTest) {
         $failed=$false;try {Lock-VerifiedFile $temporary ('0'*64)} catch {$failed=$true}
         Require $failed 'Changed acceptance member passed its reviewed hash';$checks++
     } finally {foreach ($lock in $locks) {$lock.Dispose()};Remove-Item -LiteralPath $temporary}
+    foreach ($expectedExit in @(0,17)) {
+        $process=[Diagnostics.Process]::new()
+        try {
+            $process.StartInfo.FileName=Join-Path ([Environment]::GetFolderPath('System')) 'cmd.exe'
+            $process.StartInfo.Arguments='/d /c exit '+$expectedExit
+            $process.StartInfo.UseShellExecute=$false;$process.StartInfo.CreateNoWindow=$true
+            Require ($process.Start()) 'Inert exit-code child did not start'
+            $null=$process.Handle
+            Require ($process.WaitForExit(5000) -and $null -ne $process.ExitCode -and $process.ExitCode -eq $expectedExit) 'Retained process handle did not preserve the actual exit code';$checks++
+        } finally {if (-not $process.HasExited) {$process.Kill();$null=$process.WaitForExit(5000)};$process.Dispose()}
+    }
     $script:cleanupDeadline=[DateTime]::UtcNow.AddSeconds(-1)
     $failed=$false;try {Wait-StrictCleanup 'unused'} catch {$failed=$true}
     Require ($failed -and $script:cleanupCapReached -and $script:cleanupDeadline -lt [DateTime]::UtcNow) 'Expired cleanup observation started another wait';$checks++
@@ -175,6 +186,7 @@ try {
     $start.EnvironmentVariables['TERMTERM_TEAM_VPN_NATIVE_FIXTURE']=$fixturePath
     $native=[Diagnostics.Process]::new();$native.StartInfo=$start
     Require ($native.Start()) 'Native Team example did not start'
+    $null=$native.Handle
     $stdout=$native.StandardOutput.ReadToEndAsync();$stderr=$native.StandardError.ReadToEndAsync()
     Wait-File (Join-Path $fixtureDirectory 'client/revocation-cleanup-ready') 1050
     $brokerReport['preLogoutNativeInventory']=Wait-StrictCleanup $baseline

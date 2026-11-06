@@ -131,8 +131,53 @@ function Confirm-BrokerCleanup($Receipt) {
     $brokerReport['remainingProtectedJournals']=$Receipt.result.remainingJournals
     $brokerReport['remainingSessions']=$Receipt.result.remainingSessions
 }
+function Assert-PendingCleanupSessions($Reply,[UInt64]$RequestId) {
+    if ($Reply.kind -cne 'reply' -or ($Reply.requestId -isnot [int] -and $Reply.requestId -isnot [long]) -or $Reply.requestId -ne $RequestId -or $Reply.ok -isnot [bool] -or -not $Reply.ok -or $Reply.result -isnot [Array]) {throw 'Invalid pending cleanup sessions receipt'}
+    $identities=@{}
+    foreach ($session in $Reply.result) {
+        if ($session.id -isnot [string] -or $session.id -cnotin @($script:brokerSessions.Keys) -or $identities.ContainsKey($session.id) -or ($session.generation -isnot [int] -and $session.generation -isnot [long]) -or $session.generation -ne $script:brokerSessions[$session.id].generation -or $session.state -cne 'disconnecting' -or $session.error -cne 'cleanup_pending: windows_interface_unregister_pending') {throw 'Pending cleanup session identity, generation or state mismatch'}
+        $identities[$session.id]=$true
+    }
+    # An empty snapshot can race successful asynchronous cleanup. It is not a
+    # cleanup receipt: a subsequent authenticated zero-journal close is required.
+}
+function Wait-BrokerCleanup {
+    if (-not $brokerReport.Contains('cleanupPendingReplies')) {$brokerReport['cleanupPendingReplies']=@()}
+    do {
+        if ([DateTime]::UtcNow -ge $brokerDeadline) {throw 'Broker test deadline exceeded'}
+        if ($brokerProcess.HasExited) {throw 'Validation owner exited before authenticated cleanup'}
+        $requestId=Send-BrokerRequest @{action='close'} $true
+        try {$receipt=Wait-BrokerReply $requestId -Cleanup}
+        finally {$script:brokerAllowedFailures.Remove("$requestId")}
+        if ([DateTime]::UtcNow -ge $brokerDeadline) {throw 'Broker test deadline exceeded'}
+        if ($receipt.kind -cne 'reply' -or ($receipt.requestId -isnot [int] -and $receipt.requestId -isnot [long]) -or $receipt.requestId -ne $requestId -or $receipt.ok -isnot [bool]) {throw 'Invalid close receipt identity or status'}
+        if ($receipt.ok) {
+            Confirm-BrokerCleanup $receipt
+            if ($brokerReport.Contains('cleanupPriorFailures') -and @($brokerReport.cleanupPriorFailures).Count) {throw 'Earlier broker failure remains after authenticated cleanup'}
+            return
+        }
+        if ($receipt.error -cne 'cleanup_pending: windows_interface_unregister_pending') {throw "Broker rejected request: $($receipt.error)"}
+        $sessionsRequest=Send-BrokerRequest @{action='sessions'}
+        $sessions=Wait-BrokerReply $sessionsRequest -Cleanup
+        Assert-PendingCleanupSessions $sessions $sessionsRequest
+        $brokerReport.cleanupPendingReplies+=@([ordered]@{requestId=$requestId;error=$receipt.error;sessions=@($sessions.result | Select-Object id,generation,state,error)})
+        $remaining=($brokerDeadline-[DateTime]::UtcNow).TotalMilliseconds
+        if ($remaining -le 0) {throw 'Broker test deadline exceeded'}
+        Start-Sleep -Milliseconds ([int][Math]::Ceiling([Math]::Min(200,$remaining)))
+    } while ($true)
+}
 function Wait-AllConnected {
     while (@($script:brokerSessions.Keys | Where-Object {$script:brokerStates[$_] -ne 'connected'}).Count) {Receive-BrokerMessage}
+}
+function Wait-BrokerDisconnected([string]$Id,[UInt64]$Generation) {
+    if ($Id -cnotin @($script:brokerSessions.Keys) -or $script:brokerSessions[$Id].generation -ne $Generation) {throw 'Disconnect wait session identity or generation mismatch'}
+    while ($true) {
+        if ([DateTime]::UtcNow -ge $brokerDeadline) {throw 'Broker test deadline exceeded'}
+        if ($script:brokerSessions[$Id].generation -ne $Generation) {throw 'Disconnect wait generation changed before terminal cleanup'}
+        if ($script:brokerStates[$Id] -ceq 'disconnected') {return}
+        if ($script:brokerStates[$Id] -ceq 'failed') {throw 'Normal disconnect ended in a failure state'}
+        Receive-BrokerMessage
+    }
 }
 function Get-ExceptionDetails($Exception) {
     $depth=0
@@ -187,11 +232,11 @@ function Test-PacketTraffic([string[]]$Ids,[string]$Phase) {
 if ($SelfTest) {
     $tests=@()
     function Reset-TestMessages([object[]]$Messages,[bool]$InitialOk=$false) {
-        $script:brokerReplies=@{};$script:brokerStates=@{};$script:brokerSessions=@{};$script:brokerAllowedFailures=@{};$script:brokerReadTask=$null
+        $script:brokerReplies=@{};$script:brokerStates=@{};$script:brokerSessions=@{};$script:brokerAllowedFailures=@{};$script:brokerReadTask=$null;$script:brokerRequestId=0
         $script:brokerDeadline=[DateTime]::UtcNow.AddSeconds(2)
         $script:brokerReport=[ordered]@{ok=$InitialOk;error='original-connect-failure';events=@();cleanupEvidence='pending-authenticated-receipt';cleanupPriorFailures=@()}
         $lines=@($Messages | ForEach-Object {$_ | ConvertTo-Json -Depth 12 -Compress}) -join "`n"
-        $script:brokerProcess=[pscustomobject]@{StandardOutput=[IO.StringReader]::new($lines);StandardInput=[IO.StringWriter]::new()}
+        $script:brokerProcess=[pscustomobject]@{StandardOutput=[IO.StringReader]::new($lines);StandardInput=[IO.StringWriter]::new();HasExited=$false}
     }
     function Assert-Test([bool]$Condition,[string]$Message) {if (-not $Condition) {throw $Message}}
     $prior=@{kind='reply';requestId=10;ok=$false;error='delayed-connect-failure'}
@@ -234,6 +279,113 @@ if ($SelfTest) {
     $script:brokerSessions['fixture-session']=@{generation=7};$failure='';try {Receive-BrokerMessage} catch {$failure=$_.ToString()}
     Assert-Test ($failure -like '*Unexpected lease/quiesce generation*' -and -not $brokerProcess.StandardInput.ToString().Length) 'Stale quiescence ACK was emitted'
     $brokerProcess.StandardOutput.Dispose();$tests+=@('stale-quiesce-rejected')
+    $pendingError='cleanup_pending: windows_interface_unregister_pending'
+    function Reset-CleanupMessages([object[]]$Messages,[bool]$InitialOk=$true) {
+        Reset-TestMessages $Messages $InitialOk
+        $script:brokerSessions['fixture-session']=@{generation=7}
+    }
+    $pendingClose=@{kind='reply';requestId=1;ok=$false;error=$pendingError}
+    $pendingSession=@{id='fixture-session';generation=7;state='disconnecting';error=$pendingError}
+    $sessionsReply=@{kind='reply';requestId=2;ok=$true;result=@($pendingSession)}
+    $clean=@{kind='reply';requestId=1;ok=$true;result=@{cleanupVerified=$true;remainingJournals=0;remainingSessions=0}}
+    Reset-CleanupMessages @($clean);$deadline=$brokerDeadline;Wait-BrokerCleanup
+    Assert-Test ($brokerReport.cleanupEvidence -ceq 'verified-by-authenticated-broker' -and $brokerDeadline -eq $deadline -and $brokerReport.cleanupPendingReplies.Count -eq 0 -and $brokerAllowedFailures.Count -eq 0) 'Immediate cleanup changed its deadline or did not require the authenticated receipt'
+    $brokerProcess.StandardOutput.Dispose();$tests+=@('bounded-cleanup-immediate-success')
+    foreach ($emptyRace in @($false,$true)) {
+        $rows=@();if (-not $emptyRace) {$rows=@($pendingSession)}
+        $snapshot=@{kind='reply';requestId=2;ok=$true;result=$rows}
+        $finished=@{kind='reply';requestId=3;ok=$true;result=$clean.result}
+        Reset-CleanupMessages @($pendingClose,$snapshot,$finished);$deadline=$brokerDeadline;Wait-BrokerCleanup
+        $requests=@($brokerProcess.StandardInput.ToString().Trim() -split "`r?`n" | ForEach-Object {$_ | ConvertFrom-Json})
+        Assert-Test ($brokerReport.cleanupEvidence -ceq 'verified-by-authenticated-broker' -and $brokerReport.cleanupPendingReplies.Count -eq 1 -and $brokerDeadline -eq $deadline -and ($requests.action -join ',') -ceq 'close,sessions,close' -and $brokerAllowedFailures.Count -eq 0) 'Pending cleanup was accepted without a later exact authenticated close or reset its deadline'
+        $brokerProcess.StandardOutput.Dispose();$tests+=@("bounded-cleanup-pending-success-empty-race-$emptyRace")
+    }
+    $snapshot=@{kind='reply';requestId=3;ok=$true;result=@($pendingSession)}
+    $finished=@{kind='reply';requestId=4;ok=$true;result=$clean.result}
+    Reset-CleanupMessages @(@{kind='quiesceRequired';id='fixture-session';generation=7},@{kind='reply';requestId=2;ok=$true},$pendingClose,$snapshot,$finished)
+    Wait-BrokerCleanup
+    $requests=@($brokerProcess.StandardInput.ToString().Trim() -split "`r?`n" | ForEach-Object {$_ | ConvertFrom-Json})
+    Assert-Test ($brokerReport.cleanupEvidence -ceq 'verified-by-authenticated-broker' -and ($requests.action -join ',') -ceq 'close,quiesced,sessions,close' -and $requests[1].id -ceq 'fixture-session' -and $requests[1].generation -eq 7 -and $requests[-1].requestId -eq 4) 'Pending cleanup lost close correlation while acknowledging exact quiescence'
+    $brokerProcess.StandardOutput.Dispose();$tests+=@('bounded-cleanup-quiescence-interleaving')
+    $finished=@{kind='reply';requestId=3;ok=$true;result=$clean.result}
+    Reset-CleanupMessages @($prior,$pendingClose,$sessionsReply,$finished)
+    $failure='';try {Wait-BrokerCleanup} catch {$failure=$_.ToString()}
+    Assert-Test ($failure -like '*Earlier broker failure*' -and -not $brokerReport.ok -and $brokerReport.error -ceq 'original-connect-failure' -and $brokerReport.cleanupPriorFailures.Count -eq 1 -and $brokerReport.cleanupEvidence -ceq 'verified-by-authenticated-broker') 'Pending cleanup hid an earlier failure'
+    $brokerProcess.StandardOutput.Dispose();$tests+=@('bounded-cleanup-prior-failure-sticky')
+    foreach ($bad in @('foreign-id','case-changed-id','stale-generation','string-generation','wrong-state','wrong-error','duplicate','missing-result','wrong-request-id')) {
+        $row=@{id='fixture-session';generation=7;state='disconnecting';error=$pendingError}
+        $snapshot=@{kind='reply';requestId=2;ok=$true;result=@($row)}
+        switch ($bad) {
+            'foreign-id' {$row.id='foreign-session'}
+            'case-changed-id' {$row.id='FIXTURE-SESSION'}
+            'stale-generation' {$row.generation=6}
+            'string-generation' {$row.generation='7'}
+            'wrong-state' {$row.state='failed'}
+            'wrong-error' {$row.error='cleanup_required'}
+            'duplicate' {$snapshot.result=@($row,$row)}
+            'missing-result' {$snapshot.result=$null}
+            'wrong-request-id' {$snapshot.requestId='2'}
+        }
+        Reset-CleanupMessages @($pendingClose,$snapshot,$finished)
+        $failure='';try {Wait-BrokerCleanup} catch {$failure=$_.ToString()}
+        Assert-Test ($failure -like '*pending cleanup*' -and $brokerReport.cleanupEvidence -ne 'verified-by-authenticated-broker' -and $brokerAllowedFailures.Count -eq 0) 'Invalid pending cleanup identity/state was accepted'
+        $brokerProcess.StandardOutput.Dispose();$tests+=@('bounded-cleanup-reject-'+$bad)
+    }
+    foreach ($bad in @('other-error','pending-code-case','truthy-ok','string-close-id','cleanup-receipt-not-verified','remaining-journal','remaining-session')) {
+        $frame=@{kind='reply';requestId=1;ok=$false;error=$pendingError}
+        switch ($bad) {
+            'other-error' {$frame.error='cleanup_required: routes_retained_until_quiescence'}
+            'pending-code-case' {$frame.error=$pendingError.ToUpperInvariant()}
+            'truthy-ok' {$frame.ok='false'}
+            'string-close-id' {$frame.requestId='1'}
+            'cleanup-receipt-not-verified' {$frame.ok=$true;$frame.result=@{cleanupVerified=$false;remainingJournals=0;remainingSessions=0}}
+            'remaining-journal' {$frame.ok=$true;$frame.result=@{cleanupVerified=$true;remainingJournals=1;remainingSessions=0}}
+            'remaining-session' {$frame.ok=$true;$frame.result=@{cleanupVerified=$true;remainingJournals=0;remainingSessions=1}}
+        }
+        Reset-CleanupMessages @($frame)
+        $failure='';try {Wait-BrokerCleanup} catch {$failure=$_.ToString()}
+        Assert-Test ($failure.Length -gt 0 -and $brokerReport.cleanupEvidence -ne 'verified-by-authenticated-broker' -and $brokerAllowedFailures.Count -eq 0) 'Nonpending or malformed cleanup was accepted'
+        $brokerProcess.StandardOutput.Dispose();$tests+=@('bounded-cleanup-reject-'+$bad)
+    }
+    Reset-CleanupMessages @($pendingClose,$sessionsReply)
+    $script:brokerDeadline=[DateTime]::UtcNow.AddMilliseconds(120);$deadline=$brokerDeadline
+    $failure='';try {Wait-BrokerCleanup} catch {$failure=$_.ToString()}
+    Assert-Test ($failure -like '*deadline*' -and $brokerDeadline -eq $deadline -and $brokerReport.cleanupEvidence -ne 'verified-by-authenticated-broker') 'Never-finished pending cleanup escaped its original deadline'
+    $brokerProcess.StandardOutput.Dispose();$tests+=@('bounded-cleanup-never-finishes-deadline')
+    Reset-CleanupMessages @($clean);$brokerProcess.HasExited=$true
+    $failure='';try {Wait-BrokerCleanup} catch {$failure=$_.ToString()}
+    Assert-Test ($failure -like '*owner exited*' -and $brokerReport.cleanupEvidence -ne 'verified-by-authenticated-broker' -and $brokerProcess.StandardInput.ToString().Length -eq 0) 'Exited owner was accepted as authenticated cleanup'
+    $brokerProcess.StandardOutput.Dispose();$tests+=@('bounded-cleanup-owner-exited')
+    $disconnected=@{kind='session';session=@{id='fixture-session';generation=7;state='disconnected'}}
+    Reset-TestMessages @(@{kind='session';session=@{id='fixture-session';generation=7;state='disconnecting'}},@{kind='quiesceRequired';id='fixture-session';generation=7},@{kind='reply';requestId=1;ok=$true},@{kind='reply';requestId=2;ok=$true},@{kind='session';session=$pendingSession},@{kind='session';session=@{id='survivor';generation=1;state='connected'}},$disconnected) $true
+    $script:brokerSessions=@{'fixture-session'=@{generation=7};'survivor'=@{generation=1}};$script:brokerStates=@{'fixture-session'='connected';'survivor'='connected'}
+    $stop=Send-BrokerRequest @{action='disconnect';id='fixture-session';generation=7};$null=Wait-BrokerReply $stop
+    Assert-Test ($script:brokerStates['fixture-session'] -ceq 'disconnecting') 'Disconnect ACK was incorrectly treated as terminal cleanup'
+    $deadline=$brokerDeadline;Wait-BrokerDisconnected 'fixture-session' 7
+    Assert-Test ($script:brokerStates['fixture-session'] -ceq 'disconnected' -and $script:brokerStates['survivor'] -ceq 'connected' -and $brokerDeadline -eq $deadline) 'Old generation did not finish under its original deadline'
+    $script:brokerSessions['fixture-session'].generation=8;$null=Send-BrokerRequest @{action='connect';id='fixture-session';generation=8}
+    $requests=@($brokerProcess.StandardInput.ToString().Trim() -split "`r?`n" | ForEach-Object {$_ | ConvertFrom-Json})
+    Assert-Test (($requests.action -join ',') -ceq 'disconnect,quiesced,connect' -and $requests[1].generation -eq 7 -and $requests[-1].generation -eq 8) 'Reconnect raced old-generation quiescence/cleanup'
+    $brokerProcess.StandardOutput.Dispose();$tests+=@('disconnect-ack-pending-terminal-before-reconnect')
+    foreach ($bad in @('stale-terminal','foreign-terminal','failed-terminal','missing-terminal','wrong-local-generation')) {
+        $event=@{kind='session';session=@{id='fixture-session';generation=7;state='disconnected'}}
+        switch ($bad) {
+            'stale-terminal' {$event.session.generation=6}
+            'foreign-terminal' {$event.session.id='foreign-session'}
+            'failed-terminal' {$event.session.state='failed';$event.session.error='cleanup_required'}
+            'missing-terminal' {$event.session.state='disconnecting';$event.session.error=$pendingError}
+        }
+        Reset-TestMessages @($event) $true;$script:brokerSessions['fixture-session']=@{generation=7};$script:brokerStates['fixture-session']='disconnecting'
+        $generation=7;if ($bad -ceq 'wrong-local-generation') {$generation=8}
+        $failure='';try {Wait-BrokerDisconnected 'fixture-session' $generation} catch {$failure=$_.ToString()}
+        Assert-Test ($failure.Length -gt 0 -and $script:brokerStates['fixture-session'] -cne 'disconnected' -and $script:brokerSessions['fixture-session'].generation -eq 7 -and $brokerProcess.StandardInput.ToString().Length -eq 0) 'Invalid/missing old-generation terminal state allowed reconnect'
+        $brokerProcess.StandardOutput.Dispose();$tests+=@('disconnect-wait-reject-'+$bad)
+    }
+    Reset-TestMessages @() $true;$script:brokerSessions['fixture-session']=@{generation=7};$script:brokerStates['fixture-session']='disconnecting';$script:brokerReadTask=[Threading.Tasks.TaskCompletionSource[string]]::new().Task
+    $script:brokerDeadline=[DateTime]::UtcNow.AddMilliseconds(120);$deadline=$brokerDeadline
+    $failure='';try {Wait-BrokerDisconnected 'fixture-session' 7} catch {$failure=$_.ToString()}
+    Assert-Test ($failure -like '*deadline*' -and $brokerDeadline -eq $deadline -and $script:brokerStates['fixture-session'] -ceq 'disconnecting') 'Disconnect wait extended the original scenario deadline'
+    $script:brokerReadTask=$null;$brokerProcess.StandardOutput.Dispose();$tests+=@('disconnect-wait-never-terminal-deadline')
     $credentials=@{username='fixture-test-user';password='fixture-test-password';profile=@{username='wrong-profile-user';password=''}}
     $passwordField=@{name='password';secret=$true;purpose='secret';choices=@()}
     $usernameField=@{name='username';secret=$false;purpose='text';choices=@()}
@@ -303,6 +455,7 @@ try {
     Test-PacketTraffic $ids 'three-connected'
     $stop=Send-BrokerRequest @{action='disconnect';id=$ids[1];generation=1}
     $null=Wait-BrokerReply $stop
+    Wait-BrokerDisconnected $ids[1] 1
     Test-PacketTraffic @($ids[0],$ids[2]) 'middle-stopped'
     $script:brokerSessions[$ids[1]].generation=2;$script:brokerStates[$ids[1]]='connecting'
     $restart=Send-BrokerRequest @{action='connect';id=$ids[1];generation=2;profileId=[Guid]::NewGuid().ToString();profile=$fixturesToUse[1].profile}
@@ -325,10 +478,8 @@ finally {
             if (-not $brokerProcess.HasExited) {
                 try {
                     $brokerDeadline=[DateTime]::UtcNow.AddSeconds(20)
-                    $close=Send-BrokerRequest @{action='close'}
                     $brokerReport['cleanupPriorFailures']=@()
-                    $receipt=Wait-BrokerReply $close -Cleanup
-                    Confirm-BrokerCleanup $receipt
+                    Wait-BrokerCleanup
                 } catch {$brokerReport['cleanupError']=$_.ToString();$brokerReport['ok']=$false}
                 finally {$brokerProcess.StandardInput.Close()}
             }

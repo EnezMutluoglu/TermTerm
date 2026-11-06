@@ -5,6 +5,27 @@ export function releaseAssets(version, {includeMacos = false} = {}) {
     'windows-x86_64': `TermTerm_${version}_x64-setup.exe`,
     'linux-x86_64': `TermTerm_${version}_amd64.AppImage`,
   };
+  if (version === '0.4.3') {
+    if (includeMacos) throw Error('0.4.3 provides macOS source only');
+    return {platforms, required: [
+      ...Object.values(platforms).flatMap(name => [name, `${name}.sig`]),
+      'TermTerm-0.4.3-windows-x64-portable.zip', 'TermTerm_0.4.3_amd64.deb',
+      'termterm-vpn-broker_0.4.3_amd64.deb', 'TermTerm-0.4.3-APPIMAGE-INSTALL.json', 'install-vpn-appimage.py',
+      ...['windows', 'linux', 'macos'].map(target => `TermTerm-0.4.3-${target}-source.zip`),
+      'TermTerm-0.4.3-windows-dependency-source.zip', 'TermTerm-0.4.3-linux-dependency-source.tar.gz',
+      'TermTerm-0.4.3-macos-source-preparation.zip', 'THIRD_PARTY.md', 'THIRD_PARTY_LICENSES.txt', 'DEPENDENCIES.json',
+      'TermTerm-Team-Service-0.4.2-vpn-0.4.3-linux-x64.tar.gz',
+      'TermTerm-Team-Image-0.4.2-vpn-0.4.3-linux-x64.tar.gz', 'TermTerm-Team-Image-0.4.2-vpn-0.4.3-linux-x64.json',
+      'TEAM-RUNTIME-LICENSE-NOTICES.tar.gz', 'TEAM-RUNTIME-PACKAGES-SOURCES.txt',
+      'TEAM_SERVICE_INSTALL_TR.md', 'TEAM_041_GUIDE_TR.md', 'TEAM_UPGRADES_TR.md', 'TEAM_043_VPN_DELIVERY_TR.md',
+      'TEAM_TLS_POSTGRES_ADIM_ADIM_TR.md',
+      'TEAM_SOCKET_KURULUM_TR.md', 'TEAM_DB_OWNER_TEMPLATE_TR.md',
+      'WINDOWS-PACKAGE-RECEIPT.json', 'LINUX-PACKAGE-RECEIPT.json', 'MACOS-SOURCE-RECEIPT.json',
+      'TEAM-DELIVERY-RECEIPT.json', 'TEAM-CATALOGUE-DELTA.json', 'TEAM-CATALOGUE-ACCEPTANCE.json', 'TEAM-UPGRADE-64-66-EVIDENCE.json',
+      'WINDOWS-UPGRADE-ACCEPTANCE.json', 'LINUX-RUNTIME-ACCEPTANCE.json', 'RELEASE-ACCEPTANCE.json',
+      'RELEASE-OKU.md', 'VALIDATION_0.4.3.md', 'RELEASE-MANIFEST.json',
+    ]};
+  }
   if (includeMacos) Object.assign(platforms, {
     'darwin-x86_64': `TermTerm-${version}-macos-x64.app.tar.gz`,
     'darwin-aarch64': `TermTerm-${version}-macos-arm64.app.tar.gz`,

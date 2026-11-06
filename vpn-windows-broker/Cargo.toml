@@ -5,6 +5,7 @@ edition = "2021"
 publish = false
 
 [features]
+production-candidate = []
 privileged-validation = []
 auth-only-test = []
 

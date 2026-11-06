@@ -20,6 +20,7 @@ import {
   mergeVpnSnapshot,
   vpnActive,
   vpnPermitted,
+  type VpnAuthentication,
   type VpnFamily,
   type VpnProfile,
   type VpnSession,
@@ -45,6 +46,12 @@ type Status = {
   authTestAvailable?: boolean;
 };
 type Draft = VpnProfile & { password?: string; importToken?: string };
+type ImportResult = {token: string; family: VpnFamily; warnings: string[]; missingFiles: string[]; blocked: boolean; authentication?: VpnAuthentication; diagnostics?: {sha256: string; byteLength: number}};
+function authenticationText(auth: VpnAuthentication) {
+  const mode = auth.usernamePassword ? (auth.certificate ? "Sertifika/anahtar ve kullanıcı adı/parola ile giriş." : "Kullanıcı adı/parola ile giriş.")
+    : auth.certificate ? (auth.privateKeyPassword ? "Sertifika/anahtar ile giriş." : "Sertifika/anahtar ile parolasız giriş.") : "Kimlik doğrulama bağlantıda belirlenir.";
+  return [mode, auth.privateKeyPassword && "Özel anahtar parolası bağlantıda sorulur ve kaydedilmez.", auth.staticChallenge && "Statik OTP kodu bağlantıda sorulur ve kaydedilmez."].filter(Boolean).join(" ");
+}
 const newProfile = (): Draft => ({
   id: crypto.randomUUID(),
   version: 1,
@@ -252,6 +259,7 @@ function VpnPanel({
       username: profile.username,
       realm: profile.realm,
       remember: profile.remember,
+      authentication: profile.authentication,
       hasPassword: profile.hasPassword,
       hasConfig: profile.hasConfig,
     });
@@ -270,11 +278,12 @@ function VpnPanel({
         throw new Error("Bir .ovpn veya .conf dosyası içe aktarın.");
       const {
         importToken,
-        hasPassword: _password,
+        hasPassword: _password, authentication: _authentication,
         hasConfig: _config,
         pending: _pending, revision, visibility: _visibility, permissions: _permissions, canUpdate: _update, canRemove: _remove, scopeId: _scope,
         ...profile
       } = submitted;
+      if (submitted.family === "openVpn" && submitted.authentication && (!submitted.authentication.usernamePassword || submitted.authentication.staticChallenge)) delete profile.password;
       const saved = await call<VpnProfile>("vpn_profile_save", {
         profile: { ...profile, label: profile.label.trim() },
         importToken, teamContext: team ? context : undefined, revision:revision ?? 0,
@@ -298,11 +307,15 @@ function VpnPanel({
       const path = paths?.[0] ?? await chooseFile(["ovpn", "conf"], "VPN yapılandırmasını içe aktar");
       if (!path) return;
       if (!/\.(ovpn|conf)$/i.test(path)) throw new Error("Bir .ovpn veya .conf dosyası seçin.");
-      const result = await call<{token: string; family: VpnFamily; warnings: string[]; missingFiles: string[]; blocked: boolean}>("vpn_import", {path,teamContext:team?context:undefined});
+      const source = path.split(/[\\/]/).pop() || "import";
+      const result = await call<ImportResult>("vpn_import", {path,teamContext:team?context:undefined});
       if (!alive.current || request !== importGeneration.current) return;
-      if (result.blocked || result.missingFiles.length) throw new Error(["Dosya içe aktarılamadı.", ...result.warnings, ...result.missingFiles].join(" "));
+      if (result.blocked || result.missingFiles.length) throw new Error([
+        `${source}: Dosya içe aktarılamadı.`, ...result.warnings, ...result.missingFiles,
+        ...(result.diagnostics ? [`Tanı: SHA-256 ${result.diagnostics.sha256}; ${result.diagnostics.byteLength} bayt.`] : []),
+      ].join(" "));
       const family = result.family || "openVpn";
-      setDraft(previous => ({...(previous || newProfile()), family, source: path.split(/[\\/]/).pop() || "import", importToken: result.token, hasConfig: true}));
+      setDraft(previous => ({...(previous || newProfile()), family, source, importToken: result.token, hasConfig: true, authentication: result.authentication}));
       setNotice([...result.warnings, ...(family === "wireGuard" ? ["WireGuard bağlantısı doğrulanmış IPv4 motorunu gerektirir; IPv6 tüneli bu geliştirme sürümünde desteklenmez."] : [])].join(" ") || "Yapılandırma güvenli biçimde hazırlandı. Profili kaydedin.");
     });
   }
@@ -600,7 +613,8 @@ function VpnPanel({
                 <dt>Sunucu / dosya</dt>
                 <dd>{current.server || current.source}</dd>
                 <dt>Kullanıcı</dt>
-                <dd>{current.username || "Bağlantıda sorulacak"}</dd>
+                <dd>{current.authentication?.certificate && !current.authentication.usernamePassword ? "Gerekli değil" : current.username || "Bağlantıda sorulacak"}</dd>
+                {current.authentication && <><dt>Kimlik doğrulama</dt><dd>{authenticationText(current.authentication)}</dd></>}
                 <dt>Realm / grup</dt>
                 <dd>{current.realm || "Sunucunun varsayılanı"}</dd>
                 <dt>Parola</dt>
@@ -691,6 +705,7 @@ function VpnPanel({
                     family: family as VpnFamily,
                     importToken: undefined,
                     hasConfig: false,
+                    authentication: undefined,
                   })
                 }
                 options={families}
@@ -740,6 +755,8 @@ function VpnPanel({
                   required
                 />
               )}
+              {draft.family === "openVpn" && draft.authentication && <p className="vpn-file-note">{authenticationText(draft.authentication)}</p>}
+              {(draft.family !== "openVpn" || !draft.authentication?.certificate || draft.authentication.usernamePassword) && <>
               <div className="vpn-form-grid">
                 <Field
                   label="Kullanıcı adı"
@@ -752,6 +769,7 @@ function VpnPanel({
                   onChange={(realm) => setDraft({ ...draft, realm })}
                 />
               </div>
+              {draft.family === "openVpn" && draft.authentication?.staticChallenge ? <p className="vpn-file-note">Bu statik OTP biçiminde kullanıcı adı/parola her bağlantıda girilir; bu formun yanıtlarından hesap parolası kaydedilmez veya otomatik doldurulmaz.</p> : <>
               <label className="check">
                 <input
                   type="checkbox"
@@ -780,6 +798,8 @@ function VpnPanel({
                   }
                 />
               )}
+              </>}
+              </>}
               <p className="vpn-file-note">
                 OTP ve sunucu challenge yanıtları kaydedilmez.
               </p>

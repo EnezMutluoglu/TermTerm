@@ -101,7 +101,7 @@ import SharedTerminal from "./SharedTerminal";
 import PasswordBoard from "./PasswordBoard";
 import VpnWorkspace from "./VpnWorkspace";
 import Authenticator from "./Authenticator";
-const vpnDevelopment = import.meta.env.DEV || (import.meta.env.MODE === "vpn-dev" && import.meta.env.VITE_VPN_DEV === "1");
+const vpnEnabled = import.meta.env.DEV || (import.meta.env.MODE === "vpn-dev" && import.meta.env.VITE_VPN_DEV === "1") || (import.meta.env.MODE === "vpn-candidate" && import.meta.env.VITE_VPN_CANDIDATE === "0.4.3");
 type Nav =
   | "authenticator"
   | "vpn"
@@ -1557,7 +1557,7 @@ export default function App() {
                   </small>
                 )}
               </button>
-              {n.id === "sftp" && vpnDevelopment && !teamMode && <button className={nav === "vpn" ? "active" : ""} onClick={() => navigate("vpn")}><ShieldCheck size={17} /><span>VPN</span></button>}
+              {n.id === "sftp" && vpnEnabled && !teamMode && <button className={nav === "vpn" ? "active" : ""} onClick={() => navigate("vpn")}><ShieldCheck size={17} /><span>VPN</span></button>}
               </Fragment>
             ))}
           </nav>
@@ -1643,7 +1643,7 @@ export default function App() {
               }}
             />
           )}
-          {vpnDevelopment && !teamMode && <div hidden={nav !== "vpn"} style={{ height: "100%" }}><VpnWorkspace key={vault.id} vaultId={vault.id} onOpenAuthenticator={() => navigate("authenticator")} /></div>}
+          {vpnEnabled && !teamMode && <div hidden={nav !== "vpn"} style={{ height: "100%" }}><VpnWorkspace key={vault.id} vaultId={vault.id} onOpenAuthenticator={() => navigate("authenticator")} /></div>}
           {!teamMode && nav === "authenticator" && <Authenticator key={vault.id} visible />}
           <div
             hidden={nav !== "sftp"}

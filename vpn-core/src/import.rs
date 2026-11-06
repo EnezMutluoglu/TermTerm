@@ -34,6 +34,8 @@ fn words(line: &str) -> Result<Vec<String>> {
             }
         } else if c == '"' || c == '\'' {
             quote = Some(c);
+        } else if c == '#' || c == ';' {
+            break;
         } else if c.is_whitespace() {
             if !word.is_empty() {
                 words.push(std::mem::take(&mut word));
@@ -59,6 +61,46 @@ pub fn configuration(text: &str, directory: &Path) -> Result<(crate::Family, Pre
     }
     ensure!(lines.iter().any(|s| *s == "client" || s.starts_with("remote ") || s.starts_with("remote\t")), "Tanınmayan VPN biçimi; OpenVPN veya WireGuard yapılandırması gerekli");
     Ok((crate::Family::OpenVpn, openvpn(text, directory)?))
+}
+
+#[derive(Debug, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenVpnAuthentication {
+    pub certificate: bool,
+    pub username_password: bool,
+    pub private_key_password: bool,
+    pub static_challenge: bool,
+}
+
+/// Public hints only; the engine still decides which authentication challenge is required.
+pub fn openvpn_authentication(text: &str) -> Result<OpenVpnAuthentication> {
+    let mut auth = OpenVpnAuthentication::default();
+    let mut inline = None;
+    let mut certificate_enabled = true;
+    for raw in text.lines() {
+        let line = raw.trim();
+        if let Some(tag) = inline {
+            if line == format!("</{tag}>") { inline = None; }
+            else if tag == "key" && (line == "-----BEGIN ENCRYPTED PRIVATE KEY-----" || line == "Proc-Type: 4,ENCRYPTED") { auth.private_key_password = true; }
+            continue;
+        }
+        if line.starts_with('<') {
+            let tag = line.trim_start_matches('<').trim_end_matches('>');
+            auth.certificate |= tag == "cert";
+            inline = Some(tag);
+            continue;
+        }
+        let tokens = words(line)?;
+        match tokens.first().map(|name| name.trim_start_matches("--")) {
+            Some("cert") => auth.certificate = true,
+            Some("auth-user-pass") => auth.username_password = true,
+            Some("static-challenge") => auth.static_challenge = true,
+            Some("setenv") if tokens.get(1).map(String::as_str) == Some("CLIENT_CERT") => certificate_enabled = tokens.get(2).map(String::as_str) != Some("0"),
+            _ => {}
+        }
+    }
+    if !certificate_enabled { auth.certificate = false; auth.private_key_password = false; }
+    Ok(auth)
 }
 
 pub fn openvpn(text: &str, directory: &Path) -> Result<Preview> {
@@ -158,6 +200,7 @@ pub fn openvpn(text: &str, directory: &Path) -> Result<Preview> {
             }
         } else if [
             "client",
+            "tls-client",
             "dev",
             "dev-type",
             "proto",
@@ -195,10 +238,22 @@ pub fn openvpn(text: &str, directory: &Path) -> Result<Preview> {
             "explicit-exit-notify",
             "auth-retry",
             "static-challenge",
+            "ignore-unknown-option",
             "setenv",
         ]
         .contains(&name)
         {
+            if (["client", "tls-client", "pull"].contains(&name) && tokens.len() != 1)
+                || (name == "ignore-unknown-option" && (tokens.len() != 2 || tokens[1] != "block-outside-dns")) {
+                p.warnings.push(format!("Satır {}: {name} parametreleri desteklenmiyor; aktarılmadı", i + 1));
+                p.blocked = true;
+                continue;
+            }
+            // The explicit optional flag may degrade; a required DNS-blocking directive stays blocked.
+            if name == "setenv" && tokens.len() == 3 && tokens[1] == "opt" && tokens[2] == "block-outside-dns" {
+                p.warnings.push(format!("Satır {}: İsteğe bağlı block-outside-dns uygulanmadı; DNS sızıntısı engelleme desteği yok.", i + 1));
+                continue;
+            }
             if name == "setenv" && tokens.get(1).map(String::as_str) != Some("CLIENT_CERT") {
                 p.warnings
                     .push(format!("Satır {}: setenv aktarılmadı", i + 1));
@@ -371,6 +426,43 @@ pub fn wireguard(text: &str) -> Result<Preview> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn common_client_compatibility_options_import_without_claiming_dns_blocking() {
+        let text = "client\ndev tun\nproto udp\nremote vpn.example 1194\nresolv-retry infinite\nnobind\npersist-key\npersist-tun\nremote-cert-tls server\nverb 3\n# public synthetic fixture\n# 12\n# 13\n# 14\ntls-client\n# 16\n# 17\nignore-unknown-option block-outside-dns\nsetenv opt block-outside-dns # optional compatibility\n";
+        let (_, p) = configuration(text, Path::new(".")).unwrap();
+        assert!(!p.blocked && p.missing_files.is_empty());
+        assert!(p.config.contains("tls-client\n"));
+        assert!(p.config.contains("ignore-unknown-option block-outside-dns\n"));
+        assert!(!p.config.contains("setenv opt"));
+        assert_eq!(p.warnings, ["Satır 19: İsteğe bağlı block-outside-dns uygulanmadı; DNS sızıntısı engelleme desteği yok."]);
+        openvpn_embedded(&p.config).unwrap();
+        assert!(!openvpn("tls-client\npull\nremote vpn.example 1194\n", Path::new(".")).unwrap().blocked);
+        assert_eq!(words("setenv opt block-outside-dns ; comment with an unmatched '\"").unwrap(), ["setenv", "opt", "block-outside-dns"]);
+        assert_eq!(words("verify-x509-name \"name#with;symbols\" name # comment").unwrap(), ["verify-x509-name", "name#with;symbols", "name"]);
+        assert_eq!(words("verify-x509-name name\\#value name").unwrap(), ["verify-x509-name", "name#value", "name"]);
+    }
+    #[test]
+    fn compatibility_options_never_enable_required_dns_flags_hooks_or_unknown_options() {
+        for option in ["tls-client extra", "client extra", "pull extra", "ignore-unknown-option", "ignore-unknown-option up", "ignore-unknown-option block-outside-dns up", "setenv opt block-outside-dns extra", "setenv opt up /private/script", "setenv opt ca /private/key", "setenv opt auth-user-pass /private/password", "setenv opt unknown-option", "setenv FORWARD_COMPATIBLE 1", "block-outside-dns", "ignore-unknown-option block-outside-dns\nblock-outside-dns", "ignore-unknown-option block-outside-dns\nup /private/script"] {
+            let text = format!("client\nremote vpn.example 1194\n{option}\n");
+            assert!(openvpn(&text, Path::new(".")).unwrap().blocked, "{option}");
+            assert!(openvpn_embedded(&text).is_err(), "{option}");
+        }
+    }
+    #[test]
+    fn authentication_hints_keep_certificate_account_key_password_and_otp_separate() {
+        let cert = "client\n<cert>\npublic fixture\n</cert>\n<key>\n-----BEGIN PRIVATE KEY-----\npublic fixture\n</key>\n";
+        assert_eq!(openvpn_authentication(cert).unwrap(), OpenVpnAuthentication {certificate:true,..Default::default()});
+        assert!(!openvpn_authentication(&format!("{cert}setenv CLIENT_CERT 0\n")).unwrap().certificate);
+        for header in ["-----BEGIN ENCRYPTED PRIVATE KEY-----", "Proc-Type: 4,ENCRYPTED"] {
+            let text = cert.replace("-----BEGIN PRIVATE KEY-----", header);
+            assert!(openvpn_authentication(&text).unwrap().private_key_password);
+        }
+        let text = format!("{cert}auth-user-pass\nstatic-challenge \"OTP\" 0\n");
+        let auth = openvpn_authentication(&text).unwrap();
+        assert!(auth.certificate && auth.username_password && auth.static_challenge && !auth.private_key_password);
+        assert!(!openvpn_authentication("<ca>\nauth-user-pass\n-----BEGIN ENCRYPTED PRIVATE KEY-----\n</ca>\n").unwrap().username_password);
+    }
     #[test]
     fn configuration_detects_content_and_preserves_sources() {
         let temp = tempfile::tempdir().unwrap();

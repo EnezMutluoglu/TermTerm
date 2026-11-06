@@ -6,6 +6,7 @@ edition = "2021"
 rust-version = "1.98"
 
 [features]
+vpn-candidate = ["termterm-vpn-windows-broker/production-candidate", "termterm-team-client/vpn-candidate"]
 e2e = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver", "termterm-vpn-windows-broker/auth-only-test"]
 vpn-webkit-fixture = []
 
