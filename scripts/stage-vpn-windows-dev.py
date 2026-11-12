@@ -22,7 +22,7 @@ def nsis_bytes(data):
 
 
 def contract(candidate=None):
-    if candidate not in (None, "0.4.3"):
+    if candidate not in (None, "0.4.4"):
         raise ValueError("Unsupported production candidate version")
     return ("termterm.exe", "vpn-bundle.json", "local.termterm.desktop") if candidate else (DESKTOP, "vpn-dev-bundle.json", "local.termterm.desktop.vpndev")
 
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     parser.add_argument("--broker", type=Path)
     parser.add_argument("--destination", type=Path)
     parser.add_argument("--bundle-type", choices=["portable", "nsis"], default="portable")
-    parser.add_argument("--candidate", choices=["0.4.3"])
+    parser.add_argument("--candidate", choices=["0.4.4"])
     parser.add_argument("--verify-installer", type=Path)
     args = parser.parse_args()
     if args.verify_installer and args.destination:

@@ -4,11 +4,13 @@ param(
   [Parameter(Mandatory=$true)][string]$WebViewRuntime,
   [Parameter(Mandatory=$true)][string]$WebViewSha256,
   [string]$BuildCache,
-  [ValidateSet('0.4.3')][string]$Candidate,
+  [switch]$ReuseBuildCache,
+  [ValidateSet('0.4.4')][string]$Candidate,
   [switch]$ReleaseCandidate
 )
 $ErrorActionPreference = 'Stop'
-if ($ReleaseCandidate -and !$Candidate) { throw 'A release candidate requires the explicit -Candidate 0.4.3 contract.' }
+if ($ReuseBuildCache -and !$BuildCache) { throw 'Reusing a build cache requires its explicit path.' }
+if ($ReleaseCandidate -and !$Candidate) { throw 'A release candidate requires the explicit -Candidate 0.4.4 contract.' }
 $project = Split-Path $PSScriptRoot -Parent
 Set-Location -LiteralPath $project
 $outputPath = if ([IO.Path]::IsPathRooted($Output)) { [IO.Path]::GetFullPath($Output) } else { [IO.Path]::GetFullPath((Join-Path $project $Output)) }
@@ -71,6 +73,7 @@ foreach ($relative in $preflight.runtimeFiles) {
   Copy-Item -LiteralPath (Join-Path $runtimePath $relative) -Destination $destination
 }
 $target = Join-Path $outputPath 'target'
+$brokerTarget = Join-Path $outputPath 'broker-target'
 if ($BuildCache) {
   $cache = (Resolve-Path -LiteralPath $BuildCache).Path
   if (!$cache.StartsWith($tools, [StringComparison]::OrdinalIgnoreCase)) { throw 'Reuse only this VPN worktree development build cache.' }
@@ -82,9 +85,14 @@ if ($BuildCache) {
   foreach ($directory in @('target','broker-target')) {
     $from = Join-Path $cache $directory
     $to = Join-Path $outputPath $directory
+    if ((Get-Item -LiteralPath $from -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Build cache roots cannot be reparse points.' }
     if (Get-ChildItem -LiteralPath $from -Recurse -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }) { throw 'Build cache cannot contain reparse points.' }
-    robocopy.exe $from $to /E /COPY:DAT /R:0 /W:0 /NFL /NDL /NJH /NJS /XD bundle nsis wix | Out-Null
-    if ($LASTEXITCODE -ge 8) { throw 'Development build cache copy failed.' }
+    if ($ReuseBuildCache) {
+      if ($directory -eq 'target') { $target = $from } else { $brokerTarget = $from }
+    } else {
+      robocopy.exe $from $to /E /COPY:DAT /R:0 /W:0 /NFL /NDL /NJH /NJS /XD bundle nsis wix | Out-Null
+      if ($LASTEXITCODE -ge 8) { throw 'Development build cache copy failed.' }
+    }
   }
 }
 $oldTarget = $env:CARGO_TARGET_DIR
@@ -96,7 +104,7 @@ try {
   $env:TERMTERM_RELEASE_CHANNEL = if ($ReleaseCandidate) { 'stable' } elseif ($Candidate) { 'candidate' } else { 'development' }
   Remove-Item Env:VITE_E2E -ErrorAction SilentlyContinue
   $env:PATH = "$env:USERPROFILE/.cargo/bin;$env:PATH"
-  cargo build --locked --release --manifest-path vpn-windows-broker/Cargo.toml --target-dir (Join-Path $outputPath 'broker-target') @brokerFeatures
+  cargo build --locked --release --manifest-path vpn-windows-broker/Cargo.toml --target-dir $brokerTarget @brokerFeatures
   if ($LASTEXITCODE -ne 0) { throw 'Default broker build failed.' }
   pnpm.cmd exec tauri build --no-bundle @configs
   if ($LASTEXITCODE -ne 0) { throw 'Isolated VPN desktop build failed.' }
@@ -106,10 +114,10 @@ try {
   $assets = if ($Candidate) { 'dist-vpn-candidate/assets' } else { 'dist-vpn-dev/assets' }
   if (Get-ChildItem -LiteralPath $assets -Filter '*.js' | Select-String -Pattern '__nativeEvents|__E2E__') { throw 'Frontend test hook found.' }
   $stage = Join-Path $outputPath 'desktop'
-  python scripts/stage-vpn-windows-dev.py --application $binary --broker (Join-Path $outputPath 'broker-target/release/termterm-vpn-broker.exe') --destination $stage @candidateArgs
+  python scripts/stage-vpn-windows-dev.py --application $binary --broker (Join-Path $brokerTarget 'release/termterm-vpn-broker.exe') --destination $stage @candidateArgs
   if ($LASTEXITCODE -ne 0) { throw 'Pinned VPN desktop staging failed.' }
   $nsisStage = Join-Path $outputPath 'installer-desktop'
-  python scripts/stage-vpn-windows-dev.py --application $binary --broker (Join-Path $outputPath 'broker-target/release/termterm-vpn-broker.exe') --destination $nsisStage --bundle-type nsis @candidateArgs
+  python scripts/stage-vpn-windows-dev.py --application $binary --broker (Join-Path $brokerTarget 'release/termterm-vpn-broker.exe') --destination $nsisStage --bundle-type nsis @candidateArgs
   if ($LASTEXITCODE -ne 0) { throw 'NSIS-specific desktop staging failed.' }
   $freshText = python scripts/collect-vpn-runtime.py --package-preflight --runtime $runtimePath
   if ($LASTEXITCODE -ne 0 -or ($freshText -join "`n") -ne ($preflightText -join "`n")) { throw 'Verified package inputs changed during the build.' }

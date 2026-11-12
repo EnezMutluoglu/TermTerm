@@ -1,4 +1,4 @@
-//! Read-only inventory check for the exact development or 0.4.3 candidate desktop bundle.
+//! Read-only inventory check for the exact development or 0.4.4 candidate desktop bundle.
 //! This never loads a DLL, launches a process, or enables privileged readiness.
 use anyhow::{ensure, Context, Result};
 use serde::Deserialize;
@@ -99,7 +99,7 @@ fn inspect_pins(directory: &Path, wintun: &str, openconnect: &str) -> Result<usi
     ensure!(
         manifest.version == 1
             && if cfg!(feature = "production-candidate") {
-                manifest.application_identifier == "local.termterm.desktop" && !manifest.development_only && manifest.candidate_version.as_deref() == Some("0.4.3")
+                manifest.application_identifier == "local.termterm.desktop" && !manifest.development_only && manifest.candidate_version.as_deref() == Some("0.4.4")
             } else {
                 manifest.application_identifier == "local.termterm.desktop.vpndev" && manifest.development_only && manifest.candidate_version.is_none()
             },
@@ -199,7 +199,7 @@ mod tests {
         }
         (
             directory,
-            if cfg!(feature = "production-candidate") { serde_json::json!({"version":1,"applicationIdentifier":"local.termterm.desktop","developmentOnly":false,"candidateVersion":"0.4.3","files":files}) } else { serde_json::json!({"version":1,"applicationIdentifier":"local.termterm.desktop.vpndev","developmentOnly":true,"files":files}) },
+            if cfg!(feature = "production-candidate") { serde_json::json!({"version":1,"applicationIdentifier":"local.termterm.desktop","developmentOnly":false,"candidateVersion":"0.4.4","files":files}) } else { serde_json::json!({"version":1,"applicationIdentifier":"local.termterm.desktop.vpndev","developmentOnly":true,"files":files}) },
             hash,
         )
     }
@@ -280,7 +280,7 @@ mod tests {
     fn candidate_cannot_relabel_development_or_another_version() {
         let (dir, mut manifest, hash) = fixture();
         manifest["developmentOnly"] = (!cfg!(feature = "production-candidate")).into();
-        manifest["candidateVersion"] = "0.4.4".into();
+        manifest["candidateVersion"] = "0.4.5".into();
         write(dir.path(), &manifest);
         assert!(inspect_pins(dir.path(), &hash, &hash).is_err());
     }

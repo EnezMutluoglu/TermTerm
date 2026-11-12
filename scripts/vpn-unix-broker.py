@@ -30,7 +30,7 @@ CONFIG = "/etc/termterm-vpn-dev/broker.json" if sys.platform == "linux" else "/L
 
 
 def contract(candidate=None):
-    require(candidate in (None, "0.4.3"), "unsupported_candidate_version")
+    require(candidate in (None, "0.4.4"), "unsupported_candidate_version")
     name = "termterm-vpn" if candidate else "termterm-vpn-dev"
     identity = "local.termterm.desktop" if candidate else "local.termterm.desktop.vpndev"
     return {"identity": identity, "socket": "/run/" + name + "/broker.sock" if sys.platform == "linux" else "/private/var/run/" + name + "/broker.sock",
@@ -776,7 +776,7 @@ class NativeOwner(lab.Owner):
 def main():
     global SOCKET
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--candidate", choices=["0.4.3"], help="Use the fixed production candidate identity and installation paths")
+    parser.add_argument("--candidate", choices=["0.4.4"], help="Use the fixed production candidate identity and installation paths")
     parser.add_argument("--check", action="store_true", help="Verify immutable installed inputs without listening or network changes")
     arguments = parser.parse_args()
     require(os.geteuid() == 0, "root_service_required")

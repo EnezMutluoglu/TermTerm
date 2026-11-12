@@ -36,7 +36,9 @@ class Candidate(unittest.TestCase):
         stable = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text())
         candidate = json.loads((ROOT / "src-tauri/tauri.vpn-candidate.conf.json").read_text())
         release = json.loads((ROOT / "src-tauri/tauri.vpn-release-candidate.conf.json").read_text())
-        self.assertEqual(release["version"], "0.4.3")
+        self.assertEqual(release["version"], "0.4.4")
+        team = (ROOT / "team-client/src/compatibility.rs").read_text()
+        self.assertIn('#[cfg(feature = "vpn-candidate")]\npub const CLIENT_VERSION: &str = "' + release["version"] + '";', team)
         self.assertEqual(release["identifier"], candidate["identifier"])
         self.assertEqual(release["mainBinaryName"], candidate["mainBinaryName"])
         self.assertEqual(release["plugins"]["updater"], {"endpoints": stable["plugins"]["updater"]["endpoints"]})
@@ -51,38 +53,38 @@ class Candidate(unittest.TestCase):
         windows = load("stage-vpn-windows-dev")
         linux = load("package-vpn-linux")
         self.assertEqual(windows.contract(), ("termterm-vpn-dev.exe", "vpn-dev-bundle.json", "local.termterm.desktop.vpndev"))
-        self.assertEqual(windows.contract("0.4.3"), ("termterm.exe", "vpn-bundle.json", "local.termterm.desktop"))
-        self.assertEqual(linux.package_contract("0.4.3")["service"], "termterm-vpn")
-        self.assertEqual(linux.package_contract("0.4.3")["package"], "term-term")
+        self.assertEqual(windows.contract("0.4.4"), ("termterm.exe", "vpn-bundle.json", "local.termterm.desktop"))
+        self.assertEqual(linux.package_contract("0.4.4")["service"], "termterm-vpn")
+        self.assertEqual(linux.package_contract("0.4.4")["package"], "term-term")
         self.assertEqual(linux.package_contract()["name"], "termterm-vpn-dev")
         for module, function in [(windows, "contract"), (linux, "package_contract")]:
-            for version in ["0.4.2", "0.4.4", "0.4.3-dev.4", ""]:
+            for version in ["0.4.2", "0.4.5", "0.4.3-dev.4", ""]:
                 with self.assertRaises(ValueError):
                     getattr(module, function)(version)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
-            selected = root / "artifacts/vpn-delivery-20261105/candidate-0.4.3/linux"
-            self.assertEqual(linux.delivery_path(selected, root, "0.4.3"), selected)
-            for path, candidate in [(selected, None), (root / "artifacts/vpn-delivery-20261105/candidate-0.4.4/linux", "0.4.3"),
-                                    (root / "outside/vpn-delivery-20261105/candidate-0.4.3/linux", "0.4.3")]:
+            selected = root / "artifacts/vpn-delivery-20261105/candidate-0.4.4/linux"
+            self.assertEqual(linux.delivery_path(selected, root, "0.4.4"), selected)
+            for path, candidate in [(selected, None), (root / "artifacts/vpn-delivery-20261105/candidate-0.4.5/linux", "0.4.4"),
+                                    (root / "outside/vpn-delivery-20261105/candidate-0.4.4/linux", "0.4.4")]:
                 with self.assertRaises(ValueError):
                     linux.delivery_path(path, root, candidate)
 
     def test_service_templates_use_distinct_fixed_production_paths_and_explicit_version(self):
         unix = load("prepare-vpn-unix")
-        unit = unix.linux_unit("0.4.3")
-        self.assertIn("ExecStart=/usr/bin/python3 -I /opt/termterm-vpn/bin/vpn-unix-broker.py --candidate 0.4.3\n", unit)
+        unit = unix.linux_unit("0.4.4")
+        self.assertIn("ExecStart=/usr/bin/python3 -I /opt/termterm-vpn/bin/vpn-unix-broker.py --candidate 0.4.4\n", unit)
         self.assertIn("RuntimeDirectory=termterm-vpn\n", unit)
         self.assertIn("StateDirectory=termterm-vpn\n", unit)
         self.assertNotIn("termterm-vpn-dev", unit)
         self.assertEqual(unix.linux_unit(), unix.LINUX_UNIT)
-        plist = plistlib.loads(unix.mac_plist("0.4.3").encode())
+        plist = plistlib.loads(unix.mac_plist("0.4.4").encode())
         self.assertEqual(plist["Label"], "local.termterm.desktop.broker")
-        self.assertEqual(plist["ProgramArguments"][-2:], ["--candidate", "0.4.3"])
+        self.assertEqual(plist["ProgramArguments"][-2:], ["--candidate", "0.4.4"])
         self.assertNotIn("vpndev", json.dumps(plist))
         for function in [unix.linux_unit, unix.mac_plist]:
             with self.assertRaises(ValueError):
-                function("0.4.4")
+                function("0.4.5")
 
     def test_binary_mac_manifest_keeps_service_directory_when_copying_helpers(self):
         unix = load("prepare-vpn-unix")
@@ -98,7 +100,7 @@ class Candidate(unittest.TestCase):
             client = root / "client"
             client.write_bytes(b"inert desktop fixture")
             output = root / ".tools/prepared"
-            arguments = ["prepare", "--platform", "macos", "--candidate", "0.4.3", "--output", str(output), "--engines", str(engines),
+            arguments = ["prepare", "--platform", "macos", "--candidate", "0.4.4", "--output", str(output), "--engines", str(engines),
                          "--client", str(client), "--uid", "501", "--client-requirement", "identifier fixture", "--python-runtime", str(client)]
             with patch.object(unix, "ROOT", root), patch.object(unix, "source_files", return_value=[]), \
                  patch.object(unix, "mac_python", return_value={"python": "/verified/python3", "pythonSha256": "0" * 64}), patch.object(sys, "argv", arguments):
@@ -114,16 +116,16 @@ class Candidate(unittest.TestCase):
         native = load("vpn-unix-broker")
         config = {"uid": 1000, "client": "/usr/bin/termterm", "clientSha256": "0" * 64, "engines": "/opt/termterm-vpn/bin",
                   "pins": {name: "0" * 64 for name in ["vpn-policy-lab", "termterm-openvpn", "termterm-openconnect", "termterm-wireguard"]},
-                  "journal": "/var/lib/termterm-vpn", "applicationIdentifier": "local.termterm.desktop", "candidateVersion": "0.4.3"}
+                  "journal": "/var/lib/termterm-vpn", "applicationIdentifier": "local.termterm.desktop", "candidateVersion": "0.4.4"}
         with patch.object(native.sys, "platform", "linux"):
-            native.validate_configuration(config, "0.4.3")
-            self.assertEqual(native.contract("0.4.3")["socket"], "/run/termterm-vpn/broker.sock")
-            self.assertNotEqual(native.contract()["config"], native.contract("0.4.3")["config"])
+            native.validate_configuration(config, "0.4.4")
+            self.assertEqual(native.contract("0.4.4")["socket"], "/run/termterm-vpn/broker.sock")
+            self.assertNotEqual(native.contract()["config"], native.contract("0.4.4")["config"])
             for key, value in [("uid", 0), ("uid", True), ("client", "/usr/bin/termterm-vpn-dev"), ("client", "/tmp/.mount_AppImage/usr/bin/termterm"),
                                ("engines", "/opt/termterm-vpn-dev/bin"), ("journal", "/var/lib/termterm-vpn-dev"),
-                               ("applicationIdentifier", "local.termterm.desktop.vpndev"), ("candidateVersion", "0.4.4"), ("labSocket", "/tmp/lab.sock"), ("pins", {})]:
+                               ("applicationIdentifier", "local.termterm.desktop.vpndev"), ("candidateVersion", "0.4.5"), ("labSocket", "/tmp/lab.sock"), ("pins", {})]:
                 with self.subTest(key=key, value=value), self.assertRaises(ValueError):
-                    native.validate_configuration({**config, key: value}, "0.4.3")
+                    native.validate_configuration({**config, key: value}, "0.4.4")
             with self.assertRaises(ValueError):
                 native.validate_configuration(config)
             broker = object.__new__(native.NativeBroker)
@@ -134,9 +136,9 @@ class Candidate(unittest.TestCase):
             mac = {**config, "client": "/Applications/TermTerm.app/Contents/MacOS/termterm",
                    "pins": {**config["pins"], "termterm-vpn-macos": "0" * 64},
                    "engines": "/Library/PrivilegedHelperTools/local.termterm.desktop.broker", "journal": "/Library/Application Support/TermTerm VPN/journal"}
-            native.validate_configuration(mac, "0.4.3")
+            native.validate_configuration(mac, "0.4.4")
             with self.assertRaises(ValueError):
-                native.validate_configuration(config, "0.4.3")
+                native.validate_configuration(config, "0.4.4")
 
     def test_public_source_includes_candidate_files_and_preserves_private_exclusion(self):
         runtime = load("collect-vpn-runtime")

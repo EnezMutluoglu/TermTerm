@@ -21,7 +21,7 @@ type Api<T> = std::result::Result<T, String>;
 const DEV_ID: &str = "local.termterm.desktop.vpndev";
 fn enabled_application(identifier: &str, version: Option<&str>) -> bool {
     if cfg!(feature = "vpn-candidate") {
-        identifier == "local.termterm.desktop" && version == Some("0.4.3")
+        identifier == "local.termterm.desktop" && version == Some("0.4.4")
     } else {
         identifier == DEV_ID
     }
@@ -1021,9 +1021,9 @@ mod tests {
         use super::*;
         let candidate = cfg!(feature = "vpn-candidate");
         assert_eq!(enabled_application(DEV_ID, Some("0.4.3-dev.4")), !candidate);
-        assert_eq!(enabled_application("local.termterm.desktop", Some("0.4.3")), candidate);
+        assert_eq!(enabled_application("local.termterm.desktop", Some("0.4.4")), candidate);
         assert!(!enabled_application("local.termterm.desktop", Some("0.4.2")));
-        assert!(!enabled_application("local.termterm.desktop", Some("0.4.4")));
+        assert!(!enabled_application("local.termterm.desktop", Some("0.4.5")));
         let lab = json!({"ok":true,"result":{"version":2,"labOnly":true}});
         assert_eq!(broker_hello(&lab), !candidate);
         for (identity, accepted) in [("local.termterm.desktop.broker", candidate), ("local.termterm.desktop.vpndev.broker", !candidate), ("foreign.broker", false)] {

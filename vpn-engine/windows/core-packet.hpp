@@ -1,6 +1,7 @@
 #pragma once
 #include "packet.hpp"
 #include <openvpn/tun/extern/config.hpp>
+#include <openvpn/tun/tunmtu.hpp>
 #include <asio/windows/stream_handle.hpp>
 #include <array>
 #include <deque>
@@ -49,14 +50,17 @@ class PacketTun : public openvpn::TunClient {
     }
 public:
     PacketTun(openvpn_io::io_context &context, Client &owner, const openvpn::ExternalTun::Config &conf, openvpn::TunClientParent &p)
-        : client(owner), config(conf), parent(p), pipe(context) {}
+        : client(owner), config(conf), parent(p), pipe(context) {
+        if (config.tun_prop.mtu == 0) config.tun_prop.mtu = openvpn::TUN_MTU_DEFAULT;
+    }
     ~PacketTun() override { stop(); }
     void tun_start(const openvpn::OptionList &options, openvpn::TransportClient &transport, openvpn::CryptoDCSettings &) override {
         try {
             if (!stopped || !client.tun_builder_new()) throw std::runtime_error("packet_tunnel_reconnect_rejected");
             parent.tun_pre_tun_config();
             openvpn::TunProp::configure_builder(&client, state.get(), config.stats.get(), transport.server_endpoint_addr(), config.tun_prop, options, nullptr, false);
-            if (state->mtu < 576 || state->mtu > 9000) throw std::runtime_error("invalid_packet_mtu");
+            // Core leaves state MTU unset when the server does not push tun-mtu.
+            state->mtu = effective_packet_mtu(state->mtu, config.tun_prop.mtu);
             auto handle = client.establish_packet_pipe();
             openvpn_io::error_code error;
             pipe.assign(handle, error);

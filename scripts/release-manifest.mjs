@@ -6,7 +6,7 @@ import {releaseAssets} from './release-assets.mjs';
 // The reviewed 0.4.3 overlay has separate desktop/source receipts and a 0.4.2 service.
 export function verifyReleaseManifest(dir, version) {
   const need = (ok, message) => { if (!ok) throw Error(message); };
-  need(version === '0.4.3', 'Candidate manifest is only defined for 0.4.3');
+  need(['0.4.3', '0.4.4'].includes(version), 'Candidate manifest is only defined for 0.4.3/0.4.4');
   const {required} = releaseAssets(version);
   const files = required.filter(name => name !== 'RELEASE-MANIFEST.json');
   const allowed = new Set([...required, 'latest.json', 'SHA256SUMS.txt']);
@@ -26,6 +26,30 @@ export function verifyReleaseManifest(dir, version) {
     need(item.bytes === bytes.length && item.sha256 === crypto.createHash('sha256').update(bytes).digest('hex'), `Release asset hash mismatch: ${name}`);
   }
   const hash = name => manifest.assets[name].sha256;
+  if (version === '0.4.4') {
+    need(manifest.teamRelease?.version === '0.4.3' && manifest.teamRelease.unchanged === true, 'Patch must reference the unchanged 0.4.3 Team release');
+    const windows = read('WINDOWS-PACKAGE-RECEIPT.json'), linux = read('LINUX-PACKAGE-RECEIPT.json');
+    for (const receipt of [windows, linux]) need(receipt.version === version && receipt.identity === 'local.termterm.desktop', 'Patch desktop version/identity mismatch');
+    need(windows.binaryMetadata?.productVersion === version && windows.binaryMetadata?.fileVersion === version, 'Windows metadata version mismatch');
+    need(windows.exactNsisDesktopAndManifestVerified === true && ['brokerSha256','portableClientSha256','nsisClientSha256','portableBundleManifestSha256','nsisBundleManifestSha256'].every(key => /^[a-f0-9]{64}$/.test(windows[key])), 'Windows installer/broker binding mismatch');
+    need(windows.sourceZipSha256 === hash('TermTerm-0.4.4-windows-source.zip') && linux.sourceSha256 === hash('TermTerm-0.4.4-linux-source.zip'), 'Desktop source receipt mismatch');
+    for (const [receipt, original, released] of [
+      [windows, 'TermTerm_0.4.4_x64-setup.exe', 'TermTerm_0.4.4_x64-setup.exe'],
+      [windows, 'TermTerm-Release-Candidate-0.4.4-windows-x64-portable.zip', 'TermTerm-0.4.4-windows-x64-portable.zip'],
+      [windows, 'TermTerm-Release-Candidate-0.4.4-dependency-source.zip', 'TermTerm-0.4.4-windows-dependency-source.zip'],
+      [linux, 'TermTerm_0.4.4_amd64.AppImage', 'TermTerm_0.4.4_amd64.AppImage'],
+      [linux, 'TermTerm_0.4.4_amd64.deb', 'TermTerm_0.4.4_amd64.deb'],
+      [linux, 'termterm-vpn-broker_0.4.4_amd64.deb', 'termterm-vpn-broker_0.4.4_amd64.deb'],
+      [linux, 'termterm-vpn-linux-dependency-source.tar.gz', 'TermTerm-0.4.4-linux-dependency-source.tar.gz'],
+    ]) need(receipt.files?.[original]?.sha256 === hash(released), `Package receipt mismatch: ${released}`);
+    const installer = read('TermTerm-0.4.4-APPIMAGE-INSTALL.json');
+    need(installer.candidateVersion === version && installer.imageSha256 === hash('TermTerm_0.4.4_amd64.AppImage') && installer.applicationIdentifier === linux.identity && installer.clientSha256 === linux.appImageClientSha256 && /^[a-f0-9]{64}$/.test(installer.clientSha256), 'AppImage installer binding mismatch');
+    need(linux.appImageManifestSha256 === hash('TermTerm-0.4.4-APPIMAGE-INSTALL.json'), 'AppImage manifest receipt mismatch');
+    const acceptance = read('PATCH-ACCEPTANCE.json');
+    need(acceptance.version === version && acceptance.windows?.ok === true && acceptance.windows.profileImport === true && acceptance.windows.nativeDataPath === true && acceptance.linux?.ok === true && acceptance.linux.profileImport === true && acceptance.linux.engineValidation === true, 'Actual Windows/Linux patch acceptance required');
+    need(acceptance.windows.installerSha256 === hash('TermTerm_0.4.4_x64-setup.exe') && acceptance.windows.packageReceiptSha256 === hash('WINDOWS-PACKAGE-RECEIPT.json') && acceptance.linux.appImageSha256 === hash('TermTerm_0.4.4_amd64.AppImage') && acceptance.linux.brokerSha256 === hash('termterm-vpn-broker_0.4.4_amd64.deb') && acceptance.linux.packageReceiptSha256 === hash('LINUX-PACKAGE-RECEIPT.json'), 'Patch acceptance artifact binding mismatch');
+    return manifest;
+  }
   const windows = read('WINDOWS-PACKAGE-RECEIPT.json'), linux = read('LINUX-PACKAGE-RECEIPT.json'), mac = read('MACOS-SOURCE-RECEIPT.json');
   for (const receipt of [windows, linux, mac]) need(receipt.version === version, 'Desktop receipt version mismatch');
   need(windows.binaryMetadata?.productVersion === version && windows.binaryMetadata?.fileVersion === version, 'Windows metadata version mismatch');

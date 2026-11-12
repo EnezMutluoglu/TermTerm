@@ -115,6 +115,8 @@ pub fn openvpn(text: &str, directory: &Path) -> Result<Preview> {
         blocked: false,
     };
     let mut inline: Option<String> = None;
+    let mut optional_dns_block = false;
+    let mut dns_block_lines = vec![];
     for (i, raw) in text.trim_start_matches('\u{feff}').lines().enumerate() {
         let line = raw.trim();
         if let Some(tag) = &inline {
@@ -192,6 +194,8 @@ pub fn openvpn(text: &str, directory: &Path) -> Result<Preview> {
                 );
                 p.config.push_str(&format!("key-direction {}\n", tokens[2]));
             }
+        } else if name == "block-outside-dns" && tokens.len() == 1 {
+            dns_block_lines.push(i + 1);
         } else if name == "auth-user-pass" {
             p.config.push_str("auth-user-pass\n");
             if tokens.len() > 1 {
@@ -249,7 +253,10 @@ pub fn openvpn(text: &str, directory: &Path) -> Result<Preview> {
                 p.blocked = true;
                 continue;
             }
-            // The explicit optional flag may degrade; a required DNS-blocking directive stays blocked.
+            if name == "ignore-unknown-option" {
+                optional_dns_block = true;
+            }
+            // Only explicitly optional DNS blocking may degrade; hooks/security options stay blocked.
             if name == "setenv" && tokens.len() == 3 && tokens[1] == "opt" && tokens[2] == "block-outside-dns" {
                 p.warnings.push(format!("Satır {}: İsteğe bağlı block-outside-dns uygulanmadı; DNS sızıntısı engelleme desteği yok.", i + 1));
                 continue;
@@ -279,6 +286,15 @@ pub fn openvpn(text: &str, directory: &Path) -> Result<Preview> {
         "Birleştirilmiş VPN dosyası 1 MiB sınırını aşıyor"
     );
     ensure!(inline.is_none(), "Kapanmamış VPN bloğu");
+    // OpenVPN's ignore list applies to the whole profile, regardless of directive order.
+    for line in dns_block_lines {
+        if optional_dns_block {
+            p.warnings.push(format!("Satır {line}: İsteğe bağlı block-outside-dns uygulanmadı; DNS sızıntısı engelleme desteği yok."));
+        } else {
+            p.warnings.push(format!("Satır {line}: block-outside-dns desteklenmiyor; yürütülmedi"));
+            p.blocked = true;
+        }
+    }
     ensure!(!p.config.is_empty(), "Boş VPN dosyası");
     Ok(p)
 }
@@ -428,12 +444,12 @@ mod tests {
     use super::*;
     #[test]
     fn common_client_compatibility_options_import_without_claiming_dns_blocking() {
-        let text = "client\ndev tun\nproto udp\nremote vpn.example 1194\nresolv-retry infinite\nnobind\npersist-key\npersist-tun\nremote-cert-tls server\nverb 3\n# public synthetic fixture\n# 12\n# 13\n# 14\ntls-client\n# 16\n# 17\nignore-unknown-option block-outside-dns\nsetenv opt block-outside-dns # optional compatibility\n";
+        let text = "client\ndev tun\nproto udp\nremote vpn.example 1194\nresolv-retry infinite\nnobind\npersist-key\npersist-tun\nremote-cert-tls server\nverb 3\n# public synthetic fixture\n# 12\n# 13\n# 14\ntls-client\n# 16\n# 17\nignore-unknown-option block-outside-dns\nblock-outside-dns # optional compatibility\n";
         let (_, p) = configuration(text, Path::new(".")).unwrap();
         assert!(!p.blocked && p.missing_files.is_empty());
         assert!(p.config.contains("tls-client\n"));
         assert!(p.config.contains("ignore-unknown-option block-outside-dns\n"));
-        assert!(!p.config.contains("setenv opt"));
+        assert!(!p.config.lines().any(|line| line.starts_with("block-outside-dns")));
         assert_eq!(p.warnings, ["Satır 19: İsteğe bağlı block-outside-dns uygulanmadı; DNS sızıntısı engelleme desteği yok."]);
         openvpn_embedded(&p.config).unwrap();
         assert!(!openvpn("tls-client\npull\nremote vpn.example 1194\n", Path::new(".")).unwrap().blocked);
@@ -442,8 +458,25 @@ mod tests {
         assert_eq!(words("verify-x509-name name\\#value name").unwrap(), ["verify-x509-name", "name#value", "name"]);
     }
     #[test]
+    fn optional_dns_declarations_are_order_independent_and_skip_inline_material() {
+        for options in [
+            "block-outside-dns\nignore-unknown-option block-outside-dns",
+            "--ignore-unknown-option \"block-outside-dns\" # compatibility\n--block-outside-dns",
+            "setenv opt block-outside-dns",
+        ] {
+            let text = format!("client\nremote vpn.example 1194\n{options}\n");
+            let p = openvpn(&text, Path::new(".")).unwrap();
+            assert!(!p.blocked, "{options}");
+            assert_eq!(p.warnings.len(), 1);
+            assert!(p.warnings[0].contains("DNS sızıntısı engelleme desteği yok"));
+            openvpn_embedded(&p.config).unwrap();
+        }
+        let p = openvpn("client\n<ca>\nignore-unknown-option block-outside-dns\n</ca>\nblock-outside-dns\n", Path::new(".")).unwrap();
+        assert!(p.blocked);
+    }
+    #[test]
     fn compatibility_options_never_enable_required_dns_flags_hooks_or_unknown_options() {
-        for option in ["tls-client extra", "client extra", "pull extra", "ignore-unknown-option", "ignore-unknown-option up", "ignore-unknown-option block-outside-dns up", "setenv opt block-outside-dns extra", "setenv opt up /private/script", "setenv opt ca /private/key", "setenv opt auth-user-pass /private/password", "setenv opt unknown-option", "setenv FORWARD_COMPATIBLE 1", "block-outside-dns", "ignore-unknown-option block-outside-dns\nblock-outside-dns", "ignore-unknown-option block-outside-dns\nup /private/script"] {
+        for option in ["tls-client extra", "client extra", "pull extra", "ignore-unknown-option", "ignore-unknown-option up", "ignore-unknown-option block-outside-dns up", "ignore-unknown-option remote-cert-tls", "ignore-unknown-option verify-x509-name", "setenv opt block-outside-dns extra", "setenv opt up /private/script", "setenv opt ca /private/key", "setenv opt auth-user-pass /private/password", "setenv opt unknown-option", "setenv FORWARD_COMPATIBLE 1", "block-outside-dns", "ignore-unknown-option block-outside-dns\nblock-outside-dns extra", "ignore-unknown-option block-outside-dns\nup /private/script"] {
             let text = format!("client\nremote vpn.example 1194\n{option}\n");
             assert!(openvpn(&text, Path::new(".")).unwrap().blocked, "{option}");
             assert!(openvpn_embedded(&text).is_err(), "{option}");

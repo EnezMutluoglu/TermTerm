@@ -63,3 +63,13 @@ it('requires the exact 0.4.3 VPN source, broker, service and installer scope',()
   expect(new Set(plan.required).size).toBe(plan.required.length);
   expect(()=>releaseAssets('0.4.3',{includeMacos:true})).toThrow('source only');
 });
+
+it('limits the 0.4.4 patch to signed Windows/Linux packages and their source and acceptance',()=>{
+  const plan=releaseAssets('0.4.4');
+  expect(plan.platforms).toEqual({'windows-x86_64':'TermTerm_0.4.4_x64-setup.exe','linux-x86_64':'TermTerm_0.4.4_amd64.AppImage'});
+  for(const name of Object.values(plan.platforms)) expect(plan.required).toContain(`${name}.sig`);
+  for(const name of ['termterm-vpn-broker_0.4.4_amd64.deb','TermTerm-0.4.4-APPIMAGE-INSTALL.json','PATCH-ACCEPTANCE.json','TermTerm-0.4.4-windows-source.zip','TermTerm-0.4.4-linux-source.zip']) expect(plan.required).toContain(name);
+  expect(plan.required.some((name:string)=>/macos|Team-|TEAM-|\.rpm$|\.dmg$/.test(name))).toBe(false);
+  expect(new Set(plan.required).size).toBe(plan.required.length);
+  expect(()=>releaseAssets('0.4.4',{includeMacos:true})).toThrow('Windows and Linux');
+});

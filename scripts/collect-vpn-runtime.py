@@ -175,7 +175,7 @@ def source_paths():
             continue
         if relative == ".env.vpn-dev" and path.read_text().strip() != "VITE_VPN_DEV=1":
             raise ValueError("VPN environment contains unexpected data")
-        if relative == ".env.vpn-candidate" and path.read_text().strip() != "VITE_VPN_CANDIDATE=0.4.3":
+        if relative == ".env.vpn-candidate" and path.read_text().strip() != "VITE_VPN_CANDIDATE=0.4.4":
             raise ValueError("VPN candidate environment contains unexpected data")
         result.append(relative)
     return result
