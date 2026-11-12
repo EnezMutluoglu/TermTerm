@@ -21,7 +21,7 @@ type Api<T> = std::result::Result<T, String>;
 const DEV_ID: &str = "local.termterm.desktop.vpndev";
 fn enabled_application(identifier: &str, version: Option<&str>) -> bool {
     if cfg!(feature = "vpn-candidate") {
-        identifier == "local.termterm.desktop" && version == Some("0.4.4")
+        identifier == "local.termterm.desktop" && version == Some("0.4.5")
     } else {
         identifier == DEV_ID
     }
@@ -579,7 +579,7 @@ pub async fn vpn_disconnect(
     if let Some(result) = crate::vpn_sso::auth_only::request(&state,&json!({"action":"disconnect","id":id,"generation":generation})).await {
         result.map_err(error)?;
         crate::vpn_sso::cancel(&state, &id, generation, None);
-        return finish_disconnect(&state,&id,_gate).await;
+        return finish_disconnect(&state,&id,generation,_gate).await;
     }
     scoped(&state, &id, generation).map_err(error)?;
     crate::vpn_sso::cancel(&state, &id, generation, None);
@@ -590,24 +590,29 @@ pub async fn vpn_disconnect(
     )
     .await
     .map_err(error)?;
-    finish_disconnect(&state,&id,_gate).await
+    finish_disconnect(&state,&id,generation,_gate).await
 }
-async fn finish_disconnect(state: &Shared,id: &str,gate: tokio::sync::MutexGuard<'_,()>) -> Api<()> {
+async fn finish_disconnect(state: &Shared,id: &str,generation: u64,gate: tokio::sync::MutexGuard<'_,()>) -> Api<()> {
     drop(gate);
-    for _ in 0..120 {
-        if state
+    let deadline=tokio::time::Instant::now()+request_timeout(Some("disconnect"));
+    loop {
+        let session=state
             .vpn
             .sessions
             .lock()
             .map_err(|_| "VPN lock")?
             .get(id)
-            .is_some_and(terminal)
-        {
-            return Ok(());
+            .cloned()
+            .ok_or("VPN session not found; cleanup could not be verified")?;
+        if session["generation"] != generation {return Err("Stale VPN session".into());}
+        match session["state"].as_str() {
+            Some("disconnected")=>return Ok(()),
+            Some("failed")=>return Err(session["error"].as_str().filter(|error|!error.is_empty()).unwrap_or("VPN cleanup could not be verified").into()),
+            _=>{},
         }
+        if tokio::time::Instant::now()>=deadline {return Err("VPN kapatma işlemi için bekleme süresi doldu; temizliğin tamamlandığı doğrulanamadı.".into());}
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
-    Err("VPN kapatma işlemi için bekleme süresi doldu; temizliğin tamamlandığı doğrulanamadı.".into())
 }
 pub(super) fn scoped(state: &Shared, id: &str, generation: u64) -> Result<()> {
     let vault_id = owner_id(state)?;
@@ -943,22 +948,9 @@ pub(super) async fn rpc(app: &AppHandle, state: &Shared, request: Value) -> Resu
     if let Some(result) = crate::vpn_sso::auth_only::request(state,&request).await { return result; }
     #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     {
-        client(app, state).await?;
-        let tx = state
-            .vpn
-            .client
-            .lock()
-            .await
-            .as_ref()
-            .context("VPN broker unavailable")?
-            .tx
-            .clone();
-        let (send, receive) = tokio::sync::oneshot::channel();
-        let timeout=request_timeout(request["action"].as_str());
-        tx.send((request, send))
-            .await
-            .map_err(|_| anyhow!("VPN broker closed"))?;
-        tokio::time::timeout(timeout, receive).await??
+        // Session commands belong to their original transport, even after it fails.
+        if request["action"] == "connect" { client(app, state).await?; }
+        rpc_existing(state, request).await
     }
     #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
     {
@@ -967,6 +959,17 @@ pub(super) async fn rpc(app: &AppHandle, state: &Shared, request: Value) -> Resu
             "Windows VPN yardÄ±mcÄ± servisi ve imzalÄ± TUN sÃ¼rÃ¼cÃ¼sÃ¼ henÃ¼z bu pakette yok"
         ))
     }
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+async fn rpc_existing(state: &Shared, request: Value) -> Result<Value> {
+    let tx = state.vpn.client.lock().await.as_ref()
+        .filter(|client| !client.task.is_finished() && !client.tx.is_closed())
+        .context("VPN broker connection lost; the original session cannot use a new broker")?.tx.clone();
+    let (send, receive) = tokio::sync::oneshot::channel();
+    let timeout = request_timeout(request["action"].as_str());
+    tx.send((request, send)).await.map_err(|_| anyhow!("VPN broker closed"))?;
+    tokio::time::timeout(timeout, receive).await??
 }
 
 pub async fn close_all(state: &Shared) -> Result<()> {
@@ -1021,9 +1024,9 @@ mod tests {
         use super::*;
         let candidate = cfg!(feature = "vpn-candidate");
         assert_eq!(enabled_application(DEV_ID, Some("0.4.3-dev.4")), !candidate);
-        assert_eq!(enabled_application("local.termterm.desktop", Some("0.4.4")), candidate);
+        assert_eq!(enabled_application("local.termterm.desktop", Some("0.4.5")), candidate);
         assert!(!enabled_application("local.termterm.desktop", Some("0.4.2")));
-        assert!(!enabled_application("local.termterm.desktop", Some("0.4.5")));
+        assert!(!enabled_application("local.termterm.desktop", Some("0.4.6")));
         let lab = json!({"ok":true,"result":{"version":2,"labOnly":true}});
         assert_eq!(broker_hello(&lab), !candidate);
         for (identity, accepted) in [("local.termterm.desktop.broker", candidate), ("local.termterm.desktop.vpndev.broker", !candidate), ("foreign.broker", false)] {
@@ -1084,15 +1087,104 @@ mod tests {
     #[tokio::test]
     async fn disconnect_wait_releases_the_gate_needed_by_its_terminal_reader() {
         let state=std::sync::Arc::new(crate::state::AppState::default());
-        state.vpn.sessions.lock().unwrap().insert("fixture".into(),json!({"state":"disconnecting"}));
+        state.vpn.sessions.lock().unwrap().insert("fixture".into(),json!({"generation":1,"state":"disconnecting"}));
         let gate=state.vpn.gate.lock().await;
         let shared=state.clone();
         let reader=tokio::spawn(async move {
             let _gate=shared.vpn.gate.lock().await;
             shared.vpn.sessions.lock().unwrap().get_mut("fixture").unwrap()["state"]="disconnected".into();
         });
-        tokio::time::timeout(std::time::Duration::from_secs(1),finish_disconnect(&state,"fixture",gate)).await.unwrap().unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(1),finish_disconnect(&state,"fixture",1,gate)).await.unwrap().unwrap();
         reader.await.unwrap();
+    }
+    #[tokio::test]
+    async fn disconnect_waits_past_six_seconds_for_actual_cleanup_and_keeps_the_other_session() {
+        let state=std::sync::Arc::new(crate::state::AppState::default());
+        state.vpn.sessions.lock().unwrap().extend([
+            ("first".into(),json!({"generation":3,"state":"disconnecting","error":"cleanup_pending: windows_interface_unregister_pending"})),
+            ("second".into(),json!({"generation":7,"state":"connected"})),
+        ]);
+        let gate=state.vpn.gate.lock().await;
+        let shared=state.clone();
+        let reader=tokio::spawn(async move {
+            {let _gate=shared.vpn.gate.lock().await;}
+            tokio::time::sleep(std::time::Duration::from_millis(6100)).await;
+            shared.vpn.sessions.lock().unwrap().get_mut("first").unwrap()["state"]="disconnected".into();
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(10),finish_disconnect(&state,"first",3,gate)).await.unwrap().unwrap();
+        reader.await.unwrap();
+        assert_eq!(state.vpn.sessions.lock().unwrap()["second"]["state"],"connected");
+    }
+    #[tokio::test]
+    async fn disconnect_failure_missing_session_and_changed_generation_never_report_success() {
+        let state=std::sync::Arc::new(crate::state::AppState::default());
+        state.vpn.sessions.lock().unwrap().insert("second".into(),json!({"generation":7,"state":"connected"}));
+        for reason in ["cleanup_required: routes_retained_until_quiescence","engine_failed: wireguard_peer_unresponsive",""] {
+            let failed=json!({"generation":3,"state":"failed","error":reason});
+            state.vpn.sessions.lock().unwrap().insert("first".into(),failed.clone());
+            let gate=state.vpn.gate.lock().await;
+            let error=finish_disconnect(&state,"first",3,gate).await.unwrap_err();
+            assert_eq!(error,if reason.is_empty() {"VPN cleanup could not be verified"} else {reason});
+            assert_eq!(state.vpn.sessions.lock().unwrap()["first"],failed);
+        }
+        state.vpn.sessions.lock().unwrap().insert("first".into(),json!({"generation":4,"state":"disconnected"}));
+        let gate=state.vpn.gate.lock().await;
+        assert_eq!(finish_disconnect(&state,"first",3,gate).await.unwrap_err(),"Stale VPN session");
+        state.vpn.sessions.lock().unwrap().remove("first");
+        let gate=state.vpn.gate.lock().await;
+        assert!(finish_disconnect(&state,"first",3,gate).await.unwrap_err().contains("cleanup could not be verified"));
+        assert_eq!(state.vpn.sessions.lock().unwrap()["second"]["state"],"connected");
+    }
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+    #[tokio::test]
+    async fn stopping_one_of_two_sessions_uses_the_existing_transport_and_keeps_the_other_connected() {
+        let state=std::sync::Arc::new(crate::state::AppState::default());
+        *state.vpn.owner.lock().unwrap()=Some(TeamOwner {id:"fixture".into(),context:"fixture-context".into(),epoch:1});
+        for (id,generation) in [("first",3),("second",7)] {
+            state.vpn.sessions.lock().unwrap().insert(id.into(),json!({"id":id,"vaultId":"fixture","generation":generation,"state":"connected"}));
+        }
+        let (tx,mut requests)=tokio::sync::mpsc::channel::<(Value,tokio::sync::oneshot::Sender<Result<Value>>)>(4);
+        let shared=state.clone();
+        let task=tokio::spawn(async move {
+            let (request,reply)=requests.recv().await.unwrap();
+            assert_eq!(request,json!({"action":"disconnect","id":"first","generation":3}));
+            shared.vpn.sessions.lock().unwrap().get_mut("first").unwrap()["state"]="disconnected".into();
+            reply.send(Ok(json!({"stopping":true}))).unwrap();
+            assert!(requests.recv().await.is_none());
+        });
+        *state.vpn.client.lock().await=Some(BrokerClient {tx,task,lab_only:true});
+        scoped(&state,"first",3).unwrap();
+        assert!(scoped(&state,"first",2).is_err());
+        assert_eq!(rpc_existing(&state,json!({"action":"disconnect","id":"first","generation":3})).await.unwrap()["stopping"],true);
+        let gate=state.vpn.gate.lock().await;
+        finish_disconnect(&state,"first",3,gate).await.unwrap();
+        assert_eq!(state.vpn.sessions.lock().unwrap()["second"]["state"],"connected");
+        let client=state.vpn.client.lock().await.take().unwrap();
+        drop(client.tx);client.task.await.unwrap();
+    }
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+    #[tokio::test]
+    async fn session_commands_fail_without_replacing_a_missing_finished_or_closed_transport() {
+        let state=std::sync::Arc::new(crate::state::AppState::default());
+        for transport in ["missing","finished","closed"] {
+            let mut retained_rx=None;
+            if transport!="missing" {
+                let (tx,rx)=tokio::sync::mpsc::channel(1);
+                let task=if transport=="finished" {
+                    let task=tokio::spawn(async {});
+                    while !task.is_finished() {tokio::task::yield_now().await;}
+                    task
+                } else {tokio::spawn(std::future::pending())};
+                if transport=="closed" {drop(rx);} else {retained_rx=Some(rx);}
+                *state.vpn.client.lock().await=Some(BrokerClient {tx,task,lab_only:true});
+            }
+            for action in ["disconnect","answer","ssoAnswer"] {
+                let error=rpc_existing(&state,json!({"action":action,"id":"first","generation":3})).await.unwrap_err();
+                assert!(error.to_string().contains("original session cannot use a new broker"),"{transport}: {error}");
+            }
+            if let Some(client)=state.vpn.client.lock().await.take() {client.task.abort();}
+            drop(retained_rx);
+        }
     }
     #[test]
     fn rejected_session_keeps_its_reason_through_cleanup_without_affecting_other_sessions() {

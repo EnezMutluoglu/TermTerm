@@ -148,11 +148,11 @@ def relative_path(value):
 
 def source_paths():
     folders = ["src", "src-tauri/src", "src-tauri/capabilities", "src-tauri/icons", "migrations", "scripts", "templates", "docs", "team-client/src", "team-service/src", "team-service/migrations", "team-service/deploy", "vpn-core/src", "vpn-engine", "vpn-wireguard", "vpn-windows-broker/src"]
-    files = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "index.html", "app-icon.svg", "tsconfig.json", "vite.config.ts", "rust-toolchain.toml", ".env.vpn-dev", ".env.vpn-candidate", "README.md"]
+    files = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "index.html", "app-icon.svg", "tsconfig.json", "vite.config.ts", "rust-toolchain.toml", ".env.vpn-dev", ".env.vpn-candidate", "README.md", "playwright.config.ts", "vitest.config.ts", "tests/releaseAssets.test.ts", "tests/releaseManifest.test.ts", "tests/ui/vpnDesktop.spec.ts"]
     for directory in ["src-tauri", "team-client", "team-service", "vpn-core", "vpn-windows-broker"]:
         files += [directory + "/Cargo.toml", directory + "/Cargo.lock"]
     files += ["src-tauri/build.rs", "src-tauri/tests/vpn_webkit_fixture.rs", "team-service/compatibility.json"]
-    files += ["vpn-windows-broker/tests/packet_process.rs", "vpn-windows-broker/tests/wireguard_process.rs"]
+    files += ["vpn-windows-broker/tests/packet_process.rs", "vpn-windows-broker/tests/wireguard_process.rs", "vpn-windows-broker/tests/control_process.rs"]
     files += ["src-tauri/tauri.conf.json", "src-tauri/tauri.windows.conf.json", "src-tauri/tauri.linux.conf.json", "src-tauri/tauri.macos.conf.json", "src-tauri/tauri.vpn-dev.conf.json", "src-tauri/tauri.vpn-e2e.conf.json", "src-tauri/tauri.vpn-linux-package.conf.json", "src-tauri/tauri.vpn-windows-package.conf.json"]
     files += ["src-tauri/tauri.vpn-candidate.conf.json", "src-tauri/tauri.vpn-candidate-linux.conf.json", "src-tauri/tauri.vpn-release-candidate.conf.json"]
     # Only established public paths in HEAD are recursive; new paths require a reviewed explicit addition.
@@ -175,7 +175,7 @@ def source_paths():
             continue
         if relative == ".env.vpn-dev" and path.read_text().strip() != "VITE_VPN_DEV=1":
             raise ValueError("VPN environment contains unexpected data")
-        if relative == ".env.vpn-candidate" and path.read_text().strip() != "VITE_VPN_CANDIDATE=0.4.4":
+        if relative == ".env.vpn-candidate" and path.read_text().strip() != "VITE_VPN_CANDIDATE=0.4.5":
             raise ValueError("VPN candidate environment contains unexpected data")
         result.append(relative)
     return result

@@ -101,7 +101,7 @@ import SharedTerminal from "./SharedTerminal";
 import PasswordBoard from "./PasswordBoard";
 import VpnWorkspace from "./VpnWorkspace";
 import Authenticator from "./Authenticator";
-const vpnEnabled = import.meta.env.DEV || (import.meta.env.MODE === "vpn-dev" && import.meta.env.VITE_VPN_DEV === "1") || (import.meta.env.MODE === "vpn-candidate" && import.meta.env.VITE_VPN_CANDIDATE === "0.4.4");
+const vpnEnabled = import.meta.env.DEV || (import.meta.env.MODE === "vpn-dev" && import.meta.env.VITE_VPN_DEV === "1") || (import.meta.env.MODE === "vpn-candidate" && import.meta.env.VITE_VPN_CANDIDATE === "0.4.5");
 type Nav =
   | "authenticator"
   | "vpn"

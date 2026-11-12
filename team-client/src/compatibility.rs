@@ -9,7 +9,7 @@ pub const API_VERSION: u64 = 1;
 #[cfg(not(feature = "vpn-candidate"))]
 pub const CLIENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg(feature = "vpn-candidate")]
-pub const CLIENT_VERSION: &str = "0.4.4";
+pub const CLIENT_VERSION: &str = "0.4.5";
 pub fn satisfies_minimum(version: &str, minimum: &str) -> Result<bool> {
     Ok(semver::Version::parse(version)?
         .cmp_precedence(&semver::Version::parse(minimum)?)

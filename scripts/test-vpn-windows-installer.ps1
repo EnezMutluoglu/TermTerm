@@ -140,7 +140,7 @@ function Restore-TestData([string[]]$Data,[string]$Case,$Moved,$Prepared) {
 }
 if ($SelfTest) {
     Assert-Upgrade '0.4.3-dev.1' '0.4.3-dev.2';$checks=1
-    foreach ($pair in @(@('0.4.3-dev.1','0.4.3-dev.1'),@('0.4.3-dev.2','0.4.3-dev.1'),@('0.4.3','0.4.3-dev.2'),@('0.4.3-dev.1','0.4.4-dev.2'))) {$failed=$false;try {Assert-Upgrade $pair[0] $pair[1]} catch {$failed=$true};Require $failed 'Unsafe upgrade accepted';$checks++}
+    foreach ($pair in @(@('0.4.3-dev.1','0.4.3-dev.1'),@('0.4.3-dev.2','0.4.3-dev.1'),@('0.4.3','0.4.3-dev.2'),@('0.4.3-dev.1','0.4.5-dev.2'))) {$failed=$false;try {Assert-Upgrade $pair[0] $pair[1]} catch {$failed=$true};Require $failed 'Unsafe upgrade accepted';$checks++}
     $temporary=Join-Path ([IO.Path]::GetTempPath()) ('termterm-vpn-installer-selftest-'+[Guid]::NewGuid().ToString('N'))
     $null=New-Item -ItemType Directory -Path $temporary;$existing=Join-Path $temporary 'existing';$null=New-Item -ItemType Directory -Path $existing
     [IO.File]::WriteAllText((Join-Path $existing 'preserved'),'keep')

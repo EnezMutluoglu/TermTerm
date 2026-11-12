@@ -24,7 +24,7 @@ DESKTOP_PACKAGE = "term-term-vpn-dev"
 
 
 def package_contract(candidate=None):
-    require(candidate in (None, "0.4.4"), "Unsupported candidate version")
+    require(candidate in (None, "0.4.5"), "Unsupported candidate version")
     return {"identity": "local.termterm.desktop" if candidate else IDENTITY,
             "name": "termterm" if candidate else "termterm-vpn-dev",
             "service": "termterm-vpn" if candidate else "termterm-vpn-dev",
@@ -92,7 +92,7 @@ def source_archive(path, expected, destination=None):
                 target.write_bytes(data)
         require(archive.read(".env.vpn-dev").strip() == b"VITE_VPN_DEV=1", "Unexpected development environment")
         if ".env.vpn-candidate" in names:
-            require(archive.read(".env.vpn-candidate").strip() == b"VITE_VPN_CANDIDATE=0.4.4", "Unexpected candidate environment")
+            require(archive.read(".env.vpn-candidate").strip() == b"VITE_VPN_CANDIDATE=0.4.5", "Unexpected candidate environment")
         return receipt
 
 
@@ -106,7 +106,7 @@ def delivery_path(path, root, candidate=None):
     path = path.absolute()
     require(path.resolve() == path and not any(parent.is_symlink() for parent in [path, *path.parents]), "Delivery paths cannot contain links")
     delivery = path.parent.parent if candidate else path.parent
-    require(candidate in (None, "0.4.4") and (not candidate or path.parent.name == "candidate-0.4.4")
+    require(candidate in (None, "0.4.5") and (not candidate or path.parent.name == "candidate-0.4.5")
             and path.name == "linux" and re.fullmatch(r"vpn-delivery-[0-9]{8}", delivery.name)
             and delivery.parent == root / "artifacts" and not path.exists(), "Choose a new directory inside this worktree's artifact delivery root")
     return path
@@ -132,7 +132,7 @@ def bundle_formats(client, backup, arguments, command):
 def build(args):
     require(os.name != "nt" and os.geteuid() == 0, "Run as the isolated WSL build root owner")
     selected = package_contract(args.candidate)
-    require(not args.release_candidate or args.candidate == "0.4.4", "Release candidate requires the exact --candidate 0.4.4 contract")
+    require(not args.release_candidate or args.candidate == "0.4.5", "Release candidate requires the exact --candidate 0.4.5 contract")
     require(not args.candidate or args.uid is not None, "Candidate pairing requires an explicit nonroot --uid selected by the administrator")
     args.uid = args.uid if args.uid is not None else 1000
     require(re.fullmatch(r"[a-z0-9-]{1,40}", args.run) is not None and args.uid > 0, "A simple build name and nonroot UID are required")
@@ -461,7 +461,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path)
     parser.add_argument("--run", default="vpndev-20261103")
     parser.add_argument("--uid", type=int)
-    parser.add_argument("--candidate", choices=["0.4.4"])
+    parser.add_argument("--candidate", choices=["0.4.5"])
     parser.add_argument("--release-candidate", action="store_true", help="Retain the existing signed stable updater; never publish")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--self-test", action="store_true")

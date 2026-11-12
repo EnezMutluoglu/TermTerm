@@ -50,17 +50,17 @@ MAC_PLIST="""<?xml version="1.0" encoding="UTF-8"?>
 def linux_unit(candidate=None):
     if candidate is None:
         return LINUX_UNIT
-    if candidate != "0.4.4":
+    if candidate != "0.4.5":
         raise ValueError("Unsupported production candidate version")
-    return LINUX_UNIT.replace("isolated VPN development broker", "VPN broker").replace("termterm-vpn-dev", "termterm-vpn").replace("vpn-unix-broker.py\n", "vpn-unix-broker.py --candidate 0.4.4\n")
+    return LINUX_UNIT.replace("isolated VPN development broker", "VPN broker").replace("termterm-vpn-dev", "termterm-vpn").replace("vpn-unix-broker.py\n", "vpn-unix-broker.py --candidate 0.4.5\n")
 
 
 def mac_plist(candidate=None):
     if candidate is None:
         return MAC_PLIST
-    if candidate != "0.4.4":
+    if candidate != "0.4.5":
         raise ValueError("Unsupported production candidate version")
-    return MAC_PLIST.replace("local.termterm.desktop.vpndev.broker", "local.termterm.desktop.broker").replace("vpn-unix-broker.py</string>", "vpn-unix-broker.py</string><string>--candidate</string><string>0.4.4</string>")
+    return MAC_PLIST.replace("local.termterm.desktop.vpndev.broker", "local.termterm.desktop.broker").replace("vpn-unix-broker.py</string>", "vpn-unix-broker.py</string><string>--candidate</string><string>0.4.5</string>")
 
 
 def mac_python(path):
@@ -102,7 +102,7 @@ def source_files():
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--platform",choices=["linux","macos"],required=True)
-    parser.add_argument("--candidate",choices=["0.4.4"],help="Prepare the explicit production candidate contract; never install it")
+    parser.add_argument("--candidate",choices=["0.4.5"],help="Prepare the explicit production candidate contract; never install it")
     parser.add_argument("--client-install",choices=["deb","appimage"],default="deb",help="Linux candidate: fixed DEB or root-owned AppDir path")
     parser.add_argument("--output",type=Path,required=True)
     parser.add_argument("--source-only",action="store_true")
@@ -181,7 +181,7 @@ def main():
     manifest={"identity":identity,"candidateVersion":args.candidate,"platform":args.platform,"sourceOnly":args.source_only,"installed":False,"serviceStarted":False,"distributionReady":False,
               "desktopSourceSubset":True,"desktopBuildRequiresRepository":True,"externalDependenciesIncluded":False,
               "macosNativeTested":False,"sources":hashes,"binaries":binaries,
-              "requiredBeforeInstallation":["root ownership and nonwritable ancestors of client, helpers and every dynamic dependency","exact 0.4.4 production candidate desktop" if args.candidate else "separate vpndev desktop identity","Python runtime at the service template's absolute path","native platform acceptance tests; source-only output cannot start a service"]}
+              "requiredBeforeInstallation":["root ownership and nonwritable ancestors of client, helpers and every dynamic dependency","exact 0.4.5 production candidate desktop" if args.candidate else "separate vpndev desktop identity","Python runtime at the service template's absolute path","native platform acceptance tests; source-only output cannot start a service"]}
     if args.platform=="linux":
         manifest["linuxRuntime"]={"referenceDistribution":"Ubuntu 24.04", "aptPackages":["python3","iproute2","systemd-resolved","binutils","libjsoncpp25","libopenconnect5","libssl3t64","liblz4-1","ca-certificates"],
                                   "otherDistributionsRequireEquivalentDependencies":True}

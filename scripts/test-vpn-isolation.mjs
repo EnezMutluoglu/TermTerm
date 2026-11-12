@@ -69,7 +69,7 @@ test("VPN UI is enabled only by development or the explicit isolated build mode"
 test("production candidate is an explicit versioned feature with no updater or test capability", () => {
   const candidate = read("src-tauri/tauri.vpn-candidate.conf.json");
   const text = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
-  assert.equal(candidate.version, "0.4.4");
+  assert.equal(candidate.version, "0.4.5");
   assert.equal(candidate.identifier, "local.termterm.desktop");
   assert.equal(candidate.mainBinaryName, "termterm");
   assert.deepEqual(candidate.build.features, ["vpn-candidate"]);
@@ -79,8 +79,8 @@ test("production candidate is an explicit versioned feature with no updater or t
   assert.equal(candidate.bundle.active, false);
   assert.equal(candidate.bundle.createUpdaterArtifacts, false);
   assert.equal(candidate.app.withGlobalTauri, undefined);
-  assert.equal(text(".env.vpn-candidate").trim(), "VITE_VPN_CANDIDATE=0.4.4");
-  assert.match(text("src/App.tsx"), /import\.meta\.env\.MODE === "vpn-candidate" && import\.meta\.env\.VITE_VPN_CANDIDATE === "0.4.4"/);
+  assert.equal(text(".env.vpn-candidate").trim(), "VITE_VPN_CANDIDATE=0.4.5");
+  assert.match(text("src/App.tsx"), /import\.meta\.env\.MODE === "vpn-candidate" && import\.meta\.env\.VITE_VPN_CANDIDATE === "0.4.5"/);
   for (const capability of candidate.app.security.capabilities) {
     assert.deepEqual(capability.webviews, ["main"]);
     assert.equal(capability.remote, undefined);

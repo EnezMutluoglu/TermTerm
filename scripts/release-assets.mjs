@@ -5,17 +5,17 @@ export function releaseAssets(version, {includeMacos = false} = {}) {
     'windows-x86_64': `TermTerm_${version}_x64-setup.exe`,
     'linux-x86_64': `TermTerm_${version}_amd64.AppImage`,
   };
-  if (version === '0.4.4') {
-    if (includeMacos) throw Error('0.4.4 provides Windows and Linux packages only');
+  if (['0.4.4', '0.4.5'].includes(version)) {
+    if (includeMacos) throw Error(`${version} provides Windows and Linux packages only`);
     return {platforms, required: [
       ...Object.values(platforms).flatMap(name => [name, `${name}.sig`]),
-      'TermTerm-0.4.4-windows-x64-portable.zip', 'TermTerm_0.4.4_amd64.deb',
-      'termterm-vpn-broker_0.4.4_amd64.deb', 'TermTerm-0.4.4-APPIMAGE-INSTALL.json', 'install-vpn-appimage.py',
-      ...['windows', 'linux'].map(target => `TermTerm-0.4.4-${target}-source.zip`),
-      'TermTerm-0.4.4-windows-dependency-source.zip', 'TermTerm-0.4.4-linux-dependency-source.tar.gz',
+      `TermTerm-${version}-windows-x64-portable.zip`, `TermTerm_${version}_amd64.deb`,
+      `termterm-vpn-broker_${version}_amd64.deb`, `TermTerm-${version}-APPIMAGE-INSTALL.json`, 'install-vpn-appimage.py',
+      ...['windows', 'linux'].map(target => `TermTerm-${version}-${target}-source.zip`),
+      `TermTerm-${version}-windows-dependency-source.zip`, `TermTerm-${version}-linux-dependency-source.tar.gz`,
       'THIRD_PARTY.md', 'THIRD_PARTY_LICENSES.txt', 'DEPENDENCIES.json',
       'WINDOWS-PACKAGE-RECEIPT.json', 'LINUX-PACKAGE-RECEIPT.json', 'PATCH-ACCEPTANCE.json',
-      'RELEASE-OKU.md', 'VALIDATION_0.4.4.md', 'RELEASE-MANIFEST.json',
+      'RELEASE-OKU.md', `VALIDATION_${version}.md`, 'RELEASE-MANIFEST.json',
     ]};
   }
   if (version === '0.4.3') {

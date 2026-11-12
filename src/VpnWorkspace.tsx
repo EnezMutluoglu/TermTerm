@@ -335,7 +335,6 @@ function VpnPanel({
         id: session.id,
         generation: session.generation,
       });
-      apply({ ...session, state: "disconnected", challenge: undefined });
     });
   }
   async function remove(profile: VpnProfile) {

@@ -132,13 +132,13 @@ print("clean-shutdown", flush=True)
     def test_broker_accepts_only_fixed_root_appdir_with_explicit_installation_kind(self):
         native = load("vpn-unix-broker")
         config = {"uid": 1000, "client": "/opt/termterm-appimage/usr/bin/termterm", "clientSha256": "0" * 64,
-                  "clientInstall": "appimage", "applicationIdentifier": "local.termterm.desktop", "candidateVersion": "0.4.4",
+                  "clientInstall": "appimage", "applicationIdentifier": "local.termterm.desktop", "candidateVersion": "0.4.5",
                   "engines": "/opt/termterm-vpn/bin", "journal": "/var/lib/termterm-vpn",
                   "pins": {name: "0" * 64 for name in ["vpn-policy-lab", "termterm-openvpn", "termterm-openconnect", "termterm-wireguard"]}}
-        native.validate_configuration(config, "0.4.4")
+        native.validate_configuration(config, "0.4.5")
         for update in [{"clientInstall": "transient"}, {"clientInstall": "deb"}, {"client": "/tmp/.mount_termterm/usr/bin/termterm"}, {"client": "/home/user/AppDir/usr/bin/termterm"}]:
             with self.assertRaises(ValueError):
-                native.validate_configuration({**config, **update}, "0.4.4")
+                native.validate_configuration({**config, **update}, "0.4.5")
         with self.assertRaises(ValueError):
             native.validate_configuration(config)
 
@@ -158,13 +158,13 @@ print("clean-shutdown", flush=True)
             with self.assertRaises(ValueError):
                 self.app.replacement(config, pin)
             marker = directory / self.app.MARKER
-            for version in ["0.4.3", "0.4.4"]:
+            for version in ["0.4.3", "0.4.4", "0.4.5"]:
                 marker.write_text(json.dumps({"candidateVersion": version, "clientSha256": pin}))
                 self.app.replacement(config, pin)
                 for expected in [None, "0" * 64]:
                     with self.assertRaises(ValueError):
                         self.app.replacement(config, expected)
-            for version in ["0.4.2", "0.4.5"]:
+            for version in ["0.4.2", "0.4.6"]:
                 marker.write_text(json.dumps({"candidateVersion": version, "clientSha256": pin}))
                 with self.assertRaises(ValueError):
                     self.app.replacement(config, pin)
@@ -172,7 +172,7 @@ print("clean-shutdown", flush=True)
 
     def test_install_rejects_copy_tampering_and_retains_original_config(self):
         tree = self.tree(self.root / "source")
-        manifest = {"version": 1, "applicationIdentifier": "local.termterm.desktop", "candidateVersion": "0.4.4", "imageSha256": "0" * 64,
+        manifest = {"version": 1, "applicationIdentifier": "local.termterm.desktop", "candidateVersion": "0.4.5", "imageSha256": "0" * 64,
                     "clientSha256": self.app.digest(tree / self.app.CLIENT), "files": self.app.inventory(tree)}
         path = self.root / "manifest.json"
         path.write_text(json.dumps(manifest))
@@ -212,7 +212,7 @@ print("clean-shutdown", flush=True)
         processes.mkdir()
         config_path.write_text(json.dumps({"uid": 1000, "client": "/usr/bin/termterm", "pins": {}, "journal": str(journal), "engines": str(self.root)}))
         def manifest():
-            value = {"version": 1, "applicationIdentifier": "local.termterm.desktop", "candidateVersion": "0.4.4", "imageSha256": "0" * 64,
+            value = {"version": 1, "applicationIdentifier": "local.termterm.desktop", "candidateVersion": "0.4.5", "imageSha256": "0" * 64,
                      "clientSha256": self.app.digest(tree / self.app.CLIENT), "files": self.app.inventory(tree)}
             manifest_path.write_text(json.dumps(value))
             return self.app.digest(manifest_path)

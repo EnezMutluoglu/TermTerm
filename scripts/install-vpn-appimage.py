@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare or install the fixed, root-owned 0.4.4 AppDir; never start services or publish."""
+"""Prepare or install the fixed, root-owned 0.4.5 AppDir; never start services or publish."""
 import argparse
 from contextlib import contextmanager
 import hashlib
@@ -103,7 +103,7 @@ def prepare(image, expected, uid, destination):
     require(not destination.exists() and not destination.is_symlink(), "fresh_manifest_destination_required")
     with extracted(image, expected, uid) as tree:
         files = inventory(tree)
-    manifest = {"version": 1, "applicationIdentifier": "local.termterm.desktop", "candidateVersion": "0.4.4", "imageSha256": expected,
+    manifest = {"version": 1, "applicationIdentifier": "local.termterm.desktop", "candidateVersion": "0.4.5", "imageSha256": expected,
                 "clientSha256": files[CLIENT]["sha256"], "files": files}
     with destination.open("x", encoding="utf-8") as stream:
         json.dump(manifest, stream, indent=2)
@@ -117,7 +117,7 @@ def replacement(config, expected_old):
         marker = APPDIR / MARKER
         require(marker.is_file() and not marker.is_symlink() and marker.stat().st_size <= 16384, "unowned_existing_appdir_rejected")
         installed = json.loads(marker.read_text())
-        require(installed.get("candidateVersion") in ("0.4.3", "0.4.4") and installed.get("clientSha256") == expected_old
+        require(installed.get("candidateVersion") in ("0.4.3", "0.4.4", "0.4.5") and installed.get("clientSha256") == expected_old
                 and config.get("clientInstall") == "appimage" and config["clientSha256"] == expected_old
                 and digest(APPDIR / CLIENT) == expected_old, "existing_appdir_pin_or_version_changed")
         require(LAUNCHER.read_bytes() == LAUNCH and ENTRY.read_bytes() == DESKTOP, "installed_launcher_changed")
@@ -132,7 +132,7 @@ def install(image, manifest_path, manifest_sha256, uid, expected_old=None):
     native.trusted(Path(__file__).resolve())
     native.trusted(CONFIG)
     config = json.loads(CONFIG.read_text())
-    native.validate_configuration(config, "0.4.4")
+    native.validate_configuration(config, "0.4.5")
     require(type(uid) is int and uid > 0 and config["uid"] == uid, "configured_nonroot_uid_required")
     pwd.getpwuid(uid)
     require(subprocess.run(["/usr/bin/systemctl", "is-active", "termterm-vpn.service"], capture_output=True, text=True).stdout.strip() == "inactive", "stop_broker_before_appimage_install")
@@ -163,7 +163,7 @@ def install(image, manifest_path, manifest_sha256, uid, expected_old=None):
         require(len(manifest_bytes) <= 4 * 1024 * 1024 and hashlib.sha256(manifest_bytes).hexdigest() == manifest_sha256, "appimage_manifest_changed_or_too_large")
         manifest = json.loads(manifest_bytes)
         require(set(manifest) == {"version", "applicationIdentifier", "candidateVersion", "imageSha256", "clientSha256", "files"}
-                and type(manifest["version"]) is int and manifest["version"] == 1 and manifest["applicationIdentifier"] == "local.termterm.desktop" and manifest["candidateVersion"] == "0.4.4", "unsupported_appimage_manifest")
+                and type(manifest["version"]) is int and manifest["version"] == 1 and manifest["applicationIdentifier"] == "local.termterm.desktop" and manifest["candidateVersion"] == "0.4.5", "unsupported_appimage_manifest")
         for name, pin in config["pins"].items():
             native.pin(Path(config["engines"]) / name, pin)
         native.trusted(APPDIR.parent, True)
@@ -192,7 +192,7 @@ def install(image, manifest_path, manifest_sha256, uid, expected_old=None):
                                  env={"PATH": "/usr/bin:/bin", "LC_ALL": "C", "LD_LIBRARY_PATH": ":".join(map(str, libraries))},
                                  stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15)
         require(runtime.returncode == 0 and "not found" not in runtime.stdout, "appimage_runtime_dependencies_missing")
-        (stage / MARKER).write_text(json.dumps({"candidateVersion": "0.4.4", "clientSha256": manifest["clientSha256"], "manifestSha256": manifest_sha256}) + "\n")
+        (stage / MARKER).write_text(json.dumps({"candidateVersion": "0.4.5", "clientSha256": manifest["clientSha256"], "manifestSha256": manifest_sha256}) + "\n")
         (stage / MARKER).chmod(0o644)
         backup = CONFIG.with_name("broker.before-appimage-" + run + ".json")
         with backup.open("xb") as stream:

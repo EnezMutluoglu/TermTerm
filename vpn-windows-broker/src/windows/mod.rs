@@ -33,6 +33,13 @@ pub(crate) fn wide(value: impl AsRef<std::ffi::OsStr>) -> Result<Vec<u16>> {
 pub(crate) fn win(ok: i32) -> Result<()> { ensure!(ok != 0, "{}", io::Error::last_os_error()); Ok(()) }
 pub(crate) fn status(code: u32) -> Result<()> { ensure!(code == 0, "{}", io::Error::from_raw_os_error(code as i32)); Ok(()) }
 
+pub(super) fn broker_startup_error(process: HANDLE, error: anyhow::Error) -> anyhow::Error {
+    let mut code = 0;
+    if unsafe { windows_sys::Win32::System::Threading::GetExitCodeProcess(process, &mut code) } != 0
+        && code == store::MANAGER_ACTIVE_EXIT_CODE { return store::ManagerActive.into(); }
+    error
+}
+
 #[derive(Clone, Debug)]
 pub struct Readiness { pub available: bool, pub reason: String }
 pub fn readiness() -> Readiness {
@@ -77,7 +84,7 @@ pub(crate) async fn connect_inner(helper: &Path, validation: bool) -> Result<Ver
     let name = format!(r"\\.\pipe\{}.control.{pipe_id}", crate::PIPE_NAMESPACE);
     let mut stream = tokio::time::timeout(std::time::Duration::from_secs(30),async {
         loop {
-            server.verify(server.pid)?;
+            server.verify(server.pid).map_err(|error|broker_startup_error(server.handle.raw(),error))?;
             match tokio::net::windows::named_pipe::ClientOptions::new().open(&name) {
                 Ok(stream) => return Ok::<_,anyhow::Error>(stream),
                 Err(e) if matches!(e.raw_os_error(),Some(2 | 231)) => tokio::time::sleep(std::time::Duration::from_millis(50)).await,
@@ -90,4 +97,23 @@ pub(crate) async fn connect_inner(helper: &Path, validation: bool) -> Result<Ver
     tokio::time::timeout(std::time::Duration::from_secs(5),stream.read_exact(&mut reply)).await??;
     ensure!(reply == [1],"broker_authentication_rejected");
     Ok(VerifiedClient {stream,process:server.handle,_image:image})
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::windows::{io::AsRawHandle, process::CommandExt};
+    #[test]
+    fn startup_reports_a_busy_cleanup_owner_without_relaxing_peer_rejection() {
+        for code in [store::MANAGER_ACTIVE_EXIT_CODE,1] {
+            let mut child=std::process::Command::new("cmd.exe").args(["/d","/c",&format!("exit {code}")])
+                .creation_flags(windows_sys::Win32::System::Threading::CREATE_NO_WINDOW).spawn().unwrap();
+            child.wait().unwrap();
+            let error=broker_startup_error(child.as_raw_handle(),anyhow::anyhow!("peer_process_mismatch_or_exited"));
+            assert_eq!(error.is::<store::ManagerActive>(),code==store::MANAGER_ACTIVE_EXIT_CODE);
+            if code==1 {assert_eq!(error.to_string(),"peer_process_mismatch_or_exited");}
+        }
+        let current=unsafe {windows_sys::Win32::System::Threading::GetCurrentProcess()};
+        assert_eq!(broker_startup_error(current,anyhow::anyhow!("peer_pid_reused")).to_string(),"peer_pid_reused");
+    }
 }

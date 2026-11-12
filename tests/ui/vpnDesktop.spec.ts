@@ -101,6 +101,7 @@ async function setup(page: Page, available = true, deferStatus = false, ssoBefor
             }
             if (command === "vpn_disconnect") {
               const session = sessions.find((item) => item.id === args.id);
+              if ((window as any).vpnTest.disconnectHook) return (window as any).vpnTest.disconnectHook(session);
               emit({ ...session, state: "disconnected", challenge: undefined });
               return;
             }
@@ -162,6 +163,32 @@ test("normal VPN navigation follows SFTP and hides diagnostics", async ({page}) 
   await expect(page.getByRole("button", {name:"Arayüz demosu"})).toHaveCount(0);
   await expect(page.getByRole("button", {name:"SSO girişini test et (tünelsiz)"})).toHaveCount(0);
   await expect(page.locator(".vpn-workspace")).not.toContainText("Geliştirme");
+});
+
+for (const outcome of ["disconnected", "failed"] as const) test(`disconnect ACK preserves pending state until the actual ${outcome} event and keeps the other VPN`, async ({page}) => {
+  await setup(page);
+  for (let i=0;i<2;i++) await page.locator(".vpn-card").nth(i).getByRole("button",{name:"Bağlan",exact:true}).click();
+  await page.evaluate(() => {
+    const t=(window as any).vpnTest;
+    for (const session of [...t.sessions]) t.emit({...session,state:"connected"});
+    t.disconnectHook=(session:any)=>{t.emit({...session,state:"disconnecting",error:"cleanup_pending: windows_interface_unregister_pending"});};
+  });
+  const first=page.locator(".vpn-card").nth(0);
+  const second=page.locator(".vpn-card").nth(1);
+  await first.getByRole("button",{name:"Bağlantıyı kes",exact:true}).evaluate((button:HTMLButtonElement)=>{button.click();button.click();});
+  await expect(first.getByRole("status")).toHaveText("Kapatılıyor");
+  await expect(first.getByRole("button",{name:"Bağlantıyı kes",exact:true})).toBeDisabled();
+  await expect(second.getByRole("status")).toHaveText("Bağlı");
+  expect(await page.evaluate(()=>(window as any).vpnTest.calls.filter((call:any)=>call.command==="vpn_disconnect").length)).toBe(1);
+  await page.evaluate(outcome=>{
+    const t=(window as any).vpnTest;
+    const session=t.sessions.find((session:any)=>session.profileId==="p0");
+    t.emit({...session,state:outcome,error:outcome==="failed"?"cleanup_required: routes_retained_until_quiescence":undefined});
+    if(outcome==="failed") t.emit({...session,state:"disconnected",error:undefined});
+  },outcome);
+  await expect(first.getByRole("status")).toHaveText(outcome==="failed"?"Bağlantı başarısız":"Bağlı değil");
+  if(outcome==="failed") await expect(first.getByRole("alert")).toContainText("cleanup_required: routes_retained_until_quiescence");
+  await expect(second.getByRole("status")).toHaveText("Bağlı");
 });
 
 for (const purpose of ["otp", "secret"]) test(`pending OTP challenge survives Authenticator handoff and manual code submission (${purpose})`, async ({ page }) => {

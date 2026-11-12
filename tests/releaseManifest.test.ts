@@ -77,32 +77,38 @@ it('keeps explicit approval, exact commit and clean main guards before any feed 
   expect(()=>execFileSync(process.execPath,[script,'--approved-version','0.4.3','--approved-commit',sha],{stdio:'pipe'})).toThrow('clean owner-approved main');
 });
 
-function patchFixture() {
+function patchFixture(version = '0.4.4') {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'termterm-patch-'));dirs.push(dir);
-  const names:string[]=releaseAssets('0.4.4').required.filter((name:string)=>name!=='RELEASE-MANIFEST.json');
+  const names:string[]=releaseAssets(`${version}`).required.filter((name:string)=>name!=='RELEASE-MANIFEST.json');
   for(const name of names)fs.writeFileSync(path.join(dir,name),name);
   const hash=(name:string)=>crypto.createHash('sha256').update(fs.readFileSync(path.join(dir,name))).digest('hex');
   const write=(name:string,value:unknown)=>fs.writeFileSync(path.join(dir,name),JSON.stringify(value));
-  const desktop={version:'0.4.4',identity:'local.termterm.desktop'};
+  const desktop={version,identity:'local.termterm.desktop'};
   const files=(pairs:string[][])=>Object.fromEntries(pairs.map(([original,released])=>[original,{sha256:hash(released)}]));
-  write('WINDOWS-PACKAGE-RECEIPT.json',{...desktop,binaryMetadata:{productVersion:'0.4.4',fileVersion:'0.4.4'},sourceZipSha256:hash('TermTerm-0.4.4-windows-source.zip'),exactNsisDesktopAndManifestVerified:true,brokerSha256:'1'.repeat(64),portableClientSha256:'2'.repeat(64),nsisClientSha256:'3'.repeat(64),portableBundleManifestSha256:'4'.repeat(64),nsisBundleManifestSha256:'5'.repeat(64),files:files([
-    ['TermTerm_0.4.4_x64-setup.exe','TermTerm_0.4.4_x64-setup.exe'],
-    ['TermTerm-Release-Candidate-0.4.4-windows-x64-portable.zip','TermTerm-0.4.4-windows-x64-portable.zip'],
-    ['TermTerm-Release-Candidate-0.4.4-dependency-source.zip','TermTerm-0.4.4-windows-dependency-source.zip'],
+  write('WINDOWS-PACKAGE-RECEIPT.json',{...desktop,binaryMetadata:{productVersion:version,fileVersion:version},sourceZipSha256:hash(`TermTerm-${version}-windows-source.zip`),exactNsisDesktopAndManifestVerified:true,brokerSha256:'1'.repeat(64),openVpnHelperSha256:'6'.repeat(64),portableClientSha256:'2'.repeat(64),nsisClientSha256:'3'.repeat(64),portableBundleManifestSha256:'4'.repeat(64),nsisBundleManifestSha256:'5'.repeat(64),files:files([
+    [`TermTerm_${version}_x64-setup.exe`,`TermTerm_${version}_x64-setup.exe`],
+    [`TermTerm-Release-Candidate-${version}-windows-x64-portable.zip`,`TermTerm-${version}-windows-x64-portable.zip`],
+    [`TermTerm-Release-Candidate-${version}-dependency-source.zip`,`TermTerm-${version}-windows-dependency-source.zip`],
   ])});
-  write('TermTerm-0.4.4-APPIMAGE-INSTALL.json',{candidateVersion:'0.4.4',applicationIdentifier:desktop.identity,imageSha256:hash('TermTerm_0.4.4_amd64.AppImage'),clientSha256:'4'.repeat(64)});
-  write('LINUX-PACKAGE-RECEIPT.json',{...desktop,sourceSha256:hash('TermTerm-0.4.4-linux-source.zip'),appImageManifestSha256:hash('TermTerm-0.4.4-APPIMAGE-INSTALL.json'),appImageClientSha256:'4'.repeat(64),files:files([
-    ...['TermTerm_0.4.4_amd64.AppImage','TermTerm_0.4.4_amd64.deb','termterm-vpn-broker_0.4.4_amd64.deb'].map(name=>[name,name]),
-    ['termterm-vpn-linux-dependency-source.tar.gz','TermTerm-0.4.4-linux-dependency-source.tar.gz'],
+  write(`TermTerm-${version}-APPIMAGE-INSTALL.json`,{candidateVersion:version,applicationIdentifier:desktop.identity,imageSha256:hash(`TermTerm_${version}_amd64.AppImage`),clientSha256:'4'.repeat(64)});
+  write('LINUX-PACKAGE-RECEIPT.json',{...desktop,sourceSha256:hash(`TermTerm-${version}-linux-source.zip`),appImageManifestSha256:hash(`TermTerm-${version}-APPIMAGE-INSTALL.json`),appImageClientSha256:'4'.repeat(64),files:files([
+    ...[`TermTerm_${version}_amd64.AppImage`,`TermTerm_${version}_amd64.deb`,`termterm-vpn-broker_${version}_amd64.deb`].map(name=>[name,name]),
+    ['termterm-vpn-linux-dependency-source.tar.gz',`TermTerm-${version}-linux-dependency-source.tar.gz`],
   ])});
-  write('PATCH-ACCEPTANCE.json',{version:'0.4.4',windows:{ok:true,profileImport:true,nativeDataPath:true,installerSha256:hash('TermTerm_0.4.4_x64-setup.exe'),packageReceiptSha256:hash('WINDOWS-PACKAGE-RECEIPT.json')},linux:{ok:true,profileImport:true,engineValidation:true,appImageSha256:hash('TermTerm_0.4.4_amd64.AppImage'),brokerSha256:hash('termterm-vpn-broker_0.4.4_amd64.deb'),packageReceiptSha256:hash('LINUX-PACKAGE-RECEIPT.json')}});
-  const seal=()=>write('RELEASE-MANIFEST.json',{formatVersion:1,version:'0.4.4',teamRelease:{version:'0.4.3',unchanged:true},teamCompatibility:{serviceVersion:'0.4.2',apiVersion:1,schemaVersion:66,minimumClientVersion:'0.4.1',clientVersions:['0.4.1','0.4.2','0.4.3']},assets:Object.fromEntries(names.map(name=>[name,{sha256:hash(name),bytes:fs.statSync(path.join(dir,name)).size}]))});
+  write('PATCH-ACCEPTANCE.json',{version,windows:{ok:true,profileImport:true,nativeDataPath:true,installerSha256:hash(`TermTerm_${version}_x64-setup.exe`),packageReceiptSha256:hash('WINDOWS-PACKAGE-RECEIPT.json')},linux:{ok:true,profileImport:true,engineValidation:true,appImageSha256:hash(`TermTerm_${version}_amd64.AppImage`),brokerSha256:hash(`termterm-vpn-broker_${version}_amd64.deb`),packageReceiptSha256:hash('LINUX-PACKAGE-RECEIPT.json')}});
+  if(version==='0.4.5') {
+    const acceptance=JSON.parse(fs.readFileSync(path.join(dir,'PATCH-ACCEPTANCE.json'),'utf8'));
+    Object.assign(acceptance.windows,{twoProfileDisconnect:true,stalePeerRejected:true,existingTransportOnly:true,failedStopPreserved:true,releaseBrokerSha256:'1'.repeat(64),testedBrokerSha256:'7'.repeat(64),testedHelperSha256:'6'.repeat(64),nativeBinaryRelationship:'same-source-isolated-development-build',nativeSourceMatchesPackagedSource:true,testRuns:['disposable-lab-run']});
+    Object.assign(acceptance.linux,{packageIntegrity:true,servicePairing:true});
+    write('PATCH-ACCEPTANCE.json',acceptance);
+  }
+  const seal=()=>write('RELEASE-MANIFEST.json',{formatVersion:1,version,teamRelease:{version:'0.4.3',unchanged:true},teamCompatibility:{serviceVersion:'0.4.2',apiVersion:1,schemaVersion:66,minimumClientVersion:'0.4.1',clientVersions:['0.4.1','0.4.2','0.4.3']},assets:Object.fromEntries(names.map(name=>[name,{sha256:hash(name),bytes:fs.statSync(path.join(dir,name)).size}]))});
   const change=(name:string,edit:(value:any)=>void)=>{const value=JSON.parse(fs.readFileSync(path.join(dir,name),'utf8'));edit(value);write(name,value);};
   seal();return {dir,seal,change};
 }
 
-it('accepts a bound desktop patch while retaining the unchanged 0.4.3 Team contract',()=>{
-  expect(verifyReleaseManifest(patchFixture().dir,'0.4.4').version).toBe('0.4.4');
+it.each(['0.4.4','0.4.5'])('accepts a bound %s desktop patch while retaining the unchanged 0.4.3 Team contract',version=>{
+  expect(verifyReleaseManifest(patchFixture(version).dir,version).version).toBe(version);
 });
 it.each(['windows-untested','linux-untested','import','data-path','engine','acceptance-hash','broker','source','identity','installer','manifest-binding','team'])('rejects a resealed patch %s mismatch',kind=>{
   const {dir,seal,change}=patchFixture();
@@ -126,4 +132,31 @@ it('retains exact approval and clean main gates for the patch before any feed wr
   expect(()=>execFileSync(process.execPath,[script,'--approved-version','0.4.4'],{stdio:'pipe'})).toThrow('exact current commit');
   const sha=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
   expect(()=>execFileSync(process.execPath,[script,'--approved-version','0.4.4','--approved-commit',sha],{stdio:'pipe'})).toThrow('clean owner-approved main');
+});
+
+it('rejects untested 0.4.5 bytes even when the manifest is resealed',()=>{
+  const {dir,seal,change}=patchFixture('0.4.5');
+  change('PATCH-ACCEPTANCE.json',m=>{m.windows.twoProfileDisconnect=false;});
+  seal();
+  expect(()=>verifyReleaseManifest(dir,'0.4.5')).toThrow('acceptance');
+});
+
+it.each(['stalePeerRejected','existingTransportOnly','failedStopPreserved','packageIntegrity','servicePairing'])('rejects a resealed 0.4.5 %s evidence gap',field=>{
+  const {dir,seal,change}=patchFixture('0.4.5');
+  change('PATCH-ACCEPTANCE.json',m=>{delete m[['packageIntegrity','servicePairing'].includes(field)?'linux':'windows'][field];});
+  seal();
+  expect(()=>verifyReleaseManifest(dir,'0.4.5')).toThrow('acceptance');
+});
+
+it.each(['broker','helper','relationship','runs','exact-candidate'])('rejects a resealed 0.4.5 native %s mismatch',kind=>{
+  const {dir,seal,change}=patchFixture('0.4.5');
+  change('PATCH-ACCEPTANCE.json',m=>{
+    if(kind==='broker')m.windows.releaseBrokerSha256='0'.repeat(64);
+    if(kind==='helper')m.windows.testedHelperSha256='0'.repeat(64);
+    if(kind==='relationship')m.windows.nativeSourceMatchesPackagedSource=false;
+    if(kind==='runs')m.windows.testRuns=[];
+    if(kind==='exact-candidate')m.windows.nativeBinaryRelationship='exact-release-candidate';
+  });
+  seal();
+  expect(()=>verifyReleaseManifest(dir,'0.4.5')).toThrow();
 });

@@ -5,12 +5,12 @@ param(
   [Parameter(Mandatory=$true)][string]$WebViewSha256,
   [string]$BuildCache,
   [switch]$ReuseBuildCache,
-  [ValidateSet('0.4.4')][string]$Candidate,
+  [ValidateSet('0.4.5')][string]$Candidate,
   [switch]$ReleaseCandidate
 )
 $ErrorActionPreference = 'Stop'
 if ($ReuseBuildCache -and !$BuildCache) { throw 'Reusing a build cache requires its explicit path.' }
-if ($ReleaseCandidate -and !$Candidate) { throw 'A release candidate requires the explicit -Candidate 0.4.4 contract.' }
+if ($ReleaseCandidate -and !$Candidate) { throw 'A release candidate requires the explicit -Candidate 0.4.5 contract.' }
 $project = Split-Path $PSScriptRoot -Parent
 Set-Location -LiteralPath $project
 $outputPath = if ([IO.Path]::IsPathRooted($Output)) { [IO.Path]::GetFullPath($Output) } else { [IO.Path]::GetFullPath((Join-Path $project $Output)) }

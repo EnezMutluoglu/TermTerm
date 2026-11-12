@@ -29,7 +29,7 @@ def require(value, message):
 
 
 def configure(candidate=None):
-    require(candidate in (None, "0.4.4"), "Only the exact 0.4.4 candidate is supported")
+    require(candidate in (None, "0.4.5"), "Only the exact 0.4.5 candidate is supported")
     global CANDIDATE, IDENTITY, TITLE, NAME, SERVICE, PACKAGES, CONFIG, CLIENT, BROKER, UNIT, JOURNAL, SOCKET
     CANDIDATE = candidate
     IDENTITY = "local.termterm.desktop" if candidate else "local.termterm.desktop.vpndev"
@@ -440,7 +440,7 @@ def run(args):
 
 
 def candidate_self_test():
-    configure("0.4.4")
+    configure("0.4.5")
     checks = 0
 
     def rejects(action):
@@ -456,11 +456,11 @@ def candidate_self_test():
         require((IDENTITY, CLIENT.as_posix(), UNIT, SOCKET.as_posix()) ==
                 ("local.termterm.desktop", "/usr/bin/termterm", "termterm-vpn.service", "/run/termterm-vpn/broker.sock"), "Candidate layout differs")
         checks += 1
-        for version in ["", "0.4.2", "0.4.5", "0.4.3-dev.4"]:
+        for version in ["", "0.4.2", "0.4.6", "0.4.3-dev.4"]:
             rejects(lambda: configure(version))
-        upgrade(None, "0.4.4")
+        upgrade(None, "0.4.5")
         checks += 1
-        for previous, current in [("0.4.3-dev.3", "0.4.4"), ("0.4.2", "0.4.4"), ("0.4.4", "0.4.4"), (None, "0.4.5")]:
+        for previous, current in [("0.4.3-dev.3", "0.4.5"), ("0.4.2", "0.4.5"), ("0.4.5", "0.4.5"), (None, "0.4.6")]:
             rejects(lambda: upgrade(previous, current))
         rejects(lambda: run(argparse.Namespace(previous=Path("dev-baseline"), expected_previous_receipt_sha256=None)))
         rejects(lambda: run(argparse.Namespace(previous=None, expected_previous_receipt_sha256="a" * 64)))
@@ -471,7 +471,7 @@ def candidate_self_test():
                 "debClientSha256": "a" * 64, "brokerPins": pins, "files": {}}
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
-            names = ["TermTerm_0.4.4_amd64.deb", "termterm-vpn-broker_0.4.4_amd64.deb"]
+            names = ["TermTerm_0.4.5_amd64.deb", "termterm-vpn-broker_0.4.5_amd64.deb"]
             for name in names:
                 (root / name).write_bytes(b"candidate-deb")
                 data["files"][name] = {"sha256": digest(root / name), "bytes": (root / name).stat().st_size}
@@ -498,10 +498,10 @@ def candidate_self_test():
                            ("clientSha256", "c" * 64), ("applicationIdentifier", "local.termterm.desktop.vpndev"),
                            ("candidateVersion", "0.4.2"), ("clientInstall", "appimage")]:
             rejects(lambda: validate_broker_config({**config, key: value}, data))
-        unit = b"ExecStart=/usr/bin/python3 -I /opt/termterm-vpn/bin/vpn-unix-broker.py --candidate 0.4.4\nRuntimeDirectory=termterm-vpn\nStateDirectory=termterm-vpn\n"
+        unit = b"ExecStart=/usr/bin/python3 -I /opt/termterm-vpn/bin/vpn-unix-broker.py --candidate 0.4.5\nRuntimeDirectory=termterm-vpn\nStateDirectory=termterm-vpn\n"
         validate_candidate_unit(unit)
         checks += 1
-        for raw in [unit.replace(b" --candidate 0.4.4", b""), unit + b"ExecStartPre=/bin/true\n", unit.replace(b"StateDirectory=termterm-vpn", b"StateDirectory=termterm-vpn-dev")]:
+        for raw in [unit.replace(b" --candidate 0.4.5", b""), unit + b"ExecStartPre=/bin/true\n", unit.replace(b"StateDirectory=termterm-vpn", b"StateDirectory=termterm-vpn-dev")]:
             rejects(lambda: validate_candidate_unit(raw))
         for name, broker, accepted in [("usr/bin/termterm", False, True), ("etc/termterm-vpn/broker.json", True, True),
                                        ("usr/lib/systemd/system/termterm-vpn.service", True, True),
@@ -517,7 +517,7 @@ def candidate_self_test():
                 checks += 1
             else:
                 rejects(lambda: members(raw.getvalue(), broker=broker))
-        print(json.dumps({"candidateSelfTest": "0.4.4", "passed": checks, "packageInstalled": False, "serviceStarted": False, "wslAction": False}))
+        print(json.dumps({"candidateSelfTest": "0.4.5", "passed": checks, "packageInstalled": False, "serviceStarted": False, "wslAction": False}))
     finally:
         configure()
 
@@ -532,7 +532,7 @@ def self_test():
         checks += 1
     upgrade("0.4.3-dev.1", "0.4.3-dev.2")
     checks += 1
-    for pair in [("0.4.3-dev.1", "0.4.3-dev.1"), ("0.4.3-dev.2", "0.4.3-dev.1"), ("0.4.4", "0.4.3-dev.2"), ("0.4.3-dev.1", "0.4.4-dev.2")]:
+    for pair in [("0.4.3-dev.1", "0.4.3-dev.1"), ("0.4.3-dev.2", "0.4.3-dev.1"), ("0.4.5", "0.4.3-dev.2"), ("0.4.3-dev.1", "0.4.5-dev.2")]:
         try:
             upgrade(*pair)
         except ValueError:
@@ -616,7 +616,7 @@ def self_test():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--candidate", choices=["0.4.4"], help="Clean-install the exact production candidate in the fresh isolated guest; no upgrade claim")
+    parser.add_argument("--candidate", choices=["0.4.5"], help="Clean-install the exact production candidate in the fresh isolated guest; no upgrade claim")
     parser.add_argument("--previous", type=Path)
     parser.add_argument("--expected-previous-receipt-sha256")
     parser.add_argument("--current", type=Path)
@@ -630,4 +630,4 @@ if __name__ == "__main__":
     elif arguments.current and arguments.expected_receipt_sha256 and (CANDIDATE or arguments.previous and arguments.expected_previous_receipt_sha256):
         run(arguments)
     else:
-        parser.error("Provide reviewed package directories and receipt pins (current only for --candidate 0.4.4), or --self-test")
+        parser.error("Provide reviewed package directories and receipt pins (current only for --candidate 0.4.5), or --self-test")

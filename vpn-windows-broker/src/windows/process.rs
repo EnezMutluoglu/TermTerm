@@ -170,7 +170,7 @@ pub fn elevate(helper: &Path, pipe_id: uuid::Uuid, owner: &Process, validation: 
     execute.lpVerb = verb.as_ptr(); execute.lpFile = application.as_ptr(); execute.lpParameters = parameters.as_ptr(); execute.nShow = SW_HIDE;
     unsafe { win(ShellExecuteExW(&mut execute))?; }
     let process = Handle::new(execute.hProcess)?; let pid = unsafe { GetProcessId(process.raw()) };
-    let expected = Process::open(pid)?;
+    let expected = Process::open(pid).map_err(|error|super::broker_startup_error(process.raw(),error))?;
     ensure!(identity::birth_time(process.raw())? == expected.birth, "launched_broker_pid_reused");
     identity::verify_elevated_peer(&owner.identity,expected.handle.raw())?;
     Ok(expected)

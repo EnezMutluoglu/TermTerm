@@ -129,12 +129,22 @@ impl Store for DiskStore {
     }
 }
 
+pub const MANAGER_ACTIVE_EXIT_CODE: u32 = 20;
+#[derive(Debug)]
+pub struct ManagerActive;
+impl std::fmt::Display for ManagerActive {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("another_windows_vpn_manager_is_active: a previous VPN manager or Windows cleanup still owns the broker")
+    }
+}
+impl std::error::Error for ManagerActive {}
+
 pub fn machine_lock() -> Result<Handle> {
     let descriptor = Descriptor::from_sddl("O:BAG:BAD:P(A;;GA;;;SY)(A;;GA;;;BA)")?;
     let attributes = descriptor.attributes();
     let name = if cfg!(feature="production-candidate") { r"Global\TermTerm.Vpn.Broker.v1" } else { r"Global\TermTerm.VpnDev.Broker.v1" };
     let lock = Handle::new(unsafe { CreateMutexW(&attributes, 0, wide(name)?.as_ptr()) })?;
-    ensure!(unsafe { GetLastError() } != ERROR_ALREADY_EXISTS, "another_windows_vpn_manager_is_active");
+    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS { return Err(ManagerActive.into()); }
     Ok(lock)
 }
 

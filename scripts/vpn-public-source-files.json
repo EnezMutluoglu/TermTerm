@@ -121,6 +121,7 @@
     "vpn-windows-broker/src/windows/store.rs",
     "vpn-windows-broker/src/windows/validation.rs",
     "vpn-windows-broker/src/windows/wintun.rs",
+    "vpn-windows-broker/tests/control_process.rs",
     "vpn-windows-broker/tests/packet_process.rs",
     "vpn-windows-broker/tests/wireguard_process.rs",
     "vpn-wireguard/dependencies.json",
@@ -133,6 +134,11 @@
     "vpn-wireguard/main.go",
     "vpn-wireguard/main_test.go",
     "vpn-wireguard/platform_unix.go",
-    "vpn-wireguard/platform_windows.go"
+    "vpn-wireguard/platform_windows.go",
+    "playwright.config.ts",
+    "vitest.config.ts",
+    "tests/releaseAssets.test.ts",
+    "tests/releaseManifest.test.ts",
+    "tests/ui/vpnDesktop.spec.ts"
   ]
 }

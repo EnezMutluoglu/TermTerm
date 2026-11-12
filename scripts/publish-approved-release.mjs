@@ -14,14 +14,14 @@ const version=args.includes('--approved-version') ? get('--approved-version') : 
 const git=(...a)=>execFileSync('git',a,{cwd:root,encoding:'utf8',stdio:['pipe','pipe','pipe']}).trim();
 const sha=git('rev-parse','HEAD');
 if(!args.includes('--approved-version')||get('--approved-version')!==version||!/^\d+\.\d+\.\d+$/.test(version)) throw Error('Explicit owner-approved stable version is required');
-if(!['0.4.3','0.4.4'].includes(version)&&version!==packageVersion) throw Error('Approved version differs from package version');
+if(!['0.4.3','0.4.4','0.4.5'].includes(version)&&version!==packageVersion) throw Error('Approved version differs from package version');
 if(!args.includes('--approved-commit')||get('--approved-commit')!==sha) throw Error('Approval must name the exact current commit SHA');
 if(git('branch','--show-current')!=='main'||git('status','--porcelain','--untracked-files=no')) throw Error('Publish only a clean owner-approved main commit');
 const repo='EnezMutluoglu/TermTerm';
 const dir=path.join(root,'artifacts',`release-${version}`);
 const {platforms,required}=releaseAssets(version,{includeMacos:args.includes('--include-macos')});
 for(const name of required) if(!fs.existsSync(path.join(dir,name))) throw Error(`Missing release asset: ${name}`);
-if(['0.4.3','0.4.4'].includes(version)) {
+if(['0.4.3','0.4.4','0.4.5'].includes(version)) {
   verifyReleaseManifest(dir,version);
   for(const name of Object.values(platforms)) execFileSync('cargo',
     ['test','--locked','--lib','--features','vpn-candidate','--manifest-path','src-tauri/Cargo.toml','updater::tests::release_signature_and_tamper_check','--','--ignored','--exact'],
